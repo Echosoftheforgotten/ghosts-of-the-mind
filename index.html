@@ -1,0 +1,2686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>THE EHCOS OF THE FORGOTTEN</title>
+
+<style>
+
+body{
+    margin:0;
+    background:#050510;
+    color:#00ffff;
+    font-family:Consolas;
+    overflow-x:hidden;
+    background-image:
+    radial-gradient(circle at top,#111133,#050510);
+    transition:0.5s;
+}
+
+header{
+    text-align:center;
+    padding:20px;
+    font-size:42px;
+    border-bottom:2px solid cyan;
+    box-shadow:0 0 20px cyan;
+    background:#090920;
+    letter-spacing:3px;
+}
+
+#container{
+    display:flex;
+}
+
+#leftPanel{
+    width:25%;
+    min-height:100vh;
+    border-right:2px solid cyan;
+    padding:15px;
+    background:#0b0b1d;
+}
+
+#mainPanel{
+    width:75%;
+    padding:20px;
+}
+
+.panel{
+    border:2px solid cyan;
+    padding:15px;
+    margin-bottom:15px;
+    background:rgba(0,0,0,0.5);
+    box-shadow:0 0 10px cyan;
+}
+
+button{
+    width:100%;
+    margin-top:10px;
+    padding:12px;
+    background:black;
+    color:cyan;
+    border:2px solid cyan;
+    cursor:pointer;
+    transition:0.3s;
+    font-size:15px;
+}
+
+button:hover{
+    background:cyan;
+    color:black;
+    transform:scale(1.03);
+}
+
+input{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    background:black;
+    color:cyan;
+    border:2px solid cyan;
+}
+
+h2{
+    color:white;
+}
+
+.enemy{
+    color:#ff4f4f;
+}
+
+.good{
+    color:#00ff88;
+}
+
+.warning{
+    color:orange;
+}
+
+.skill{
+    color:#00ffcc;
+}
+
+.quest{
+    color:#ffcc00;
+}
+
+.rare{
+    color:#ff66ff;
+}
+
+#log{
+    height:420px;
+    overflow-y:auto;
+    background:black;
+    padding:10px;
+    border:2px solid cyan;
+}
+
+.stat{
+    margin-bottom:10px;
+}
+
+.hpBar{
+    width:100%;
+    height:20px;
+    background:#111;
+    border:1px solid cyan;
+    margin-top:5px;
+    overflow:hidden;
+}
+
+.hpFill{
+    height:100%;
+    width:100%;
+    background:lime;
+    transition:0.3s;
+    max-width:100%;
+}
+
+.enemyBox{
+    border:2px solid red;
+    padding:10px;
+    margin-top:10px;
+}
+
+.glow{
+    animation:glow 2s infinite;
+}
+
+@keyframes glow{
+    0%{box-shadow:0 0 5px cyan;}
+    50%{box-shadow:0 0 25px cyan;}
+    100%{box-shadow:0 0 5px cyan;}
+}
+
+</style>
+</head>
+
+<body>
+
+<header class="glow">
+ECHOES OF THE FORGOTTEN : UPGRADE
+</header>
+
+<div id="container">
+
+<div id="leftPanel">
+
+<div class="panel">
+
+<h2>KAEL</h2>
+
+<div class="stat">Level: <span id="level">1</span></div>
+
+<div class="stat">
+HP: <span id="hp">100</span>/<span id="maxHPText">100</span>
+<div class="hpBar">
+<div class="hpFill" id="hpFill"></div>
+</div>
+</div>
+
+<div class="stat">
+Sanity: <span id="sanity">100</span>
+</div>
+
+<div class="stat">
+Sanity State:
+<span id="sanityState" class="good">STABLE</span>
+</div>
+
+<div class="stat">Memory Shards: <span id="shards">50</span></div>
+
+<div class="stat">Power Multiplier: <span id="multi">1.00</span>x</div>
+
+<div class="stat">Faction: <span id="faction">Neutral</span></div>
+
+<div class="stat">Class: <span id="classType">Novice Diver</span></div>
+
+<div class="stat">Relics: <span id="relicCount">0</span></div>
+
+</div>
+
+<div class="panel">
+
+<h2>SKILL TREES</h2>
+
+<button onclick="unlockEmpath()">
+Unlock Empath
+</button>
+
+<button onclick="unlockManipulator()">
+Unlock Manipulator
+</button>
+
+<button onclick="unlockWarden()">
+Unlock Warden
+</button>
+
+</div>
+
+<div class="panel">
+
+<h2>FACTIONS</h2>
+
+<button onclick="joinArchivists()">
+Join Archivists
+</button>
+
+<button onclick="joinManipulators()">
+Join Manipulators
+</button>
+
+<button onclick="joinRebels()">
+Join Rebels
+</button>
+
+</div>
+
+<div class="panel">
+
+<h2>EXPLORATION</h2>
+
+<button onclick="exploreCity()">
+Explore Neon Veil
+</button>
+
+<button onclick="memoryDive()">
+Enter Memory Dive
+</button>
+
+<button onclick="craftRelic()">
+Craft Relic
+</button>
+
+<button onclick="rest()">
+Rest
+</button>
+
+<button onclick="fakeTalk()">
+Fake Talk
+</button>
+
+</div>
+
+<div class="panel">
+
+<h2>SAVE SLOTS</h2>
+
+<input id="saveName" placeholder="Custom Save Slot Name">
+
+<button onclick="saveGame(1)">
+Save Slot 1
+</button>
+
+<button onclick="saveGame(2)">
+Save Slot 2
+</button>
+
+<button onclick="saveGame(3)">
+Save Slot 3
+</button>
+
+<button onclick="loadGame(1)">
+Load Slot 1
+</button>
+
+<button onclick="loadGame(2)">
+Load Slot 2
+</button>
+
+<button onclick="loadGame(3)">
+Load Slot 3
+</button>
+
+</div>
+
+</div>
+
+<div id="mainPanel">
+
+<div class="panel">
+
+<h2>STORY LOG</h2>
+
+<div id="log">
+
+<p class="good">
+The neon rain falls endlessly across the city.
+</p>
+
+<p>
+You are Kael, a novice Memory Diver.
+</p>
+
+<p class="warning">
+Every memory altered changes reality itself.
+</p>
+
+</div>
+
+</div>
+
+<div class="panel">
+
+<h2>ENEMY STATUS</h2>
+
+<div class="enemyBox">
+
+Enemy HP:
+<span id="enemyHP">0</span>
+
+<div class="hpBar">
+<div class="hpFill" id="enemyBar"></div>
+</div>
+
+</div>
+
+</div>
+
+<div class="panel">
+
+<h2>COMBAT</h2>
+
+<button onclick="startBattle()">
+Fight Corrupted Entity
+</button>
+
+<button onclick="attackEnemy()">
+Basic Attack
+</button>
+
+<button onclick="useSkill()">
+Use Skill
+</button>
+
+<button onclick="healSelf()">
+Heal
+</button>
+
+</div>
+
+<div class="panel">
+
+<h2>QUESTS</h2>
+
+<button onclick="questOne()">
+Recover Stolen Memory
+</button>
+
+<button onclick="questTwo()">
+Investigate Hollow Depths
+</button>
+
+<button onclick="questThree()">
+Protect Memory Vault
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let level = 1;
+let hp = 100;
+let maxHP = 100;
+
+let sanity = 100;
+
+let shards = 50;
+
+let faction = "Neutral";
+let classType = "Novice Diver";
+
+/* FACTION PASSIVES */
+
+let archivist = false;
+let factionManipulator = false;
+let rebel = false;
+
+let corruptionSkip = false;
+
+let empath = false;
+let manipulator = false;
+let warden = false;
+
+/* EVOLVED CLASSES */
+
+let soulWeaver = false;
+let realityArchitect = false;
+let eternalSentinel = false;
+
+let classEvolutionUnlocked = false;
+
+let enemyHP = 0;
+let enemyMaxHP = 0;
+
+let inBattle = false;
+
+let relics = [];
+
+/* RELIC BONUSES */
+
+let relicBonusHP = 0;
+let relicBonusSanity = 0;
+let relicShardBonus = 1;
+let relicSkillBonus = 1;
+let relicBattleHeal = 0;
+let permanentBossHP = 0;
+let permanentBossSanity = 0;
+
+let gameOver = false;
+
+let currentSaveSlot = 1;
+
+let basicAttackKills = 0;
+let strongFists = false;
+
+let canRest = true;
+
+/* Exploration Limits */
+
+let exploreUses = 0;
+let maxExploreUses = 5;
+
+let memoryDiveUses = 0;
+let maxMemoryDiveUses = 3;
+let questUses = 0;
+let maxQuestUses = 5;
+
+/* NEW MULTIPLIER SYSTEM */
+
+let powerMulti = 1.00;
+
+/* BOSS SYSTEM */
+
+let bossFight = false;
+let bossName = "";
+let bossDifficulty = "";
+let bossType = "";
+
+let lostWandererDefeated = false;
+let hollowGuardianDefeated = false;
+let staticBeastDefeated = false;
+let echoKnightDefeated = false;
+let voidWatcherDefeated = false;
+
+let forgottenKingDefeated = false;
+let memoryEaterDefeated = false;
+let nemesisDefeated = false;
+
+let realityArchitectBossDefeated = false;
+let chronosDefeated = false;
+let originDefeated = false;
+let firstDiverDefeated = false;
+
+let finalBossDefeated = false;
+
+let bossCooldown = 0;
+
+let disabledRelic = "";
+let nemesisFinalPhase = false;
+
+function playerDeath(reason = "You died."){
+
+    if(gameOver) return;
+
+    hp = 0;
+    gameOver = true;
+    inBattle = false;
+
+    enemyHP = 0;
+    enemyMaxHP = 0;
+
+    log("<span class='enemy'>" + reason + "</span>");
+
+    document.body.style.filter = "grayscale(100%)";
+
+    updateStats();
+}
+
+function updateStats(){
+
+if(hp > maxHP){
+hp = maxHP;
+}
+
+if(hp < 0){
+    hp = 0;
+}
+
+if(hp <= 0 && !gameOver){
+    playerDeath("You were lost in the memory stream.");
+    return;
+}
+
+document.getElementById("level").innerHTML = level;
+document.getElementById("hp").innerHTML = Math.floor(hp);
+document.getElementById("maxHPText").innerHTML = Math.floor(maxHP);
+document.getElementById("sanity").innerHTML =
+Math.floor(sanity);
+document.getElementById("shards").innerHTML = shards;
+document.getElementById("faction").innerHTML = faction;
+let displayClass = classType;
+
+if(classEvolutionUnlocked){
+
+    if(classType == "Soul Weaver"){
+        displayClass = "Soul Weaver (Empath)";
+    }
+
+    else if(classType == "Reality Architect"){
+        displayClass = "Reality Architect (Manipulator)";
+    }
+
+    else if(classType == "Eternal Sentinel"){
+        displayClass = "Eternal Sentinel (Warden)";
+    }
+
+}
+
+document.getElementById("classType").innerHTML = displayClass;
+document.getElementById("relicCount").innerHTML = relics.length;
+document.getElementById("multi").innerHTML = powerMulti.toFixed(3);
+
+if(bossType == "Nemesis"){
+
+    document.getElementById("enemyHP").innerHTML = "???";
+
+}else{
+
+    document.getElementById("enemyHP").innerHTML =
+    enemyHP < 0 ? 0 : Math.floor(enemyHP);
+
+}
+
+let hpPercent = (hp/maxHP)*100;
+
+if(hpPercent > 100){
+hpPercent = 100;
+}
+
+if(hpPercent < 0){
+hpPercent = 0;
+}
+
+document.getElementById("hpFill").style.width =
+hpPercent + "%";
+
+let enemyPercent = 0;
+
+if(enemyMaxHP > 0){
+enemyPercent = (enemyHP/enemyMaxHP)*100;
+}
+
+if(enemyPercent > 100){
+enemyPercent = 100;
+}
+
+if(enemyPercent < 0){
+enemyPercent = 0;
+}
+
+document.getElementById("enemyBar").style.width =
+enemyPercent + "%";
+
+updateSanityState();
+
+}
+
+function updateSanityState(){
+
+let state = "STABLE";
+let color = "good";
+
+if(sanity <= 70 && sanity > 40){
+
+state = "UNSTABLE";
+color = "warning";
+
+}
+
+if(sanity <= 40){
+
+state = "CRITICAL";
+color = "enemy";
+
+}
+
+document.getElementById("sanityState").innerHTML = state;
+document.getElementById("sanityState").className = color;
+
+}
+
+function log(message){
+
+const logBox = document.getElementById("log");
+
+const p = document.createElement("p");
+
+p.innerHTML = message;
+
+logBox.appendChild(p);
+
+if(logBox.children.length > 150){
+
+logBox.removeChild(logBox.firstChild);
+
+}
+
+logBox.scrollTop = logBox.scrollHeight;
+
+}
+
+function autoSave(){
+
+saveGame(currentSaveSlot,true);
+
+}
+
+function saveGame(slot,auto=false){
+
+if(
+!auto &&
+localStorage.getItem("echoSave"+slot)
+){
+
+if(!confirm("Overwrite Save Slot "+slot+"?")){
+return;
+}
+
+}
+
+let saveData = {
+
+level,
+hp,
+maxHP,
+permanentBossSanity,
+sanity,
+shards,
+faction,
+classType,
+
+archivist,
+factionManipulator,
+rebel,
+
+empath,
+manipulator,
+warden,
+relics,
+powerMulti,
+
+classEvolutionUnlocked,
+soulWeaver,
+realityArchitect,
+eternalSentinel,
+
+lostWandererDefeated,
+hollowGuardianDefeated,
+staticBeastDefeated,
+echoKnightDefeated,
+voidWatcherDefeated,
+
+forgottenKingDefeated,
+memoryEaterDefeated,
+nemesisDefeated,
+
+realityArchitectBossDefeated,
+chronosDefeated,
+originDefeated,
+firstDiverDefeated,
+
+finalBossDefeated,
+
+exploreUses,
+memoryDiveUses,
+canRest,
+
+questUses,
+
+basicAttackKills,
+strongFists,
+permanentBossHP,
+permanentBossSanity,
+
+gameOver,
+
+currentSaveSlot:slot
+
+};
+
+localStorage.setItem(
+"echoSave"+slot,
+JSON.stringify(saveData)
+);
+
+currentSaveSlot = slot;
+
+if(!auto){
+
+let customName =
+document.getElementById("saveName").value.trim();
+
+if(customName !== ""){
+
+localStorage.setItem(
+"echoSaveName"+slot,
+customName
+);
+
+}else{
+
+localStorage.removeItem("echoSaveName"+slot);
+
+}
+
+updateSaveSlotNames();
+
+log("<span class='good'>Game Saved to Slot "
++ slot + "</span>");
+
+}
+
+}
+
+function loadGame(slot){
+
+let data =
+localStorage.getItem("echoSave"+slot);
+
+if(data){
+
+let save =
+JSON.parse(data);
+
+level = save.level;
+hp = save.hp;
+maxHP = save.maxHP;
+sanity = save.sanity;
+shards = save.shards;
+faction = save.faction;
+classType = save.classType;
+
+archivist = save.archivist ?? false;
+factionManipulator = save.factionManipulator ?? false;
+rebel = save.rebel ?? false;
+
+empath = save.empath;
+manipulator = save.manipulator;
+warden = save.warden;
+relics = save.relics;
+powerMulti = save.powerMulti || 1.00;
+
+classEvolutionUnlocked = save.classEvolutionUnlocked ?? false;
+
+soulWeaver = save.soulWeaver ?? false;
+realityArchitect = save.realityArchitect ?? false;
+eternalSentinel = save.eternalSentinel ?? false;
+
+lostWandererDefeated = save.lostWandererDefeated ?? false;
+hollowGuardianDefeated = save.hollowGuardianDefeated ?? false;
+staticBeastDefeated = save.staticBeastDefeated ?? false;
+echoKnightDefeated = save.echoKnightDefeated ?? false;
+voidWatcherDefeated = save.voidWatcherDefeated ?? false;
+
+forgottenKingDefeated = save.forgottenKingDefeated ?? false;
+memoryEaterDefeated = save.memoryEaterDefeated ?? false;
+nemesisDefeated = save.nemesisDefeated ?? false;
+
+realityArchitectBossDefeated = save.realityArchitectBossDefeated ?? false;
+chronosDefeated = save.chronosDefeated ?? false;
+originDefeated = save.originDefeated ?? false;
+firstDiverDefeated = save.firstDiverDefeated ?? false;
+
+finalBossDefeated = save.finalBossDefeated ?? false;
+
+exploreUses = save.exploreUses ?? 0;
+memoryDiveUses = save.memoryDiveUses ?? 0;
+questUses = save.questUses ?? 0;
+canRest = save.canRest ?? true;
+gameOver = save.gameOver ?? false;
+
+basicAttackKills = save.basicAttackKills ?? 0;
+strongFists = save.strongFists ?? false;
+permanentBossHP = save.permanentBossHP ?? 0;
+permanentBossSanity = save.permanentBossSanity ?? 0;
+recalcRelicBonuses();
+
+recalcRelicBonuses();
+hp = Math.min(hp, maxHP);
+
+if(sanity > 100 + relicBonusSanity + permanentBossSanity){
+    sanity = 100 + relicBonusSanity + permanentBossSanity;
+}
+
+currentSaveSlot = slot;
+
+document.getElementById("saveName").value =
+localStorage.getItem("echoSaveName"+slot) || "";
+
+updateSaveSlotNames();
+
+inBattle = false;
+enemyHP = 0;
+enemyMaxHP = 0;
+document.getElementById("enemyHP").innerHTML = 0;
+document.getElementById("enemyBar").style.width = "0%";
+
+if(gameOver){
+
+    document.body.style.filter = "grayscale(100%)";
+
+}else{
+
+    document.body.style.filter = "";
+
+}
+
+log("<span class='good'>Loaded Save Slot "
++ slot + "</span>");
+
+updateStats();
+
+document.querySelectorAll("button[onclick^='join']").forEach(btn=>{
+    btn.disabled = false;
+});
+
+if(gameOver){
+    log("<span class='enemy'>This save belongs to a deceased character.</span>");
+}
+
+}else{
+
+log("No save data found.");
+
+}
+
+}
+
+function addMultiplier(){
+
+powerMulti += 0.005;
+
+}
+
+function levelUp(){
+
+    let oldLevel = level;
+    let oldHP = maxHP;
+    let oldPower = powerMulti;
+
+    let levelsGained = 0;
+
+    while(shards >= level * 120){
+
+        level++;
+        levelsGained++;
+
+        recalcRelicBonuses();
+        hp = maxHP;
+
+        sanity += 10;
+
+        if(sanity > 100 + relicBonusSanity + permanentBossSanity){
+            sanity = 100 + relicBonusSanity + permanentBossSanity;
+        }
+
+        addMultiplier();
+    }
+
+    if(levelsGained > 0){
+
+        if(levelsGained == 1){
+
+            log("<span class='good'>LEVEL UP!</span>");
+
+        }
+        else if(levelsGained < 100){
+
+            log("<span class='good'>LEVEL UP ×" + levelsGained + "</span>");
+
+        }
+        else if(levelsGained < 1000){
+
+            log("<span class='rare'>ASCENSION</span>");
+            log("<span class='good'>Level Up ×" + levelsGained + "</span>");
+
+        }
+        else{
+
+            log("<span class='enemy'>████ ASCENSION COMPLETE ████</span>");
+            log("Your memories have been rewritten.");
+            log("<span class='good'>Level Up ×" + levelsGained + "</span>");
+
+        }
+
+        log("Level: " + oldLevel + " → " + level);
+        log("Max HP: " + oldHP + " → " + maxHP);
+        log("Power: " + oldPower.toFixed(3) + "x → " + powerMulti.toFixed(3) + "x");
+
+    }
+
+    updateStats();
+}
+
+function chooseClass(){
+
+if(classType != "Novice Diver"){
+
+log("Class already selected.");
+
+return false;
+
+}
+
+return true;
+
+}
+
+function unlockEmpath(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+empath = true;
+manipulator = false;
+warden = false;
+
+if(classEvolutionUnlocked){
+
+    soulWeaver = true;
+    realityArchitect = false;
+    eternalSentinel = false;
+
+    classType = "Soul Weaver";
+
+    log("<span class='skill'>Switched to Soul Weaver.</span>");
+
+}else{
+
+    classType = "Empath";
+
+    log("<span class='skill'>Switched to Empath.</span>");
+
+}
+
+updateStats();
+autoSave();
+
+}
+
+function unlockManipulator(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+empath = false;
+manipulator = true;
+warden = false;
+
+if(classEvolutionUnlocked){
+
+    soulWeaver = false;
+    realityArchitect = true;
+    eternalSentinel = false;
+
+    classType = "Reality Architect";
+
+    log("<span class='skill'>Switched to Reality Architect.</span>");
+
+}else{
+
+    classType = "Manipulator";
+
+    log("<span class='skill'>Switched to Manipulator.</span>");
+
+}
+
+updateStats();
+autoSave();
+
+}
+
+function unlockWarden(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+empath = false;
+manipulator = false;
+warden = true;
+
+if(classEvolutionUnlocked){
+
+    soulWeaver = false;
+    realityArchitect = false;
+    eternalSentinel = true;
+
+    classType = "Eternal Sentinel";
+
+    log("<span class='skill'>Switched to Eternal Sentinel.</span>");
+
+}else{
+
+    classType = "Warden";
+
+    log("<span class='skill'>Switched to Warden.</span>");
+
+}
+
+updateStats();
+autoSave();
+
+}
+
+function joinArchivists(){
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+    faction = "Archivists";
+
+    archivist = true;
+    factionManipulator = false;
+    rebel = false;
+
+    log("<span class='good'>Faction Changed: Archivists</span>");
+    log("Passive: Ancient Records (+25% Memory Shards)");
+
+    updateStats();
+    autoSave();
+}
+
+function joinManipulators(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+faction = "Manipulators";
+
+archivist = false;
+factionManipulator = true;
+rebel = false;
+
+log("<span class='skill'>Faction Changed: Manipulators</span>");
+log("Passive: Memory Corruption");
+
+updateStats();
+autoSave();
+
+}
+
+function joinRebels(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+faction = "Rebels";
+
+archivist = false;
+factionManipulator = false;
+rebel = true;
+
+log("<span class='enemy'>Faction Changed: Rebels</span>");
+log("Passive: Adrenaline Rush");
+
+updateStats();
+autoSave();
+
+}
+
+function exploreCity(){
+
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+if(exploreUses >= maxExploreUses){
+
+log("You must defeat a Corrupted Entity before exploring again.");
+
+return;
+
+}
+
+exploreUses++;
+
+log("<span class='good'>Explore Uses: "
++ exploreUses + "/" + maxExploreUses + "</span>");
+
+let events = [
+
+"A citizen begs you to restore her forgotten child.",
+
+"You discover a hidden rebellion safehouse.",
+
+"You encounter neon holograms flickering violently.",
+
+"The Veil Corporation arrests illegal Divers nearby.",
+
+"A mysterious voice whispers your name."
+
+];
+
+let random =
+events[Math.floor(Math.random()*events.length)];
+
+log(random);
+
+let reward =
+15 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+sanity -= 2;
+
+updateStats();
+
+levelUp();
+
+autoSave();
+
+}
+
+function memoryDive(){
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+	
+if(memoryDiveUses >= maxMemoryDiveUses){
+
+log("You must defeat a Corrupted Entity before entering another Memory Dive.");
+
+return;
+
+}
+
+memoryDiveUses++;
+
+log("<span class='good'>Memory Dives: "
++ memoryDiveUses + "/" + maxMemoryDiveUses + "</span>");
+
+let dives = [
+
+"You enter a battlefield of regret.",
+
+"You enter a carnival made of joy.",
+
+"You enter a labyrinth of fear.",
+
+"You witness memories collapsing into static."
+
+];
+
+let randomDive =
+dives[Math.floor(Math.random()*dives.length)];
+
+log("<span class='warning'>" + randomDive + "</span>");
+
+let outcome = Math.floor(Math.random()*3);
+
+if(outcome == 0){
+
+log("You recovered stable Memory Shards.");
+
+let reward =
+35 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+}
+
+if(outcome == 1){
+
+log("The memory becomes corrupted.");
+
+hp -= 15;
+
+sanity -= 10;
+
+}
+
+if(outcome == 2){
+
+findRelic();
+
+}
+
+updateStats();
+
+levelUp();
+
+autoSave();
+
+}
+
+function fakeTalk(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+let talks = [
+
+"KAEL... YOU WERE NEVER THE ORIGINAL.",
+
+"Your friends remember a different version of you.",
+
+"The city has already collapsed.",
+
+"Nemesis sees everything.",
+
+"FINAL DOOR DETECTED.",
+
+"WARNING: MEMORY FABRICATION ACTIVE."
+
+];
+
+let random =
+talks[Math.floor(Math.random()*talks.length)];
+
+log("<span class='rare'>FAKE TALK:</span> " + random);
+
+sanity -= 5;
+
+updateStats();
+
+autoSave();
+
+}
+
+function recalcRelicBonuses(){
+
+    relicBonusHP = 0;
+    relicBonusSanity = 0;
+    relicShardBonus = 1;
+    relicSkillBonus = 1;
+    relicBattleHeal = 0;
+
+    for(let relic of relics){
+
+        switch(relic){
+
+            case "Dreamcore Prism":
+                relicBonusHP += 10;
+                break;
+
+            case "Echo Fragment":
+                relicShardBonus += 0.05;
+                break;
+
+            case "Temporal Compass":
+                relicSkillBonus += 0.10;
+                break;
+
+            case "Mindglass Core":
+                relicBonusSanity += 15;
+                break;
+
+            case "Void Lantern":
+                relicBattleHeal += 10;
+                break;
+
+        }
+
+    }
+
+    maxHP =
+100 +
+(level - 1) * 20 +
+relicBonusHP +
+permanentBossHP;
+
+    if(hp > maxHP){
+        hp = maxHP;
+    }
+
+    if(sanity > 100 + relicBonusSanity + permanentBossSanity){
+        sanity = 100 + relicBonusSanity + permanentBossSanity;
+    }
+
+}
+
+function findRelic(){
+
+let relicPool = [
+
+"Dreamcore Prism",
+
+"Echo Fragment",
+
+"Temporal Compass",
+
+"Mindglass Core",
+
+"Void Lantern"
+
+];
+
+let relic =
+relicPool[Math.floor(Math.random()*relicPool.length)];
+
+relics.push(relic);
+
+recalcRelicBonuses();
+
+log("<span class='rare'>Relic Found: "
++ relic + "</span>");
+
+}
+
+function craftRelic(){
+
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+if(shards >= 40){
+
+shards -= 40;
+
+findRelic();
+
+log("You crafted a memory relic.");
+
+updateStats();
+
+autoSave();
+
+}
+
+else{
+
+log("Not enough shards.");
+
+}
+
+}
+
+function rest(){
+
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+    if(inBattle){
+        log("Cannot rest during battle.");
+        return;
+    }
+
+    if(!canRest){
+        log("You already rested. Defeat a Corrupted Entity before resting again.");
+        return;
+    }
+
+    hp += 15;
+    sanity += 8;
+
+    if(hp > maxHP){
+        hp = maxHP;
+    }
+
+if(sanity > 100 + relicBonusSanity + permanentBossSanity){
+    sanity = 100 + relicBonusSanity + permanentBossSanity;
+}
+
+canRest = false;
+
+log("You rest in a neon safehouse.");
+    log("<span class='good'>Rest consumed. Defeat an enemy to rest again.</span>");
+
+    updateStats();
+    autoSave();
+}
+
+function startBattle(){
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+    if(inBattle){
+        log("Battle already active.");
+        return;
+    }
+
+    if(sanity <= 15){
+        log("<span class='warning'>You are too mentally unstable to fight.</span>");
+        return;
+    }
+
+    bossFight = false;
+    bossType = "";
+    bossName = "";
+
+if(level >= 3000 && !finalBossDefeated){
+
+    spawnFinalBoss();
+    return;
+
+}
+
+if(level >= 2500 && !firstDiverDefeated){
+
+    spawnFirstDiver();
+    return;
+
+}
+
+if(level >= 2000 && !originDefeated){
+
+    spawnOrigin();
+    return;
+
+}
+
+if(level >= 1500 && !chronosDefeated){
+
+    spawnChronos();
+    return;
+
+}
+
+if(level >= 1000 && !realityArchitectBossDefeated){
+
+    spawnRealityArchitectBoss();
+    return;
+
+}
+
+if(level >= 500 && !nemesisDefeated){
+
+    spawnNemesis();
+    return;
+
+}
+
+
+if(level >= 200 && !memoryEaterDefeated){
+
+    spawnMemoryEater();
+    return;
+
+}
+
+if(level >= 100 && !forgottenKingDefeated){
+
+    spawnForgottenKing();
+    return;
+
+}
+
+if(level >= 75 && !voidWatcherDefeated){
+
+    spawnVoidWatcher();
+    return;
+
+}
+
+if(level >= 50 && !echoKnightDefeated){
+
+    spawnEchoKnight();
+    return;
+
+}
+
+if(level >= 35 && !staticBeastDefeated){
+
+    spawnStaticBeast();
+    return;
+
+}
+
+if(level >= 20 && !hollowGuardianDefeated){
+
+    spawnHollowGuardian();
+    return;
+
+}
+
+if(level >= 10 && !lostWandererDefeated){
+
+    spawnLostWanderer();
+    return;
+
+}
+
+    enemyMaxHP =
+    Math.floor((100 + level * 25) * powerMulti);
+
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='enemy'>A Corrupted Memory Entity appears!</span>");
+
+    updateStats();
+
+}
+
+
+function spawnVoidWatcher(){
+
+    bossFight = true;
+    bossType = "VoidWatcher";
+    bossName = "The Void Watcher";
+    bossDifficulty = "★★★★★";
+
+    enemyMaxHP = Math.floor((100 + level * 25) * 6);
+    enemyHP = enemyMaxHP;
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★</span>");
+    log("<span class='enemy'>THE VOID WATCHER EMERGES FROM THE ABYSS</span>");
+
+    updateStats();
+
+}
+
+function spawnEchoKnight(){
+
+    bossFight = true;
+    bossType = "EchoKnight";
+    bossName = "The Echo Knight";
+    bossDifficulty = "★★★★";
+
+    enemyMaxHP = Math.floor((100 + level * 25) * 5);
+    enemyHP = enemyMaxHP;
+    inBattle = true;
+
+    log("<span class='rare'>★★★★</span>");
+    log("<span class='enemy'>THE ECHO KNIGHT CHALLENGES YOU</span>");
+
+    updateStats();
+
+}
+
+function spawnStaticBeast(){
+
+    bossFight = true;
+    bossType = "StaticBeast";
+    bossName = "The Static Beast";
+    bossDifficulty = "★★★";
+
+    enemyMaxHP = Math.floor((100 + level * 25) * 4);
+    enemyHP = enemyMaxHP;
+    inBattle = true;
+
+    log("<span class='rare'>★★★</span>");
+    log("<span class='enemy'>STATIC DISTORTIONS TAKE FORM...</span>");
+
+    updateStats();
+
+}
+
+function spawnHollowGuardian(){
+
+    bossFight = true;
+    bossType = "HollowGuardian";
+    bossName = "The Hollow Guardian";
+    bossDifficulty = "★★";
+
+    enemyMaxHP = Math.floor((100 + level * 25) * 3);
+    enemyHP = enemyMaxHP;
+    inBattle = true;
+
+    log("<span class='rare'>★★</span>");
+    log("<span class='enemy'>THE HOLLOW GUARDIAN BLOCKS YOUR PATH</span>");
+
+    updateStats();
+
+}
+
+function spawnLostWanderer(){
+
+    bossFight = true;
+    bossType = "LostWanderer";
+    bossName = "The Lost Wanderer";
+    bossDifficulty = "★";
+
+    enemyMaxHP = Math.floor((100 + level * 25) * 2);
+    enemyHP = enemyMaxHP;
+    inBattle = true;
+
+    log("<span class='rare'>★</span>");
+    log("<span class='enemy'>A LONELY FIGURE STEPS FROM THE FOG...</span>");
+    log("The Lost Wanderer remembers nothing.");
+    log("It mistakes you for its past.");
+
+    updateStats();
+
+}
+
+
+function spawnForgottenKing(){
+
+    bossFight = true;
+    bossType = "King";
+    bossName = "The Forgotten King";
+    bossDifficulty = "★★★★★";
+
+    enemyMaxHP =
+    Math.floor((100 + level * 25) * 8);
+
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★</span>");
+    log("<span class='enemy'>THE FORGOTTEN KING HAS AWAKENED</span>");
+
+    updateStats();
+
+}
+
+function spawnMemoryEater(){
+
+    bossFight = true;
+    bossType = "MemoryEater";
+    bossName = "The Memory Eater";
+    bossDifficulty = "★★★★★★";
+
+    enemyMaxHP =
+    Math.floor((100 + level * 25) * 15);
+
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★★</span>");
+    log("<span class='enemy'>THE MEMORY EATER EMERGES</span>");
+
+    updateStats();
+
+}
+
+function spawnNemesis(){
+
+    bossFight = true;
+    bossType = "Nemesis";
+    bossName = "NEMESIS";
+
+    enemyMaxHP =
+    Math.floor(maxHP * 1.05);
+
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    nemesisFinalPhase = false;
+
+    log("<span class='enemy'>ERROR...</span>");
+    log("Memory Stream Corrupted...");
+    log("<span class='rare'>NEMESIS</span>");
+
+    updateStats();
+
+}
+
+function spawnRealityArchitectBoss(){
+
+    bossFight = true;
+    bossType = "RealityArchitect";
+    bossName = "Reality Architect";
+
+    enemyMaxHP = Math.floor(maxHP * 2);
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★★★</span>");
+    log("<span class='enemy'>REALITY ITSELF BENDS.</span>");
+
+    updateStats();
+
+}
+
+function spawnChronos(){
+
+    bossFight = true;
+    bossType = "Chronos";
+    bossName = "Chronos, Keeper of Time";
+
+    enemyMaxHP = Math.floor(maxHP * 2.5);
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★★★★</span>");
+    log("<span class='enemy'>TIME HAS STOPPED.</span>");
+
+    updateStats();
+
+}
+
+function spawnOrigin(){
+
+    bossFight = true;
+    bossType = "Origin";
+    bossName = "The Origin";
+
+    enemyMaxHP = Math.floor(maxHP * 5);
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★★★★★</span>");
+    log("<span class='enemy'>THE FIRST MEMORY AWAKENS.</span>");
+
+    updateStats();
+
+}
+
+function spawnFirstDiver(){
+
+    bossFight = true;
+    bossType = "FirstDiver";
+    bossName = "The First Memory Diver";
+
+    enemyMaxHP = Math.floor(maxHP * 4);
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='rare'>★★★★★★★★★★</span>");
+    log("<span class='enemy'>THE FIRST DIVER CHALLENGES YOU.</span>");
+
+    updateStats();
+
+}
+
+function spawnFinalBoss(){
+
+    bossFight = true;
+    bossType = "FinalBoss";
+    bossName = "KAEL";
+
+    enemyMaxHP = Math.floor(maxHP * 3);
+
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+
+    log("<span class='enemy'>████████████████</span>");
+    log("THE FINAL DOOR OPENS...");
+    log("...");
+    log("Identity Detected...");
+    log("<span class='rare'>KAEL</span>");
+    log("<span class='enemy'>THE LAST MEMORY DIVER</span>");
+    log("<span class='enemy'>████████████████</span>");
+
+    updateStats();
+
+}
+
+function attackEnemy(){
+
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+if(!inBattle){
+
+log("No enemy present.");
+
+return;
+
+}
+
+let crit = Math.random() < 0.2;
+
+let damage =
+Math.floor((Math.random()*20)+10);
+
+if(strongFists){
+    damage += 5;
+}
+
+damage =
+Math.floor(damage * powerMulti);
+
+if(rebel && hp <= maxHP * 0.40){
+
+    damage = Math.floor(damage * 1.25);
+
+    log("<span class='enemy'>ADRENALINE RUSH!</span>");
+
+}
+
+if(crit){
+
+damage *= 2;
+
+log("<span class='good'>CRITICAL HIT!</span>");
+
+}
+
+let enemyWasAlive = enemyHP > 0;
+
+enemyHP -= damage;
+
+tryMemoryCorruption();
+
+log("You deal " + damage + " damage.");
+
+if(enemyHP <= 0 && enemyWasAlive){
+
+    basicAttackKills++;
+
+    if(basicAttackKills >= 10 && !strongFists){
+
+        strongFists = true;
+
+        log("<span class='rare'>ACHIEVEMENT UNLOCKED: STRONG FISTS</span>");
+
+        log("<span class='good'>Your basic attacks now deal +5 damage.</span>");
+
+    }
+
+}
+
+checkBattle();
+
+enemyTurn();
+
+updateStats();
+
+autoSave();
+
+}
+
+function useSkill(){
+
+
+    if(gameOver){
+        log("Game Over. Load a save first.");
+        return;
+    }
+
+if(!inBattle){
+
+log("No enemy present.");
+
+return;
+
+}
+
+/* EMPATH NERF */
+
+if(empath){
+
+let damage =
+Math.floor(
+(20 + level * 0.8)
+* powerMulti
+* relicSkillBonus
+);
+
+let heal =
+Math.floor((4 + level * 0.25) * powerMulti);
+
+enemyHP -= damage;
+
+hp = Math.min(maxHP, hp + heal);
+
+sanity -= 1;
+
+log("Empath Pulse deals "
++ damage +
+" damage and heals "
++ heal + " HP.");
+
+}
+
+/* ---------------- */
+
+else if(manipulator){
+
+let damage =
+Math.floor(
+(30 + level * 1.5)
+* powerMulti
+* relicSkillBonus
+);
+
+enemyHP -= damage;
+
+sanity -= 5;
+
+log("Manipulator distorts enemy memory for "
++ damage + " damage.");
+
+tryMemoryCorruption();
+
+}
+
+else if(warden){
+
+let damage =
+Math.floor(
+(22 + level)
+* powerMulti
+* relicSkillBonus
+);
+
+enemyHP -= damage;
+
+log("Warden strikes with force for "
++ damage + " damage.");
+
+}
+
+else{
+
+log("No class skill unlocked.");
+
+return;
+
+}
+
+checkBattle();
+
+enemyTurn();
+
+updateStats();
+
+autoSave();
+
+}
+
+function tryMemoryCorruption(){
+
+    if(!factionManipulator) return;
+
+    if(Math.random() < 0.20){
+
+        corruptionSkip = true;
+
+        log("<span class='rare'>MEMORY CORRUPTION!</span>");
+        log("Enemy forgets how to attack.");
+
+    }
+
+}
+
+function healSelf(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+if(inBattle){
+
+log("Cannot stabilize during combat.");
+
+return;
+
+}
+
+if(shards >= 10){
+
+hp += 20;
+
+shards -= 10;
+
+sanity += 5;
+
+if(hp > maxHP){
+hp = maxHP;
+}
+
+if(sanity > 100 + relicBonusSanity + permanentBossSanity){
+    sanity = 100 + relicBonusSanity + permanentBossSanity;
+}
+
+log("You stabilize your memory.");
+
+updateStats();
+
+autoSave();
+
+}
+
+else{
+
+log("Not enough shards.");
+
+}
+
+}
+
+function enemyTurn(){
+
+if(gameOver || enemyHP <= 0){
+    return;
+}
+
+if(corruptionSkip){
+
+    corruptionSkip = false;
+
+    log("<span class='good'>The enemy skips its turn.</span>");
+
+    return;
+
+}
+
+
+let enemyDamage =
+Math.floor(
+((Math.random()*15)+6+level)
+*
+powerMulti
+);
+
+hp -= enemyDamage;
+
+log("<span class='enemy'>Enemy deals "
++ enemyDamage + " damage.</span>");
+
+if(Math.random() < 0.25){
+
+sanity -= 5;
+
+log("<span class='warning'>Your sanity weakens.</span>");
+
+}
+
+if(hp <= 0){
+
+    enemyHP = 0;
+    enemyMaxHP = 0;
+    updateStats();
+
+    playerDeath("You were lost in the memory stream.");
+    return;
+
+}
+
+updateStats();
+
+}
+
+
+function checkBattle(){
+
+if(enemyHP <= 0){
+
+enemyHP = 0;
+
+if(bossFight){
+
+    rewardBoss();
+
+}else{
+
+    log("<span class='good'>Enemy Defeated!</span>");
+
+}
+
+
+hp += relicBattleHeal;
+
+if(hp > maxHP)
+    hp = maxHP;
+	
+if (soulWeaver) {
+
+    sanity += 1;
+
+    if (sanity > 100 + relicBonusSanity + permanentBossSanity) {
+        sanity = 100 + relicBonusSanity + permanentBossSanity;
+    }
+
+    log("<span class='good'>Soul Weaver restores +1 Sanity after victory.</span>");
+
+}
+
+let reward =
+60 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+canRest = true;
+
+exploreUses = 0;
+memoryDiveUses = 0;
+questUses = 0;
+
+log("<span class='good'>Exploration has been restored.</span>");
+log("<span class='good'>You may rest again.</span>");
+
+inBattle = false;
+
+updateStats();
+
+levelUp();
+
+autoSave();
+
+}
+
+}
+
+function questOne(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+log("<span class='quest'>Quest Started:</span> Recover the stolen memory shard.");
+
+let success = Math.floor(Math.random()*2);
+
+if(success == 1){
+
+log("You recovered the shard.");
+
+let reward =
+40 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+}
+
+else{
+
+log("The shard was corrupted.");
+
+hp -= 10;
+
+}
+
+updateStats();
+
+autoSave();
+
+}
+
+function questTwo(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+if(questUses >= maxQuestUses){
+
+    log("You must defeat a Corrupted Entity before investigating again.");
+
+    return;
+
+}
+
+questUses++;
+
+log("<span class='good'>Investigations: "
++ questUses + "/" + maxQuestUses + "</span>");
+
+log("<span class='quest'>Quest Started:</span> Investigate the Hollow Depths.");
+
+let event = Math.floor(Math.random()*3);
+
+if(event == 0){
+
+log("You discover ancient ruins.");
+
+let reward =
+50 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+}
+
+if(event == 1){
+
+log("A corrupted beast attacks.");
+
+startBattle();
+
+}
+
+if(event == 2){
+
+log("You uncover forbidden history.");
+
+let reward =
+60 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+sanity -= 10;
+
+}
+
+updateStats();
+
+autoSave();
+
+}
+
+function questThree(){
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+log("<span class='quest'>Quest Started:</span> Protect the Memory Vault.");
+
+let outcome = Math.floor(Math.random()*2);
+
+if(outcome == 0){
+
+log("The vault survives.");
+
+let reward =
+50 * powerMulti * relicShardBonus;
+
+if(archivist){
+    reward *= 1.25;
+}
+
+shards += Math.floor(reward);
+
+}
+
+else{
+
+log("The vault collapses.");
+
+hp -= 20;
+
+}
+
+updateStats();
+
+autoSave();
+
+}
+
+
+function rewardBoss(){
+
+if(bossType == "LostWanderer"){
+
+    lostWandererDefeated = true;
+
+    shards += 1000;
+    powerMulti += 0.005;
+
+    permanentBossHP += 5;
+recalcRelicBonuses();
+    hp = maxHP;
+
+    log("<span class='rare'>★★ BOSS DEFEATED! ★★</span>");
+    log("The Lost Wanderer remembers its name.");
+    log("+1,000 Memory Shards");
+    log("+5 Max HP");
+    log("+0.005 Power Multiplier");
+
+}
+
+else if(bossType == "HollowGuardian"){
+
+    hollowGuardianDefeated = true;
+
+    shards += 1500;
+    powerMulti += 0.005;
+
+    permanentBossHP += 5;
+recalcRelicBonuses();
+    hp = maxHP;
+
+    log("<span class='rare'>★★★ BOSS DEFEATED! ★★★</span>");
+    log("The Hollow Guardian returns to eternal rest.");
+    log("+1,500 Memory Shards");
+    log("+5 Max HP");
+    log("+0.005 Power Multiplier");
+
+}
+
+else if(bossType == "StaticBeast"){
+
+    staticBeastDefeated = true;
+
+    shards += 2500;
+    powerMulti += 0.010;
+
+    permanentBossHP += 10;
+recalcRelicBonuses();
+    hp = maxHP;
+
+    log("<span class='rare'>★★★★ BOSS DEFEATED! ★★★★</span>");
+    log("The Static Beast dissolves into pure energy.");
+    log("+2,500 Memory Shards");
+    log("+10 Max HP");
+    log("+0.010 Power Multiplier");
+
+}
+
+else if(bossType == "EchoKnight"){
+
+    echoKnightDefeated = true;
+
+    shards += 5000;
+    powerMulti += 0.015;
+
+permanentBossHP += 10;
+recalcRelicBonuses();
+hp = maxHP;
+
+    log("<span class='rare'>★★★★★ BOSS DEFEATED! ★★★★★</span>");
+    log("The Echo Knight salutes one final time.");
+    log("+5,000 Memory Shards");
+    log("+10 Max HP");
+    log("+0.015 Power Multiplier");
+
+}
+
+else if(bossType == "VoidWatcher"){
+
+    voidWatcherDefeated = true;
+
+    shards += 10000;
+    powerMulti += 0.020;
+
+permanentBossHP += 15;
+recalcRelicBonuses();
+hp = maxHP;
+
+    log("<span class='rare'>★★★★★★ BOSS DEFEATED! ★★★★★★</span>");
+    log("The Void Watcher closes its countless eyes.");
+    log("+10,000 Memory Shards");
+    log("+15 Max HP");
+    log("+0.020 Power Multiplier");
+
+}
+
+if(bossType == "King"){
+
+    forgottenKingDefeated = true;
+
+    shards += 25000;
+    powerMulti += 0.025;
+
+    log("<span class='rare'>★★★★★ BOSS DEFEATED!</span>");
+    log("The Forgotten King has fallen.");
+    log("+25,000 Memory Shards");
+    log("+0.025 Power Multiplier");
+
+}
+
+else if(bossType == "MemoryEater"){
+
+    memoryEaterDefeated = true;
+    classEvolutionUnlocked = true;
+
+    soulWeaver = true;
+    realityArchitect = true;
+    eternalSentinel = true;
+
+    shards += 50000;
+
+permanentBossSanity += 20;
+sanity = 100 + relicBonusSanity + permanentBossSanity;
+
+    if(classType == "Empath"){
+        classType = "Soul Weaver";
+    }
+
+    else if(classType == "Manipulator"){
+        classType = "Reality Architect";
+    }
+
+    else if(classType == "Warden"){
+        classType = "Eternal Sentinel";
+    }
+
+    log("<span class='rare'>★★★★★★ BOSS DEFEATED! ★★★★★★</span>");
+    log("The Memory Eater has been erased.");
+    log("+50,000 Memory Shards");
+    log("+20 Permanent Max Sanity");
+    log("");
+    log("<span class='good'>The fragments of countless memories flow into you...</span>");
+    log("<span class='rare'>★ CLASS EVOLUTION UNLOCKED ★</span>");
+    log("Soul Weaver (Empath)");
+    log("Reality Architect (Manipulator)");
+    log("Eternal Sentinel (Warden)");
+    log("");
+    log("<span class='good'>All evolved classes can now be switched freely.</span>");
+    log("<span class='good'>Faction switching has also been unlocked.</span>");
+
+}
+
+else if(bossType == "Nemesis"){
+
+    nemesisDefeated = true;
+
+    shards += 250000;
+
+    powerMulti += 0.100;
+
+    permanentBossHP += 50;
+    permanentBossSanity += 20;
+
+    recalcRelicBonuses();
+
+    hp = maxHP;
+    sanity = 100 + relicBonusSanity + permanentBossSanity;
+
+    log("<span class='rare'>★★★★★★★ FINAL BOSS DEFEATED!</span>");
+    log("NEMESIS has been destroyed.");
+    log("+250,000 Memory Shards");
+    log("+50 Permanent Max HP");
+    log("+20 Permanent Max Sanity");
+    log("+0.100 Power Multiplier");
+
+}
+	
+	else if(bossType == "RealityArchitect"){
+
+    realityArchitectBossDefeated = true;
+
+    shards += 500000;
+
+    powerMulti += 0.050;
+
+permanentBossHP += 50;
+recalcRelicBonuses();
+hp = maxHP;
+
+    log("<span class='rare'>REALITY ARCHITECT DEFEATED!</span>");
+    log("+500,000 Memory Shards");
+    log("+50 Max HP");
+    log("+0.050 Power Multiplier");
+
+}
+
+else if(bossType == "Chronos"){
+
+    chronosDefeated = true;
+
+    shards += 1000000;
+
+    powerMulti += 0.075;
+
+    permanentBossHP += 75;
+recalcRelicBonuses();
+    hp = maxHP;
+
+    log("<span class='rare'>CHRONOS HAS FALLEN!</span>");
+    log("+1,000,000 Memory Shards");
+    log("+75 Max HP");
+    log("+0.075 Power Multiplier");
+
+}
+
+else if(bossType == "Origin"){
+
+    originDefeated = true;
+
+    shards += 2500000;
+
+    powerMulti += 0.100;
+
+    permanentBossHP += 100;
+recalcRelicBonuses();
+    hp = maxHP;
+
+    log("<span class='rare'>THE ORIGIN HAS BEEN ERASED.</span>");
+    log("+2,500,000 Memory Shards");
+    log("+100 Max HP");
+    log("+0.100 Power Multiplier");
+
+}
+
+else if(bossType == "FirstDiver"){
+
+    firstDiverDefeated = true;
+
+    shards += 5000000;
+
+    powerMulti += 0.150;
+
+    permanentBossHP += 150;
+recalcRelicBonuses();
+    hp = maxHP;
+
+    log("<span class='rare'>THE FIRST MEMORY DIVER HAS BEEN DEFEATED.</span>");
+    log("+5,000,000 Memory Shards");
+    log("+150 Max HP");
+    log("+0.150 Power Multiplier");
+
+}
+
+else if(bossType == "FinalBoss"){
+
+    finalBossDefeated = true;
+
+    shards += 100000000;
+
+    log("<span class='rare'>★★★★★★★★ FINAL BOSS DEFEATED! ★★★★★★★★</span>");
+    log("<span class='good'>KAEL has accepted the truth.</span>");
+    log("The Final Door closes forever.");
+    log("");
+    log("<span class='good'>🏆 GAME COMPLETED 🏆</span>");
+    log("Title Unlocked: THE LAST MEMORY DIVER");
+    log("+100,000,000 Memory Shards");
+    log("");
+    log("Thank you for playing ECHOES OF THE FORGOTTEN.");
+    log("More adventures may await in future updates.");
+
+}
+
+    enemyHP = 0;
+    enemyMaxHP = 0;
+
+    bossFight = false;
+    bossType = "";
+    bossName = "";
+    bossDifficulty = "";
+
+}
+
+setInterval(function(){
+
+    if(gameOver){
+        document.body.style.filter = "grayscale(100%)";
+        return;
+    }
+
+    if(sanity <= 0){
+
+        let deathChance = Math.random();
+
+        if(deathChance < 0.35){
+
+            playerDeath("Your mind collapses permanently.");
+            return;
+
+        }else{
+
+            sanity = 1;
+            log("<span class='warning'>You barely hold onto reality.</span>");
+
+        }
+
+    }
+
+    if(sanity <= 40){
+
+        document.body.style.boxShadow =
+        "inset 0 0 120px red";
+
+    }else{
+
+        document.body.style.boxShadow =
+        "inset 0 0 0px black";
+
+    }
+
+    updateStats();
+
+},3000);
+
+updateStats();
+updateSaveSlotNames();
+
+function updateSaveSlotNames(){
+
+    for(let i=1;i<=3;i++){
+
+        let name = localStorage.getItem("echoSaveName"+i);
+
+        let saveButton =
+        document.querySelector(
+        "button[onclick='saveGame("+i+")']"
+        );
+
+        let loadButton =
+        document.querySelector(
+        "button[onclick='loadGame("+i+")']"
+        );
+
+        if(name && name.trim() !== ""){
+
+            saveButton.textContent =
+            "💾 Save Slot " + i + " - " + name;
+
+            loadButton.textContent =
+            "📂 Load Slot " + i + " - " + name;
+
+        }else{
+
+            saveButton.textContent =
+            "💾 Save Slot " + i;
+
+            loadButton.textContent =
+            "📂 Load Slot " + i;
+
+        }
+
+    }
+
+}
+
+</script>
+
+</body>
+</html>
