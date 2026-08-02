@@ -465,6 +465,11 @@ let gameOver = false;
 
 let currentSaveSlot = 1;
 
+let tutorialStep = 1;
+let tutorialFinished = false;
+let tutorialStarted = false;
+let tutorialExploreCount = 0;
+
 let basicAttackKills = 0;
 let strongFists = false;
 
@@ -473,6 +478,150 @@ let titles = [];
 let currentTitle = "";
 
 let canRest = true;
+
+let tutorialMessages = [
+
+"Welcome to ECHOES OF THE FORGOTTEN, KAEL. You are a Memory Diver.",
+
+"Start by fighting a Corrupted Entity.",
+
+"Now use Basic Attack to defeat the corrupted entity.",
+
+"Good. Explore Neon Veil 5 times to collect memories and understand the city.",
+
+"Enter a Memory Dive using the button in Exploration. Memory Dives give greater rewards but risk damaging your mind.",
+
+"Your Sanity controls your connection to reality. If it reaches 0, your mind begins collapsing.",
+
+"Choose a class. Empath, Manipulator, and Warden each have different strengths.",
+
+"Relics permanently increase your power. Find and craft them.",
+
+"Rest restores you, but resting requires defeated enemies.",
+
+"Tutorial complete. Good luck, Memory Diver."
+
+];
+
+
+function showTutorial(){
+
+if(tutorialFinished) return;
+
+if(tutorialStep >= tutorialMessages.length){
+    tutorialFinished = true;
+    log("<span class='good'>📖 Tutorial Complete.</span>");
+    return;
+}
+
+log("<span class='rare'>📖 TUTORIAL:</span> "
++ tutorialMessages[tutorialStep]);
+
+}
+
+
+function nextTutorial(){
+
+if(tutorialFinished) return;
+
+tutorialStep++;
+
+if(tutorialStep >= tutorialMessages.length){
+
+    tutorialFinished = true;
+
+    log("<span class='good'>📖 Tutorial Complete. Good luck, Memory Diver.</span>");
+
+    return;
+
+}
+
+showTutorial();
+
+}
+
+function tutorialAction(action){
+
+if(tutorialFinished) return;
+
+
+if(tutorialStep === 1 && action==="fight"){
+
+    nextTutorial();
+
+}
+
+
+else if(tutorialStep === 2 && action==="attack"){
+
+    nextTutorial();
+
+}
+
+
+else if(tutorialStep === 3 && action==="explore"){
+
+    tutorialExploreCount++;
+
+    log("<span class='rare'>📖 TUTORIAL:</span> Explore progress: "
+    + tutorialExploreCount + "/5");
+
+    if(tutorialExploreCount >= 5){
+
+        nextTutorial();
+
+    }
+
+}
+
+
+else if(tutorialStep === 4 && action==="dive"){
+
+    nextTutorial();
+
+}
+
+
+else if(tutorialStep === 6 && action==="class"){
+
+    nextTutorial();
+
+}
+
+
+else if(tutorialStep === 7 && action==="relic"){
+
+    nextTutorial();
+
+}
+
+else if(tutorialStep === 8 && action==="rest"){
+
+    nextTutorial();
+
+}
+
+else if(tutorialStep === 9){
+
+    nextTutorial();
+
+}
+
+
+else if(tutorialStep === 5 && action==="sanity"){
+
+    nextTutorial();
+
+}
+
+
+else if(tutorialStep === 8 && action==="rest"){
+
+    nextTutorial();
+
+}
+
+}
 
 /* Exploration Limits */
 
@@ -742,7 +891,10 @@ permanentBossSanity,
 
 gameOver,
 
-currentSaveSlot:slot
+currentSaveSlot:slot,
+
+tutorialStep,
+tutorialFinished
 
 };
 
@@ -855,38 +1007,13 @@ if(sanity > 100 + relicBonusSanity + permanentBossSanity){
 
 currentSaveSlot = slot;
 
+tutorialStep = save.tutorialStep ?? 0;
+tutorialFinished = save.tutorialFinished ?? false;
+
 document.getElementById("saveName").value =
 localStorage.getItem("echoSaveName"+slot) || "";
 
-function rebuildAchievementLog(){
 
-    const logBox = document.getElementById("achievementLog");
-
-    logBox.innerHTML = "";
-
-    if(achievements.length === 0){
-        logBox.innerHTML = "<p>No achievements unlocked.</p>";
-        return;
-    }
-
-    for(let i = 0; i < achievements.length; i++){
-
-        let p = document.createElement("p");
-        p.className = "achievement";
-
-        p.innerHTML = "🏆 <b>" + achievements[i] + "</b>";
-
-        if(i < titles.length){
-            p.innerHTML +=
-            "<br><span class='rare'>Title: " +
-            titles[i] +
-            "</span>";
-        }
-
-        logBox.appendChild(p);
-    }
-
-}
 
 updateSaveSlotNames();
 
@@ -926,6 +1053,36 @@ if(gameOver){
 log("No save data found.");
 
 }
+
+}
+
+function rebuildAchievementLog(){
+
+    const logBox = document.getElementById("achievementLog");
+
+    logBox.innerHTML = "";
+
+    if(achievements.length === 0){
+        logBox.innerHTML = "<p>No achievements unlocked.</p>";
+        return;
+    }
+
+    for(let i = 0; i < achievements.length; i++){
+
+        let p = document.createElement("p");
+        p.className = "achievement";
+
+        p.innerHTML = "🏆 <b>" + achievements[i] + "</b>";
+
+        if(i < titles.length){
+            p.innerHTML +=
+            "<br><span class='rare'>Title: " +
+            titles[i] +
+            "</span>";
+        }
+
+        logBox.appendChild(p);
+    }
 
 }
 
@@ -1049,7 +1206,45 @@ return true;
 
 }
 
+function unlockWarden(){
+
+tutorialAction("class");
+
+if(gameOver){
+    log("Game Over. Load a save first.");
+    return;
+}
+
+empath = false;
+manipulator = false;
+warden = true;
+
+if(classEvolutionUnlocked){
+
+    soulWeaver = false;
+    realityArchitect = false;
+    eternalSentinel = true;
+
+    classType = "Eternal Sentinel";
+
+    log("<span class='skill'>Switched to Eternal Sentinel.</span>");
+
+}else{
+
+    classType = "Warden";
+
+    log("<span class='skill'>Switched to Warden.</span>");
+
+}
+
+updateStats();
+autoSave();
+
+}
+
 function unlockEmpath(){
+
+tutorialAction("class");
 
 if(gameOver){
     log("Game Over. Load a save first.");
@@ -1085,6 +1280,8 @@ autoSave();
 
 function unlockManipulator(){
 
+tutorialAction("class");
+
 if(gameOver){
     log("Game Over. Load a save first.");
     return;
@@ -1109,40 +1306,6 @@ if(classEvolutionUnlocked){
     classType = "Manipulator";
 
     log("<span class='skill'>Switched to Manipulator.</span>");
-
-}
-
-updateStats();
-autoSave();
-
-}
-
-function unlockWarden(){
-
-if(gameOver){
-    log("Game Over. Load a save first.");
-    return;
-}
-
-empath = false;
-manipulator = false;
-warden = true;
-
-if(classEvolutionUnlocked){
-
-    soulWeaver = false;
-    realityArchitect = false;
-    eternalSentinel = true;
-
-    classType = "Eternal Sentinel";
-
-    log("<span class='skill'>Switched to Eternal Sentinel.</span>");
-
-}else{
-
-    classType = "Warden";
-
-    log("<span class='skill'>Switched to Warden.</span>");
 
 }
 
@@ -1215,6 +1378,8 @@ autoSave();
 
 function exploreCity(){
 
+tutorialAction("explore");
+
 
     if(gameOver){
         log("Game Over. Load a save first.");
@@ -1274,6 +1439,8 @@ autoSave();
 
 function memoryDive(){
 
+tutorialAction("dive");
+
     if(gameOver){
         log("Game Over. Load a save first.");
         return;
@@ -1287,10 +1454,17 @@ return;
 
 }
 
+
 memoryDiveUses++;
 
 log("<span class='good'>Memory Dives: "
 + memoryDiveUses + "/" + maxMemoryDiveUses + "</span>");
+
+if(memoryDiveUses >= maxMemoryDiveUses){
+
+    nextTutorial();
+
+}
 
 let dives = [
 
@@ -1468,6 +1642,8 @@ log("<span class='rare'>Relic Found: "
 
 function craftRelic(){
 
+tutorialAction("relic");
+
 
     if(gameOver){
         log("Game Over. Load a save first.");
@@ -1497,6 +1673,8 @@ log("Not enough shards.");
 }
 
 function rest(){
+
+tutorialAction("rest");
 
 
     if(gameOver){
@@ -1535,6 +1713,8 @@ log("You rest in a neon safehouse.");
 }
 
 function startBattle(){
+
+tutorialAction("fight");
 
     if(gameOver){
         log("Game Over. Load a save first.");
@@ -1822,7 +2002,6 @@ function spawnFinalBoss(){
 
 function attackEnemy(){
 
-
     if(gameOver){
         log("Game Over. Load a save first.");
         return;
@@ -1880,17 +2059,24 @@ if(enemyHP <= 0 && enemyWasAlive){
 
         strongFists = true;
 
-        log("<span class='rare'>ACHIEVEMENT UNLOCKED: STRONG FISTS</span>");
+        unlockAchievement(
+            "Strong Fists",
+            "Defeat 10 enemies using Basic Attack.",
+            "The Brawler"
+        );
 
         log("<span class='good'>Your basic attacks now deal +5 damage.</span>");
 
     }
 
+    checkBattle();
+
 }
+else{
 
-checkBattle();
+    enemyTurn();
 
-enemyTurn();
+}
 
 updateStats();
 
@@ -2019,6 +2205,8 @@ if(gameOver){
     return;
 }
 
+
+
 if(inBattle){
 
 log("Cannot stabilize during combat.");
@@ -2117,6 +2305,8 @@ function checkBattle(){
 if(enemyHP <= 0){
 
 enemyHP = 0;
+
+tutorialAction("attack");
 
 if(bossFight){
 
@@ -2573,6 +2763,8 @@ setInterval(function(){
         return;
     }
 
+    // tutorialAction("sanity");
+
     if(sanity <= 0){
 
         let deathChance = Math.random();
@@ -2611,6 +2803,18 @@ updateStats();
 updateSaveSlotNames();
 
 rebuildAchievementLog();
+
+setTimeout(function(){
+
+showTutorial();
+
+setTimeout(function(){
+
+    nextTutorial();
+
+},3000);
+
+},1000);
 
 function updateSaveSlotNames(){
 
