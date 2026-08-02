@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>THE EHCOS OF THE FORGOTTEN</title>
+<title>THE ECHOS OF THE FORGOTTEN</title>
 
 <style>
 
@@ -472,10 +472,7 @@ let forgottenKingDefeated = false;
 let memoryEaterDefeated = false;
 let nemesisDefeated = false;
 
-let realityArchitectBossDefeated = false;
-let chronosDefeated = false;
-let originDefeated = false;
-let firstDiverDefeated = false;
+
 
 let finalBossDefeated = false;
 
@@ -690,10 +687,7 @@ forgottenKingDefeated,
 memoryEaterDefeated,
 nemesisDefeated,
 
-realityArchitectBossDefeated,
-chronosDefeated,
-originDefeated,
-firstDiverDefeated,
+
 
 finalBossDefeated,
 
@@ -724,7 +718,7 @@ currentSaveSlot = slot;
 if(!auto){
 
 let customName =
-document.getElementById("saveName").value.trim();
+document.getElementById("saveName").value.trim().substring(0,20);
 
 if(customName !== ""){
 
@@ -792,10 +786,7 @@ forgottenKingDefeated = save.forgottenKingDefeated ?? false;
 memoryEaterDefeated = save.memoryEaterDefeated ?? false;
 nemesisDefeated = save.nemesisDefeated ?? false;
 
-realityArchitectBossDefeated = save.realityArchitectBossDefeated ?? false;
-chronosDefeated = save.chronosDefeated ?? false;
-originDefeated = save.originDefeated ?? false;
-firstDiverDefeated = save.firstDiverDefeated ?? false;
+
 
 finalBossDefeated = save.finalBossDefeated ?? false;
 
@@ -1455,33 +1446,7 @@ if(level >= 3000 && !finalBossDefeated){
 
 }
 
-if(level >= 2500 && !firstDiverDefeated){
 
-    spawnFirstDiver();
-    return;
-
-}
-
-if(level >= 2000 && !originDefeated){
-
-    spawnOrigin();
-    return;
-
-}
-
-if(level >= 1500 && !chronosDefeated){
-
-    spawnChronos();
-    return;
-
-}
-
-if(level >= 1000 && !realityArchitectBossDefeated){
-
-    spawnRealityArchitectBoss();
-    return;
-
-}
 
 if(level >= 500 && !nemesisDefeated){
 
@@ -1712,77 +1677,7 @@ function spawnNemesis(){
 
 }
 
-function spawnRealityArchitectBoss(){
 
-    bossFight = true;
-    bossType = "RealityArchitect";
-    bossName = "Reality Architect";
-
-    enemyMaxHP = Math.floor(maxHP * 2);
-    enemyHP = enemyMaxHP;
-
-    inBattle = true;
-
-    log("<span class='rare'>★★★★★★★</span>");
-    log("<span class='enemy'>REALITY ITSELF BENDS.</span>");
-
-    updateStats();
-
-}
-
-function spawnChronos(){
-
-    bossFight = true;
-    bossType = "Chronos";
-    bossName = "Chronos, Keeper of Time";
-
-    enemyMaxHP = Math.floor(maxHP * 2.5);
-    enemyHP = enemyMaxHP;
-
-    inBattle = true;
-
-    log("<span class='rare'>★★★★★★★★</span>");
-    log("<span class='enemy'>TIME HAS STOPPED.</span>");
-
-    updateStats();
-
-}
-
-function spawnOrigin(){
-
-    bossFight = true;
-    bossType = "Origin";
-    bossName = "The Origin";
-
-    enemyMaxHP = Math.floor(maxHP * 5);
-    enemyHP = enemyMaxHP;
-
-    inBattle = true;
-
-    log("<span class='rare'>★★★★★★★★★</span>");
-    log("<span class='enemy'>THE FIRST MEMORY AWAKENS.</span>");
-
-    updateStats();
-
-}
-
-function spawnFirstDiver(){
-
-    bossFight = true;
-    bossType = "FirstDiver";
-    bossName = "The First Memory Diver";
-
-    enemyMaxHP = Math.floor(maxHP * 4);
-    enemyHP = enemyMaxHP;
-
-    inBattle = true;
-
-    log("<span class='rare'>★★★★★★★★★★</span>");
-    log("<span class='enemy'>THE FIRST DIVER CHALLENGES YOU.</span>");
-
-    updateStats();
-
-}
 
 function spawnFinalBoss(){
 
@@ -2493,81 +2388,6 @@ else if(bossType == "Nemesis"){
 
 }
 	
-	else if(bossType == "RealityArchitect"){
-
-    realityArchitectBossDefeated = true;
-
-    shards += 500000;
-
-    powerMulti += 0.050;
-
-permanentBossHP += 50;
-recalcRelicBonuses();
-hp = maxHP;
-
-    log("<span class='rare'>REALITY ARCHITECT DEFEATED!</span>");
-    log("+500,000 Memory Shards");
-    log("+50 Max HP");
-    log("+0.050 Power Multiplier");
-
-}
-
-else if(bossType == "Chronos"){
-
-    chronosDefeated = true;
-
-    shards += 1000000;
-
-    powerMulti += 0.075;
-
-    permanentBossHP += 75;
-recalcRelicBonuses();
-    hp = maxHP;
-
-    log("<span class='rare'>CHRONOS HAS FALLEN!</span>");
-    log("+1,000,000 Memory Shards");
-    log("+75 Max HP");
-    log("+0.075 Power Multiplier");
-
-}
-
-else if(bossType == "Origin"){
-
-    originDefeated = true;
-
-    shards += 2500000;
-
-    powerMulti += 0.100;
-
-    permanentBossHP += 100;
-recalcRelicBonuses();
-    hp = maxHP;
-
-    log("<span class='rare'>THE ORIGIN HAS BEEN ERASED.</span>");
-    log("+2,500,000 Memory Shards");
-    log("+100 Max HP");
-    log("+0.100 Power Multiplier");
-
-}
-
-else if(bossType == "FirstDiver"){
-
-    firstDiverDefeated = true;
-
-    shards += 5000000;
-
-    powerMulti += 0.150;
-
-    permanentBossHP += 150;
-recalcRelicBonuses();
-    hp = maxHP;
-
-    log("<span class='rare'>THE FIRST MEMORY DIVER HAS BEEN DEFEATED.</span>");
-    log("+5,000,000 Memory Shards");
-    log("+150 Max HP");
-    log("+0.150 Power Multiplier");
-
-}
 
 else if(bossType == "FinalBoss"){
 
