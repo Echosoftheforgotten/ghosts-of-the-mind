@@ -466,7 +466,7 @@ let gameOver = false;
 let currentSaveSlot = 1;
 
 let tutorialStep = 1;
-let tutorialFinished = localStorage.getItem("echoTutorialComplete") === "true";
+let tutorialFinished = false;
 let tutorialStarted = false;
 let tutorialExploreCount = 0;
 
@@ -506,39 +506,45 @@ let tutorialMessages = [
 
 function showTutorial(){
 
-if(tutorialFinished) return;
+    if(tutorialFinished) return;
 
-if(tutorialStep >= tutorialMessages.length){
-    tutorialFinished = true;
-localStorage.setItem("echoTutorialComplete","true");
-    log("<span class='good'>📖 Tutorial Complete.</span>");
-    return;
-}
+    if(tutorialStep >= tutorialMessages.length){
 
-log("<span class='rare'>📖 TUTORIAL:</span> "
-+ tutorialMessages[tutorialStep]);
+        tutorialFinished = true;
+        tutorialStep = tutorialMessages.length;
+
+        log("<span class='good'>📖 Tutorial Complete.</span>");
+
+        autoSave();
+        return;
+
+    }
+
+    log("<span class='rare'>📖 TUTORIAL:</span> " + tutorialMessages[tutorialStep]);
 
 }
 
 
 function nextTutorial(){
 
-if(tutorialFinished) return;
+    if(tutorialFinished) return;
 
-tutorialStep++;
+    tutorialStep++;
 
-if(tutorialStep >= tutorialMessages.length){
+    if(tutorialStep >= tutorialMessages.length){
 
-    tutorialFinished = true;
-localStorage.setItem("echoTutorialComplete","true");
+        tutorialFinished = true;
+        tutorialStep = tutorialMessages.length;
 
-    log("<span class='good'>📖 Tutorial Complete. Good luck, Memory Diver.</span>");
+        log("<span class='good'>📖 Tutorial Complete. Good luck, Memory Diver.</span>");
 
-    return;
+        autoSave();
+        return;
 
-}
+    }
 
-showTutorial();
+    showTutorial();
+    autoSave();
 
 }
 
@@ -895,6 +901,10 @@ gameOver,
 
 currentSaveSlot:slot,
 
+tutorialStep,
+tutorialFinished,
+tutorialExploreCount,
+
 };
 
 localStorage.setItem(
@@ -1006,8 +1016,9 @@ if(sanity > 100 + relicBonusSanity + permanentBossSanity){
 
 currentSaveSlot = slot;
 
-tutorialStep = 1;
-tutorialFinished = localStorage.getItem("echoTutorialComplete") === "true";
+tutorialStep = save.tutorialStep ?? 1;
+tutorialFinished = save.tutorialFinished ?? false;
+tutorialExploreCount = save.tutorialExploreCount ?? 0;
 
 document.getElementById("saveName").value =
 localStorage.getItem("echoSaveName"+slot) || "";
@@ -2805,13 +2816,11 @@ rebuildAchievementLog();
 
 setTimeout(function(){
 
-showTutorial();
+    if(!tutorialFinished){
 
-setTimeout(function(){
+        showTutorial();
 
-    nextTutorial();
-
-},3000);
+    }
 
 },1000);
 
