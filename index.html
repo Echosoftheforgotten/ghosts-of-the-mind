@@ -466,7 +466,7 @@ let gameOver = false;
 let currentSaveSlot = 1;
 
 let tutorialStep = 1;
-let tutorialFinished = false;
+let tutorialFinished = localStorage.getItem("echoTutorialComplete") === "true";
 let tutorialStarted = false;
 let tutorialExploreCount = 0;
 
@@ -510,6 +510,7 @@ if(tutorialFinished) return;
 
 if(tutorialStep >= tutorialMessages.length){
     tutorialFinished = true;
+localStorage.setItem("echoTutorialComplete","true");
     log("<span class='good'>📖 Tutorial Complete.</span>");
     return;
 }
@@ -529,6 +530,7 @@ tutorialStep++;
 if(tutorialStep >= tutorialMessages.length){
 
     tutorialFinished = true;
+localStorage.setItem("echoTutorialComplete","true");
 
     log("<span class='good'>📖 Tutorial Complete. Good luck, Memory Diver.</span>");
 
@@ -893,9 +895,6 @@ gameOver,
 
 currentSaveSlot:slot,
 
-tutorialStep,
-tutorialFinished
-
 };
 
 localStorage.setItem(
@@ -1007,8 +1006,8 @@ if(sanity > 100 + relicBonusSanity + permanentBossSanity){
 
 currentSaveSlot = slot;
 
-tutorialStep = save.tutorialStep ?? 0;
-tutorialFinished = save.tutorialFinished ?? false;
+tutorialStep = 1;
+tutorialFinished = localStorage.getItem("echoTutorialComplete") === "true";
 
 document.getElementById("saveName").value =
 localStorage.getItem("echoSaveName"+slot) || "";
