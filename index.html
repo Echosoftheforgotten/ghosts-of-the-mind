@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>THE ECHOS OF THE FORGOTTEN</title>
+<title>ECHOS OF THE FORGOTTEN</title>
 
 <style>
 
@@ -12,7 +12,7 @@ body{
     margin:0;
     background:#050510;
     color:#00ffff;
-    font-family:Consolas;
+    font-family: Consolas;
     overflow-x:hidden;
     background-image:
     radial-gradient(circle at top,#111133,#050510);
@@ -20,7 +20,7 @@ body{
 }
 
 header{
-    text-align:center;
+    text-align: center;
     padding:20px;
     font-size:42px;
     border-bottom:2px solid cyan;
@@ -152,6 +152,23 @@ h2{
     0%{box-shadow:0 0 5px cyan;}
     50%{box-shadow:0 0 25px cyan;}
     100%{box-shadow:0 0 5px cyan;}
+}
+
+#achievementLog{
+
+    height:220px;
+    overflow-y:auto;
+    background:black;
+    padding:10px;
+    border:2px solid cyan;
+
+}
+
+.achievement{
+
+    color:#00ff88;
+    margin-bottom:6px;
+
 }
 
 </style>
@@ -378,6 +395,18 @@ Protect Memory Vault
 
 </div>
 
+<div class="panel">
+
+<h2>ACHIEVEMENTS</h2>
+
+<div id="achievementLog">
+
+<p>No achievements unlocked.</p>
+
+</div>
+
+</div>
+
 </div>
 
 </div>
@@ -438,6 +467,10 @@ let currentSaveSlot = 1;
 
 let basicAttackKills = 0;
 let strongFists = false;
+
+let achievements = [];
+let titles = [];
+let currentTitle = "";
 
 let canRest = true;
 
@@ -699,6 +732,11 @@ questUses,
 
 basicAttackKills,
 strongFists,
+
+achievements,
+titles,
+currentTitle,
+
 permanentBossHP,
 permanentBossSanity,
 
@@ -734,6 +772,8 @@ localStorage.removeItem("echoSaveName"+slot);
 }
 
 updateSaveSlotNames();
+
+rebuildAchievementLog();
 
 log("<span class='good'>Game Saved to Slot "
 + slot + "</span>");
@@ -798,11 +838,15 @@ gameOver = save.gameOver ?? false;
 
 basicAttackKills = save.basicAttackKills ?? 0;
 strongFists = save.strongFists ?? false;
+
+achievements = save.achievements ?? [];
+titles = save.titles ?? [];
+currentTitle = save.currentTitle ?? "";
+
 permanentBossHP = save.permanentBossHP ?? 0;
 permanentBossSanity = save.permanentBossSanity ?? 0;
 recalcRelicBonuses();
 
-recalcRelicBonuses();
 hp = Math.min(hp, maxHP);
 
 if(sanity > 100 + relicBonusSanity + permanentBossSanity){
@@ -813,6 +857,36 @@ currentSaveSlot = slot;
 
 document.getElementById("saveName").value =
 localStorage.getItem("echoSaveName"+slot) || "";
+
+function rebuildAchievementLog(){
+
+    const logBox = document.getElementById("achievementLog");
+
+    logBox.innerHTML = "";
+
+    if(achievements.length === 0){
+        logBox.innerHTML = "<p>No achievements unlocked.</p>";
+        return;
+    }
+
+    for(let i = 0; i < achievements.length; i++){
+
+        let p = document.createElement("p");
+        p.className = "achievement";
+
+        p.innerHTML = "🏆 <b>" + achievements[i] + "</b>";
+
+        if(i < titles.length){
+            p.innerHTML +=
+            "<br><span class='rare'>Title: " +
+            titles[i] +
+            "</span>";
+        }
+
+        logBox.appendChild(p);
+    }
+
+}
 
 updateSaveSlotNames();
 
@@ -835,6 +909,8 @@ if(gameOver){
 log("<span class='good'>Loaded Save Slot "
 + slot + "</span>");
 
+
+
 updateStats();
 
 document.querySelectorAll("button[onclick^='join']").forEach(btn=>{
@@ -850,6 +926,46 @@ if(gameOver){
 log("No save data found.");
 
 }
+
+}
+
+function unlockAchievement(name, description, titleReward = ""){
+
+    if(achievements.includes(name)) return;
+
+    achievements.push(name);
+
+    const logBox = document.getElementById("achievementLog");
+
+    if(logBox.innerHTML.includes("No achievements unlocked.")){
+        logBox.innerHTML = "";
+    }
+
+    let p = document.createElement("p");
+    p.className = "achievement";
+    p.innerHTML = "🏆 <b>" + name + "</b><br>" + description;
+
+    if(titleReward != ""){
+
+        if(!titles.includes(titleReward)){
+            titles.push(titleReward);
+        }
+
+        currentTitle = titleReward;
+
+        p.innerHTML +=
+        "<br><span class='rare'>Title Unlocked: " +
+        titleReward +
+        "</span>";
+
+    }
+
+    logBox.appendChild(p);
+
+    log("<span class='rare'>🏆 Achievement Unlocked: "
+    + name + "</span>");
+
+    logBox.scrollTop = logBox.scrollHeight;
 
 }
 
@@ -1682,21 +1798,22 @@ function spawnNemesis(){
 function spawnFinalBoss(){
 
     bossFight = true;
-    bossType = "FinalBoss";
-    bossName = "KAEL";
+    bossType = "TrueNemesis";
+    bossName = "TRUE NEMESIS";
 
-    enemyMaxHP = Math.floor(maxHP * 3);
+    enemyMaxHP = Math.floor(maxHP * 5);
 
     enemyHP = enemyMaxHP;
 
     inBattle = true;
 
     log("<span class='enemy'>████████████████</span>");
-    log("THE FINAL DOOR OPENS...");
-    log("...");
-    log("Identity Detected...");
-    log("<span class='rare'>KAEL</span>");
-    log("<span class='enemy'>THE LAST MEMORY DIVER</span>");
+    log("THE FINAL MEMORY COLLAPSES...");
+    log("The Nemesis you defeated was only a fragment...");
+    log("The true corruption awakens...");
+    log("<span class='rare'>TRUE NEMESIS</span>");
+    log("<span class='enemy'>THE STRONGEST CORRUPTED ENTITY</span>");
+    log("<span class='enemy'>THE SOURCE OF ALL MEMORY DECAY</span>");
     log("<span class='enemy'>████████████████</span>");
 
     updateStats();
@@ -2215,7 +2332,13 @@ function rewardBoss(){
 if(bossType == "LostWanderer"){
 
     lostWandererDefeated = true;
-
+    
+	unlockAchievement(
+    "First Boss",
+    "Defeat your first boss.",
+    "The Wanderer"
+    );
+	
     shards += 1000;
     powerMulti += 0.005;
 
@@ -2234,6 +2357,12 @@ recalcRelicBonuses();
 else if(bossType == "HollowGuardian"){
 
     hollowGuardianDefeated = true;
+
+unlockAchievement(
+"Guardian Slayer",
+"Defeat the Hollow Guardian.",
+"Guardian Breaker"
+);
 
     shards += 1500;
     powerMulti += 0.005;
@@ -2324,6 +2453,13 @@ if(bossType == "King"){
 else if(bossType == "MemoryEater"){
 
     memoryEaterDefeated = true;
+	
+	unlockAchievement(
+"Evolution",
+"Unlock Class Evolution.",
+"Memory Master"
+);
+	
     classEvolutionUnlocked = true;
 
     soulWeaver = true;
@@ -2367,6 +2503,12 @@ else if(bossType == "Nemesis"){
 
     nemesisDefeated = true;
 
+unlockAchievement(
+"The Impossible",
+"Defeat Nemesis.",
+"Nemesis Hunter"
+);
+
     shards += 250000;
 
     powerMulti += 0.100;
@@ -2389,15 +2531,21 @@ else if(bossType == "Nemesis"){
 }
 	
 
-else if(bossType == "FinalBoss"){
+else if(bossType == "TrueNemesis"){
 
     finalBossDefeated = true;
+
+unlockAchievement(
+"The End",
+"Complete the game.",
+"The Last Memory Diver"
+);
 
     shards += 100000000;
 
     log("<span class='rare'>★★★★★★★★ FINAL BOSS DEFEATED! ★★★★★★★★</span>");
-    log("<span class='good'>KAEL has accepted the truth.</span>");
-    log("The Final Door closes forever.");
+    log("<span class='good'>TRUE NEMESIS has been destroyed.</span>");
+    log("The source of corruption has been erased.");
     log("");
     log("<span class='good'>🏆 GAME COMPLETED 🏆</span>");
     log("Title Unlocked: THE LAST MEMORY DIVER");
@@ -2461,6 +2609,8 @@ setInterval(function(){
 
 updateStats();
 updateSaveSlotNames();
+
+rebuildAchievementLog();
 
 function updateSaveSlotNames(){
 
