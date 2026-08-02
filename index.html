@@ -465,10 +465,16 @@ let gameOver = false;
 
 let currentSaveSlot = 1;
 
-let tutorialStep = 1;
-let tutorialFinished = false;
-let tutorialStarted = false;
-let tutorialExploreCount = 0;
+let tutorialStep =
+Number(localStorage.getItem("echoTutorialStep")) || 0;
+
+let tutorialFinished =
+localStorage.getItem("echoTutorialFinished") === "true";
+
+let tutorialExploreCount =
+Number(localStorage.getItem("echoTutorialExploreCount")) || 0;
+
+let tutorialDisplayed = false;
 
 let basicAttackKills = 0;
 let strongFists = false;
@@ -508,126 +514,97 @@ function showTutorial(){
 
     if(tutorialFinished) return;
 
-    if(tutorialStep >= tutorialMessages.length){
+    if(tutorialDisplayed) return;
 
-        tutorialFinished = true;
-        tutorialStep = tutorialMessages.length;
+    tutorialDisplayed = true;
 
-        log("<span class='good'>📖 Tutorial Complete.</span>");
-
-        autoSave();
-        return;
-
-    }
-
-    log("<span class='rare'>📖 TUTORIAL:</span> " + tutorialMessages[tutorialStep]);
-
-}
-
-
-function nextTutorial(){
-
-    if(tutorialFinished) return;
-
-    tutorialStep++;
-
-    if(tutorialStep >= tutorialMessages.length){
-
-        tutorialFinished = true;
-        tutorialStep = tutorialMessages.length;
-
-        log("<span class='good'>📖 Tutorial Complete. Good luck, Memory Diver.</span>");
-
-        autoSave();
-        return;
-
-    }
-
-    showTutorial();
-    autoSave();
+    log(
+        "<span class='rare'>📖 TUTORIAL (" +
+        (tutorialStep + 1) +
+        "/" +
+        tutorialMessages.length +
+        "):</span> " +
+        tutorialMessages[tutorialStep]
+    );
 
 }
 
 function tutorialAction(action){
 
-if(tutorialFinished) return;
+    if(tutorialFinished) return;
 
+    switch(tutorialStep){
 
-if(tutorialStep === 1 && action==="fight"){
+        case 0:
+            // Welcome shown automatically
+            break;
 
-    nextTutorial();
+        case 1:
+            if(action === "fight"){
+                nextTutorial();
+            }
+            break;
 
-}
+        case 2:
+            if(action === "attack"){
+                nextTutorial();
+            }
+            break;
 
+        case 3:
+            if(action === "explore"){
 
-else if(tutorialStep === 2 && action==="attack"){
+                tutorialExploreCount++;
 
-    nextTutorial();
+localStorage.setItem(
+    "echoTutorialExploreCount",
+    tutorialExploreCount
+);
 
-}
+                log("<span class='rare'>📖 TUTORIAL:</span> Explore progress: "
+                    + tutorialExploreCount + "/5");
 
+                if(tutorialExploreCount >= 5){
+                    nextTutorial();
+                }
 
-else if(tutorialStep === 3 && action==="explore"){
+            }
+            break;
 
-    tutorialExploreCount++;
+        case 4:
+            if(action === "dive"){
+                nextTutorial();
 
-    log("<span class='rare'>📖 TUTORIAL:</span> Explore progress: "
-    + tutorialExploreCount + "/5");
+                // Immediately explain sanity
+                nextTutorial();
+            }
+            break;
 
-    if(tutorialExploreCount >= 5){
+        case 5:
+            break;
 
-        nextTutorial();
+        case 6:
+            if(action === "class"){
+                nextTutorial();
+            }
+            break;
 
+        case 7:
+            if(action === "relic"){
+                nextTutorial();
+            }
+            break;
+
+        case 8:
+            if(action === "rest"){
+                nextTutorial();
+            }
+            break;
+
+        case 9:
+            nextTutorial();
+            break;
     }
-
-}
-
-
-else if(tutorialStep === 4 && action==="dive"){
-
-    nextTutorial();
-
-}
-
-
-else if(tutorialStep === 6 && action==="class"){
-
-    nextTutorial();
-
-}
-
-
-else if(tutorialStep === 7 && action==="relic"){
-
-    nextTutorial();
-
-}
-
-else if(tutorialStep === 8 && action==="rest"){
-
-    nextTutorial();
-
-}
-
-else if(tutorialStep === 9){
-
-    nextTutorial();
-
-}
-
-
-else if(tutorialStep === 5 && action==="sanity"){
-
-    nextTutorial();
-
-}
-
-
-else if(tutorialStep === 8 && action==="rest"){
-
-    nextTutorial();
-
-}
 
 }
 
@@ -1016,7 +993,7 @@ if(sanity > 100 + relicBonusSanity + permanentBossSanity){
 
 currentSaveSlot = slot;
 
-tutorialStep = save.tutorialStep ?? 1;
+tutorialStep = save.tutorialStep ?? 0;
 tutorialFinished = save.tutorialFinished ?? false;
 tutorialExploreCount = save.tutorialExploreCount ?? 0;
 
@@ -1470,12 +1447,6 @@ memoryDiveUses++;
 log("<span class='good'>Memory Dives: "
 + memoryDiveUses + "/" + maxMemoryDiveUses + "</span>");
 
-if(memoryDiveUses >= maxMemoryDiveUses){
-
-    nextTutorial();
-
-}
-
 let dives = [
 
 "You enter a battlefield of regret.",
@@ -1724,8 +1695,6 @@ log("You rest in a neon safehouse.");
 
 function startBattle(){
 
-tutorialAction("fight");
-
     if(gameOver){
         log("Game Over. Load a save first.");
         return;
@@ -1735,6 +1704,13 @@ tutorialAction("fight");
         log("Battle already active.");
         return;
     }
+
+    if(sanity <= 15){
+        log("<span class='warning'>You are too mentally unstable to fight.</span>");
+        return;
+    }
+
+    tutorialAction("fight");
 
     if(sanity <= 15){
         log("<span class='warning'>You are too mentally unstable to fight.</span>");
@@ -2056,6 +2032,10 @@ log("<span class='good'>CRITICAL HIT!</span>");
 let enemyWasAlive = enemyHP > 0;
 
 enemyHP -= damage;
+
+if(enemyHP < 0){
+    enemyHP = 0;
+}
 
 tryMemoryCorruption();
 
@@ -2773,7 +2753,7 @@ setInterval(function(){
         return;
     }
 
-    // tutorialAction("sanity");
+    
 
     if(sanity <= 0){
 
@@ -2816,13 +2796,49 @@ rebuildAchievementLog();
 
 setTimeout(function(){
 
-    if(!tutorialFinished){
+    if(tutorialFinished){
+        return;
+    }
 
-        showTutorial();
+    showTutorial();
+
+    if(tutorialStep === 0){
+
+        setTimeout(function(){
+
+            if(tutorialStep === 0){
+                nextTutorial();
+            }
+
+        },2500);
 
     }
 
 },1000);
+
+function nextTutorial(){
+
+    tutorialDisplayed = false;
+
+    tutorialStep++;
+
+    localStorage.setItem("echoTutorialStep", tutorialStep);
+    localStorage.setItem("echoTutorialExploreCount", tutorialExploreCount);
+
+    if(tutorialStep >= tutorialMessages.length){
+
+        tutorialFinished = true;
+
+        localStorage.setItem("echoTutorialFinished","true");
+
+        log("<span class='good'>✔ Tutorial Complete!</span>");
+
+        return;
+    }
+
+    showTutorial();
+
+}
 
 function updateSaveSlotNames(){
 
