@@ -719,23 +719,23 @@ function updateDailyRewardUI(){
         box.className = "dailyDay";
 
         let amountText =
-            dailyRewards[i].toLocaleString()
+            dailyRewards[i].toLocaleString("en-US")
             + " Shards";
 
         let extraText = "";
 
-        if(day === 7){
+if(day === 7){
 
-            amountText =
-                dailyRewards[i].toLocaleString()
-                + " Shards";
+    amountText =
+        dailyRewards[i].toLocaleString("en-US")
+        + " Shards";
 
-            extraText =
-                "<br><span class='rare'>+ RANDOM RELIC</span>";
+    extraText =
+        "<br><span class='rare'>+ 50 RANDOM RELICS</span>";
 
-            box.classList.add("jackpot");
+    box.classList.add("jackpot");
 
-        }
+}
 
         if(state.claimedToday){
 
@@ -920,16 +920,69 @@ function claimDailyReward(){
 
         log(
             "<span class='rare'>" +
-            "A Forgotten Cache has been unlocked..."
-            + "</span>"
+            "🔥 THE FORGOTTEN CACHE HAS BEEN UNLOCKED 🔥" +
+            "</span>"
         );
-
-        findRelic();
 
         log(
             "<span class='good'>" +
-            "🎁 RANDOM RELIC ACQUIRED!"
-            + "</span>"
+            "🎁 +50 RANDOM RELICS!" +
+            "</span>"
+        );
+
+        const dailyRelicPool = [
+
+            "Dreamcore Prism",
+            "Echo Fragment",
+            "Temporal Compass",
+            "Mindglass Core",
+            "Void Lantern"
+
+        ];
+
+        const relicCounts = {};
+
+        for(let i = 0; i < 50; i++){
+
+            const relic =
+                dailyRelicPool[
+                    Math.floor(
+                        Math.random() *
+                        dailyRelicPool.length
+                    )
+                ];
+
+            relics.push(relic);
+
+            relicCounts[relic] =
+                (relicCounts[relic] || 0) + 1;
+
+        }
+
+        recalcRelicBonuses();
+
+        log(
+            "<span class='rare'>" +
+            "===== FORGOTTEN CACHE RESULTS =====" +
+            "</span>"
+        );
+
+        for(const relic in relicCounts){
+
+            log(
+                "<span class='good'>" +
+                relic +
+                " ×" +
+                relicCounts[relic] +
+                "</span>"
+            );
+
+        }
+
+        log(
+            "<span class='rare'>" +
+            "🔥 50 RELICS ADDED TO YOUR COLLECTION 🔥" +
+            "</span>"
         );
 
     }
