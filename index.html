@@ -171,6 +171,103 @@ h2{
 
 }
 
+.dailyRewardPanel{
+    border:2px solid #ffcc00;
+    box-shadow:0 0 15px #ffcc00;
+    background:rgba(20,15,0,0.65);
+}
+
+.dailyRewardGrid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:7px;
+    margin-top:12px;
+}
+
+.dailyDay{
+    border:2px solid #555;
+    padding:8px 4px;
+    text-align:center;
+    background:#080808;
+    min-height:75px;
+    transition:0.3s;
+}
+
+.dailyDay strong{
+    display:block;
+    color:white;
+    margin-bottom:6px;
+}
+
+.dailyDay.locked{
+    opacity:0.45;
+}
+
+.dailyDay.active{
+    border-color:#00ffcc;
+    box-shadow:0 0 15px #00ffcc;
+    animation:dailyPulse 1.5s infinite;
+}
+
+.dailyDay.claimed{
+    border-color:#00ff88;
+    background:rgba(0,80,40,0.3);
+}
+
+.dailyDay.jackpot{
+    border-color:#ffcc00;
+    box-shadow:0 0 15px #ffcc00;
+}
+
+.dailyRewardAmount{
+    color:#ffcc00;
+    font-size:12px;
+}
+
+.dailyClaimed{
+    color:#00ff88;
+    font-size:12px;
+}
+
+.dailyActiveText{
+    color:#00ffcc;
+    font-size:12px;
+}
+
+#dailyRewardStatus{
+    color:white;
+    margin-bottom:8px;
+    font-size:16px;
+}
+
+#dailyClaimButton{
+    border-color:#ffcc00;
+    color:#ffcc00;
+}
+
+#dailyClaimButton:hover{
+    background:#ffcc00;
+    color:black;
+}
+
+#dailyClaimButton:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+    transform:none;
+}
+
+@keyframes dailyPulse{
+    0%{box-shadow:0 0 5px #00ffcc;}
+    50%{box-shadow:0 0 25px #00ffcc;}
+    100%{box-shadow:0 0 5px #00ffcc;}
+}
+
+@media(max-width:900px){
+    .dailyRewardGrid{
+        grid-template-columns:repeat(4,1fr);
+    }
+}
+
 </style>
 </head>
 
@@ -276,6 +373,22 @@ Rest
 
 <button onclick="fakeTalk()">
 Fake Talk
+</button>
+
+</div>
+
+<div class="panel dailyRewardPanel">
+
+<h2>🔥 DAILY REWARDS</h2>
+
+<div id="dailyRewardStatus">
+Loading daily reward...
+</div>
+
+<div id="dailyRewardGrid" class="dailyRewardGrid"></div>
+
+<button id="dailyClaimButton" onclick="claimDailyReward()">
+Claim Daily Reward
 </button>
 
 </div>
@@ -464,6 +577,372 @@ let permanentBossSanity = 0;
 let gameOver = false;
 
 let currentSaveSlot = 1;
+
+/* DAILY REWARD SYSTEM */
+
+const dailyRewards = [
+    2500,
+    5000,
+    10000,
+    20000,
+    35000,
+    60000,
+    150000
+];
+
+let dailyRewardData = JSON.parse(
+    localStorage.getItem("echoDailyRewardData") ||
+    '{"streak":0,"lastClaimDate":""}'
+);
+
+function getTodayDate(){
+
+    const now = new Date();
+
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2,"0");
+    const day = String(now.getDate()).padStart(2,"0");
+
+    return year + "-" + month + "-" + day;
+
+}
+
+function getDateDifference(dateA,dateB){
+
+    if(!dateA || !dateB){
+        return null;
+    }
+
+    const a = dateA.split("-").map(Number);
+    const b = dateB.split("-").map(Number);
+
+    const timeA = Date.UTC(a[0],a[1]-1,a[2]);
+    const timeB = Date.UTC(b[0],b[1]-1,b[2]);
+
+    return Math.round(
+        (timeB - timeA) / 86400000
+    );
+
+}
+
+function saveDailyRewardData(){
+
+    localStorage.setItem(
+        "echoDailyRewardData",
+        JSON.stringify(dailyRewardData)
+    );
+
+}
+
+function getDailyRewardState(){
+
+    const today = getTodayDate();
+
+    const lastClaim = dailyRewardData.lastClaimDate;
+
+    if(!lastClaim){
+
+        return {
+            claimedToday:false,
+            currentStreak:0,
+            nextDay:1,
+            missedStreak:false
+        };
+
+    }
+
+    const difference =
+        getDateDifference(lastClaim,today);
+
+    if(difference === 0){
+
+        return {
+            claimedToday:true,
+            currentStreak:dailyRewardData.streak,
+            nextDay:dailyRewardData.streak,
+            missedStreak:false
+        };
+
+    }
+
+    if(difference === 1){
+
+        let nextDay =
+            dailyRewardData.streak >= 7
+            ? 1
+            : dailyRewardData.streak + 1;
+
+        return {
+            claimedToday:false,
+            currentStreak:dailyRewardData.streak,
+            nextDay:nextDay,
+            missedStreak:false
+        };
+
+    }
+
+    return {
+        claimedToday:false,
+        currentStreak:0,
+        nextDay:1,
+        missedStreak:true
+    };
+
+}
+
+function updateDailyRewardUI(){
+
+    const status =
+        document.getElementById("dailyRewardStatus");
+
+    const grid =
+        document.getElementById("dailyRewardGrid");
+
+    const button =
+        document.getElementById("dailyClaimButton");
+
+    if(!status || !grid || !button){
+        return;
+    }
+
+    const state = getDailyRewardState();
+
+    grid.innerHTML = "";
+
+    for(let i = 0; i < 7; i++){
+
+        const day = i + 1;
+
+        const box =
+            document.createElement("div");
+
+        box.className = "dailyDay";
+
+        let amountText =
+            dailyRewards[i].toLocaleString()
+            + " Shards";
+
+        let extraText = "";
+
+        if(day === 7){
+
+            amountText =
+                dailyRewards[i].toLocaleString()
+                + " Shards";
+
+            extraText =
+                "<br><span class='rare'>+ RANDOM RELIC</span>";
+
+            box.classList.add("jackpot");
+
+        }
+
+        if(state.claimedToday){
+
+            if(day <= state.currentStreak){
+
+                box.classList.add("claimed");
+
+                box.innerHTML =
+                    "<strong>DAY " + day + "</strong>" +
+                    "<span class='dailyClaimed'>✓ CLAIMED</span>";
+
+                if(day === 7){
+                    box.innerHTML += extraText;
+                }
+
+            }else{
+
+                box.classList.add("locked");
+
+                box.innerHTML =
+                    "<strong>DAY " + day + "</strong>" +
+                    "<span class='dailyRewardAmount'>" +
+                    amountText +
+                    "</span>" +
+                    extraText;
+
+            }
+
+        }else{
+
+            if(day < state.nextDay){
+
+                box.classList.add("claimed");
+
+                box.innerHTML =
+                    "<strong>DAY " + day + "</strong>" +
+                    "<span class='dailyClaimed'>✓ CLAIMED</span>";
+
+            }
+
+            else if(day === state.nextDay){
+
+                box.classList.add("active");
+
+                box.innerHTML =
+                    "<strong>DAY " + day + "</strong>" +
+                    "<span class='dailyActiveText'>NEXT</span>" +
+                    "<br>" +
+                    "<span class='dailyRewardAmount'>" +
+                    amountText +
+                    "</span>" +
+                    extraText;
+
+            }
+
+            else{
+
+                box.classList.add("locked");
+
+                box.innerHTML =
+                    "<strong>DAY " + day + "</strong>" +
+                    "<span class='dailyRewardAmount'>" +
+                    amountText +
+                    "</span>" +
+                    extraText;
+
+            }
+
+        }
+
+        grid.appendChild(box);
+
+    }
+
+    if(state.claimedToday){
+
+        status.innerHTML =
+            "🔥 <b>" +
+            state.currentStreak +
+            " DAY STREAK</b> — Come back tomorrow for Day " +
+            (
+                state.currentStreak >= 7
+                ? 1
+                : state.currentStreak + 1
+            ) +
+            "!";
+
+        button.disabled = true;
+        button.textContent = "✓ Reward Already Claimed Today";
+
+    }
+
+    else if(state.missedStreak){
+
+        status.innerHTML =
+            "⚠️ <b>STREAK LOST!</b> Your new streak starts at Day 1.";
+
+        button.disabled = false;
+        button.textContent = "🔥 Claim Day 1";
+
+    }
+
+    else{
+
+        status.innerHTML =
+            "🔥 Current Streak: <b>" +
+            state.currentStreak +
+            "</b> — Next Reward: <b>Day " +
+            state.nextDay +
+            "</b>";
+
+        button.disabled = false;
+        button.textContent =
+            "🎁 Claim Day " +
+            state.nextDay;
+
+    }
+
+}
+
+function claimDailyReward(){
+
+    if(gameOver){
+
+        log(
+            "<span class='warning'>" +
+            "Game Over. Load a save before claiming daily rewards." +
+            "</span>"
+        );
+
+        return;
+
+    }
+
+    const today = getTodayDate();
+
+    const state = getDailyRewardState();
+
+    if(state.claimedToday){
+
+        log(
+            "<span class='warning'>" +
+            "You already claimed today's reward." +
+            "</span>"
+        );
+
+        return;
+
+    }
+
+    let day = state.nextDay;
+
+    dailyRewardData.streak = day;
+    dailyRewardData.lastClaimDate = today;
+
+    saveDailyRewardData();
+
+    const reward =
+        dailyRewards[day - 1];
+
+    shards += reward;
+
+    log(
+        "<span class='rare'>🔥 DAILY REWARD CLAIMED!</span>"
+    );
+
+    log(
+        "<span class='good'>" +
+        "Day " + day +
+        ": +" +
+        reward.toLocaleString() +
+        " Memory Shards</span>"
+    );
+
+    if(day === 7){
+
+        log(
+            "<span class='rare'>" +
+            "🏆 7 DAY STREAK COMPLETE! 🏆" +
+            "</span>"
+        );
+
+        log(
+            "<span class='rare'>" +
+            "A Forgotten Cache has been unlocked..."
+            + "</span>"
+        );
+
+        findRelic();
+
+        log(
+            "<span class='good'>" +
+            "🎁 RANDOM RELIC ACQUIRED!"
+            + "</span>"
+        );
+
+    }
+
+    levelUp();
+
+    updateStats();
+    updateDailyRewardUI();
+
+    autoSave();
+
+}
+
 
 let tutorialStep =
 Number(localStorage.getItem("echoTutorialStep")) || 0;
@@ -2789,10 +3268,18 @@ setInterval(function(){
 
 },3000);
 
+setInterval(function(){
+
+    updateDailyRewardUI();
+
+},10000);
+
 updateStats();
 updateSaveSlotNames();
 
 rebuildAchievementLog();
+
+updateDailyRewardUI();
 
 setTimeout(function(){
 
