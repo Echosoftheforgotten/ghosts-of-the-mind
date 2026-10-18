@@ -948,6 +948,12 @@ let dailyRewardData = {
     lastClaimDate:""
 };
 
+/* DAILY REWARD DUPLICATION FIX */
+
+let dailyRewardLoaded = false;
+let dailyRewardLoadFailed = false;
+let dailyRewardClaimInProgress = false;
+
 function getTodayDate(){
 
     const now = new Date();
@@ -985,16 +991,14 @@ async function saveDailyRewardData(){
     try{
 
         const signedData =
-            await signSecureData(
-                dailyRewardData
-            );
+            await signSecureData(dailyRewardData);
 
         localStorage.setItem(
             "echoDailyRewardData",
-            safeJSONStringify(
-                signedData
-            )
+            safeJSONStringify(signedData)
         );
+
+        return true;
 
     }catch(error){
 
@@ -1002,6 +1006,117 @@ async function saveDailyRewardData(){
             "Daily reward save error:",
             error
         );
+
+        return false;
+
+    }
+
+}
+
+
+/* LOAD AND VERIFY SAVED DAILY REWARDS ON STARTUP */
+
+async function loadDailyRewardData(){
+
+    try{
+
+        const raw =
+            localStorage.getItem("echoDailyRewardData");
+
+        // Brand-new player: no previous reward data.
+        if(raw === null){
+
+            dailyRewardData = {
+                streak:0,
+                lastClaimDate:""
+            };
+
+        }else{
+
+            let stored = null;
+
+            try{
+
+                stored = await verifySecureData(
+                    safeJSONParse(raw)
+                );
+
+            }catch(error){
+
+                stored = null;
+
+            }
+
+            const valid =
+                stored !== null &&
+                Number.isInteger(stored.streak) &&
+                stored.streak >= 0 &&
+                stored.streak <= 7 &&
+                typeof stored.lastClaimDate === "string" &&
+                (
+                    stored.lastClaimDate === "" ||
+                    /^\d{4}-\d{2}-\d{2}$/.test(
+                        stored.lastClaimDate
+                    )
+                ) &&
+                (
+                    (
+                        stored.streak === 0 &&
+                        stored.lastClaimDate === ""
+                    ) ||
+                    (
+                        stored.streak >= 1 &&
+                        stored.lastClaimDate !== ""
+                    )
+                );
+
+            if(!valid){
+
+                // Never silently reset a previously saved claim.
+                dailyRewardLoadFailed = true;
+
+                updateDailyRewardUI();
+
+                log(
+                    "<span class='enemy'>" +
+                    "DAILY REWARD SECURITY ERROR: " +
+                    "Saved reward data could not be verified. " +
+                    "Claims are locked to prevent duplication." +
+                    "</span>"
+                );
+
+                return;
+
+            }
+
+            // Restore the actual saved streak and claim date.
+            dailyRewardData = {
+                streak:stored.streak,
+                lastClaimDate:stored.lastClaimDate
+            };
+
+        }
+
+        dailyRewardLoaded = true;
+
+        updateDailyRewardUI();
+
+        log(
+            "<span class='good'>" +
+            "Daily reward records loaded and verified." +
+            "</span>"
+        );
+
+    }catch(error){
+
+        console.error(
+            "Daily reward loading error:",
+            error
+        );
+
+        dailyRewardLoadFailed = true;
+
+        updateDailyRewardUI();
 
     }
 
@@ -1074,11 +1189,41 @@ function updateDailyRewardUI(){
     const button =
         document.getElementById("dailyClaimButton");
 
-    if(!status || !grid || !button){
-        return;
+if(!status || !grid || !button){
+    return;
+}
+
+// Never allow a claim until saved data is verified.
+if(!dailyRewardLoaded){
+
+    grid.innerHTML = "";
+
+    button.disabled = true;
+
+    if(dailyRewardLoadFailed){
+
+        status.innerHTML =
+            "<span class='warning'>" +
+            "⚠ DAILY REWARDS LOCKED — DATA VERIFICATION FAILED" +
+            "</span>";
+
+        button.textContent = "Daily Rewards Locked";
+
+    }else{
+
+        status.textContent =
+            "Loading and verifying saved daily rewards...";
+
+        button.textContent =
+            "Loading Daily Rewards...";
+
     }
 
-    const state = getDailyRewardState();
+    return;
+
+}
+
+const state = getDailyRewardState();
 
     grid.innerHTML = "";
 
@@ -1243,6 +1388,26 @@ async function claimDailyReward(){
 
     }
 
+    if(!dailyRewardLoaded || dailyRewardLoadFailed){
+
+        log(
+            "<span class='warning'>" +
+            "Daily rewards are not ready. " +
+            "Wait for reward verification to finish." +
+            "</span>"
+        );
+
+        return;
+
+    }
+
+    // Block overlapping or repeated clicks.
+    if(dailyRewardClaimInProgress){
+
+        return;
+
+    }
+
     const today = getTodayDate();
 
     const state = getDailyRewardState();
@@ -1255,117 +1420,195 @@ async function claimDailyReward(){
             "</span>"
         );
 
+        updateDailyRewardUI();
+
         return;
 
     }
 
-    let day = state.nextDay;
+    const day = state.nextDay;
 
-    dailyRewardData.streak = day;
-    dailyRewardData.lastClaimDate = today;
+    // Keep the previous state in case saving fails.
+    const previousData = {
+        streak:dailyRewardData.streak,
+        lastClaimDate:dailyRewardData.lastClaimDate
+    };
 
-    saveDailyRewardData();
+    dailyRewardClaimInProgress = true;
 
-    const reward =
-        dailyRewards[day - 1];
+    const button =
+        document.getElementById("dailyClaimButton");
 
-    shards += reward;
+    if(button){
 
-    log(
-        "<span class='rare'>🔥 DAILY REWARD CLAIMED!</span>"
-    );
+        button.disabled = true;
+        button.textContent = "Securing Reward...";
 
-    log(
-        "<span class='good'>" +
-        "Day " + day +
-        ": +" +
-        reward.toLocaleString() +
-        " Memory Shards</span>"
-    );
+    }
 
-    if(day === 7){
+    /*
+       RECORD THE CLAIM BEFORE GRANTING THE REWARD.
+
+       This prevents a reload during the save operation
+       from granting the same reward repeatedly.
+    */
+
+    dailyRewardData = {
+        streak:day,
+        lastClaimDate:today
+    };
+
+    const saved = await saveDailyRewardData();
+
+    if(!saved){
+
+        dailyRewardData = previousData;
+
+        dailyRewardClaimInProgress = false;
+
+        updateDailyRewardUI();
 
         log(
-            "<span class='rare'>" +
-            "🏆 7 DAY STREAK COMPLETE! 🏆" +
+            "<span class='enemy'>" +
+            "DAILY REWARD ERROR: The claim could not be saved. " +
+            "No reward was granted. Please try again." +
             "</span>"
         );
 
+        return;
+
+    }
+
+    try{
+
+        // The claim record is now safely stored.
+        const reward = dailyRewards[day - 1];
+
+        shards += reward;
+
         log(
             "<span class='rare'>" +
-            "🔥 THE FORGOTTEN CACHE HAS BEEN UNLOCKED 🔥" +
+            "🔥 DAILY REWARD CLAIMED!" +
             "</span>"
         );
 
         log(
             "<span class='good'>" +
-            "🎁 +50 RANDOM RELICS!" +
+            "Day " + day +
+            ": +" +
+            reward.toLocaleString() +
+            " Memory Shards" +
             "</span>"
         );
 
-        const dailyRelicPool = [
+        // DAY 7 JACKPOT: RETAIN THE ORIGINAL REWARDS.
+        if(day === 7){
 
-            "Dreamcore Prism",
-            "Echo Fragment",
-            "Temporal Compass",
-            "Mindglass Core",
-            "Void Lantern"
+            log(
+                "<span class='rare'>" +
+                "🏆 7 DAY STREAK COMPLETE! 🏆" +
+                "</span>"
+            );
 
-        ];
-
-        const relicCounts = {};
-
-        for(let i = 0; i < 50; i++){
-
-            const relic =
-                dailyRelicPool[
-                    Math.floor(
-                        secureRandom() *
-                        dailyRelicPool.length
-                    )
-                ];
-
-            relics.push(relic);
-
-            relicCounts[relic] =
-                (relicCounts[relic] || 0) + 1;
-
-        }
-
-        recalcRelicBonuses();
-
-        log(
-            "<span class='rare'>" +
-            "===== FORGOTTEN CACHE RESULTS =====" +
-            "</span>"
-        );
-
-        for(const relic in relicCounts){
+            log(
+                "<span class='rare'>" +
+                "🔥 THE FORGOTTEN CACHE HAS BEEN UNLOCKED 🔥" +
+                "</span>"
+            );
 
             log(
                 "<span class='good'>" +
-                relic +
-                " ×" +
-                relicCounts[relic] +
+                "🎁 +50 RANDOM RELICS!" +
+                "</span>"
+            );
+
+            const dailyRelicPool = [
+
+                "Dreamcore Prism",
+                "Echo Fragment",
+                "Temporal Compass",
+                "Mindglass Core",
+                "Void Lantern"
+
+            ];
+
+            const relicCounts = {};
+
+            for(let i = 0; i < 50; i++){
+
+                const relic =
+                    dailyRelicPool[
+                        Math.floor(
+                            secureRandom() *
+                            dailyRelicPool.length
+                        )
+                    ];
+
+                relics.push(relic);
+
+                relicCounts[relic] =
+                    (relicCounts[relic] || 0) + 1;
+
+            }
+
+            recalcRelicBonuses();
+
+            log(
+                "<span class='rare'>" +
+                "===== FORGOTTEN CACHE RESULTS =====" +
+                "</span>"
+            );
+
+            for(const relic in relicCounts){
+
+                log(
+                    "<span class='good'>" +
+                    relic +
+                    " ×" +
+                    relicCounts[relic] +
+                    "</span>"
+                );
+
+            }
+
+            log(
+                "<span class='rare'>" +
+                "🔥 50 RELICS ADDED TO YOUR COLLECTION 🔥" +
                 "</span>"
             );
 
         }
 
+        levelUp();
+
+        updateStats();
+
+        updateDailyRewardUI();
+
+        // Persist the updated game state as well.
+        autoSave();
+
+    }catch(error){
+
+        console.error(
+            "Daily reward processing error:",
+            error
+        );
+
         log(
-            "<span class='rare'>" +
-            "🔥 50 RELICS ADDED TO YOUR COLLECTION 🔥" +
+            "<span class='enemy'>" +
+            "An error occurred while processing the reward. " +
+            "Your daily claim has been recorded." +
             "</span>"
         );
 
+        updateDailyRewardUI();
+
+    }finally{
+
+        dailyRewardClaimInProgress = false;
+
     }
-
-    levelUp();
-
-    updateStats();
-    updateDailyRewardUI();
-
-    autoSave();
 
 }
 
@@ -3895,7 +4138,10 @@ updateSaveSlotNames();
 
 rebuildAchievementLog();
 
+// Show a loading state, then restore saved reward data.
 updateDailyRewardUI();
+
+loadDailyRewardData();
 
 setTimeout(function(){
 
