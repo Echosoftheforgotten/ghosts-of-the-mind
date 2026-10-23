@@ -256,6 +256,25 @@ h2{
     transform:none;
 }
 
+/* CODES PANEL */
+
+#codeInput{
+    box-sizing:border-box;
+}
+
+#codeStatus{
+    color:white;
+    margin-top:10px;
+    min-height:18px;
+    font-size:13px;
+}
+
+#redeemCodeButton:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+    transform:none;
+}
+
 @keyframes dailyPulse{
     0%{box-shadow:0 0 5px #00ffcc;}
     50%{box-shadow:0 0 25px #00ffcc;}
@@ -374,6 +393,33 @@ Rest
 <button onclick="fakeTalk()">
 Fake Talk
 </button>
+
+</div>
+
+<div class="panel">
+
+<h2>CODES</h2>
+
+<label for="codeInput">Enter Code</label>
+
+<input
+    id="codeInput"
+    type="text"
+    placeholder="Enter Code"
+    autocomplete="off"
+    autocapitalize="characters"
+    spellcheck="false"
+    aria-label="Enter Code"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();redeemCode();}"
+>
+
+<button id="redeemCodeButton" onclick="redeemCode()" disabled>
+    REDEEM CODE
+</button>
+
+<div id="codeStatus" aria-live="polite">
+    Verifying saved code records...
+</div>
 
 </div>
 
@@ -947,6 +993,44 @@ let dailyRewardData = {
     streak:0,
     lastClaimDate:""
 };
+
+/* CODES SYSTEM */
+
+let redeemedCodes = [];
+let codeDataLoaded = false;
+let codeRedemptionInProgress = false;
+
+const codeRewards = Object.freeze({
+
+    "REMEMBER": {
+        shards: 500,
+        relics: [],
+        message: "A faint memory returns."
+    },
+
+    "MEMORYFALL": {
+        shards: 1000,
+        relics: ["Echo Fragment"],
+        message: "A small echo returns from the void."
+    },
+
+    "THELASTECHO": {
+        shards: 2500,
+        relics: ["The Last Echo"],
+        achievement: "The Last Echo",
+        achievementDescription: "Discovered a hidden signal buried in the forgotten network.",
+        title: "Echo Seeker",
+        message: "A distant voice answers Kael."
+    },
+
+    "NEMISIS": {
+        shards: 0,
+        relics: [],
+        boss: "CodeNemesis",
+        message: "AHH! YOU HAVE AWAKENED NEMESIS!"
+    }
+
+});
 
 /* DAILY REWARD DUPLICATION FIX */
 
@@ -1612,6 +1696,230 @@ async function claimDailyReward(){
 
 }
 
+/* =========================================================
+   CODE REDEMPTION
+   ========================================================= */
+
+async function saveRedeemedCodes(codes){
+    try{
+        const signedData = await signSecureData(codes);
+
+        localStorage.setItem(
+            "echoRedeemedCodes",
+            safeJSONStringify(signedData)
+        );
+
+        return true;
+    }catch(error){
+        console.error("Code record save error:", error);
+        return false;
+    }
+}
+
+async function loadRedeemedCodes(){
+    const status = document.getElementById("codeStatus");
+    const button = document.getElementById("redeemCodeButton");
+
+    try{
+        const raw = localStorage.getItem("echoRedeemedCodes");
+
+        if(raw === null){
+            if(!(await saveRedeemedCodes([]))){
+                throw new Error("Could not initialize code records.");
+            }
+
+            redeemedCodes = [];
+        }else{
+            const stored = await verifySecureData(safeJSONParse(raw));
+
+            const valid =
+                Array.isArray(stored) &&
+                stored.every(code =>
+                    typeof code === "string" &&
+                    Object.prototype.hasOwnProperty.call(codeRewards, code)
+                ) &&
+                new Set(stored).size === stored.length;
+
+            if(!valid){
+                throw new Error("Saved code records failed verification.");
+            }
+
+            redeemedCodes = stored;
+        }
+
+        codeDataLoaded = true;
+        button.disabled = false;
+
+        status.textContent =
+            "Enter a code to reveal a hidden reward.";
+
+    }catch(error){
+        console.error("Code record loading error:", error);
+
+        status.innerHTML =
+            "<span class='enemy'>CODE SECURITY ERROR — REDEMPTION LOCKED.</span>";
+
+        button.disabled = true;
+
+        log(
+            "<span class='enemy'>" +
+            "CODE SECURITY ERROR: Saved code records could not be verified. " +
+            "Redemption is locked." +
+            "</span>"
+        );
+    }
+}
+
+async function redeemCode(){
+    const input = document.getElementById("codeInput");
+    const status = document.getElementById("codeStatus");
+    const button = document.getElementById("redeemCodeButton");
+
+    if(!input || !status || !button) return;
+
+    if(gameOver){
+        status.innerHTML =
+            "<span class='warning'>Game Over. Load a save first.</span>";
+        return;
+    }
+
+    if(!codeDataLoaded){
+        status.innerHTML =
+            "<span class='enemy'>Code records are not verified. Redemption is locked.</span>";
+        return;
+    }
+
+    if(codeRedemptionInProgress) return;
+
+    const code = input.value.trim().toUpperCase();
+
+    if(!code){
+        status.innerHTML =
+            "<span class='warning'>ENTER A CODE FIRST.</span>";
+        return;
+    }
+
+    if(!Object.prototype.hasOwnProperty.call(codeRewards, code)){
+        status.innerHTML =
+            "<span class='enemy'>INVALID CODE. No reward was granted.</span>";
+
+        log("<span class='warning'>Invalid code entered.</span>");
+        return;
+    }
+
+    if(redeemedCodes.includes(code)){
+        status.innerHTML =
+            "<span class='warning'>CODE ALREADY REDEEMED.</span>";
+
+        log(
+            "<span class='warning'>Code " +
+            code +
+            " has already been redeemed.</span>"
+        );
+
+        return;
+    }
+
+if(codeRewards[code].boss && inBattle){
+    status.innerHTML =
+        "<span class='warning'>Finish your current battle first!</span>";
+    status.dataset.persistentMessage = "true";
+    return;
+}
+
+    codeRedemptionInProgress = true;
+    button.disabled = true;
+
+    status.textContent = "Securing code redemption...";
+
+    // Save the claim BEFORE awarding the reward.
+    const nextRedeemedCodes = [...redeemedCodes, code];
+
+    const saved = await saveRedeemedCodes(nextRedeemedCodes);
+
+    if(!saved){
+        codeRedemptionInProgress = false;
+        button.disabled = false;
+
+        status.innerHTML =
+            "<span class='enemy'>SECURITY ERROR: No reward was granted.</span>";
+
+        return;
+    }
+
+    redeemedCodes = nextRedeemedCodes;
+
+    const reward = codeRewards[code];
+
+    try{
+        shards += reward.shards || 0;
+
+        for(const relic of (reward.relics || [])){
+            relics.push(relic);
+        }
+
+        recalcRelicBonuses();
+
+        if(reward.achievement){
+            unlockAchievement(
+                reward.achievement,
+                reward.achievementDescription,
+                reward.title || ""
+            );
+        }
+
+        log(
+            "<span class='rare'>CODE ACCEPTED: " +
+            code +
+            "</span>"
+        );
+
+        log(
+            "<span class='good'>+" +
+            (reward.shards || 0).toLocaleString("en-US") +
+            " Memory Shards</span>"
+        );
+
+        for(const relic of (reward.relics || [])){
+            log(
+                "<span class='rare'>Relic acquired: " +
+                relic +
+                "</span>"
+            );
+        }
+
+        log("<span class='skill'>" + reward.message + "</span>");
+
+levelUp();
+updateStats();
+autoSave();
+
+if(reward.boss === "CodeNemesis"){
+    spawnCodeNemesis();
+}
+
+        status.innerHTML =
+            "<span class='good'>CODE REDEEMED — REWARDS ADDED.</span>";
+
+        input.value = "";
+
+    }catch(error){
+        console.error("Code reward processing error:", error);
+
+        status.innerHTML =
+            "<span class='warning'>Reward processing failed. The code remains marked as redeemed.</span>";
+
+        log(
+            "<span class='enemy'>" +
+            "Code reward processing error. The code remains marked as redeemed." +
+            "</span>"
+        );
+
+    }finally{
+        codeRedemptionInProgress = false;
+        button.disabled = false;
+    }
+}
 
 let tutorialStep =
 Number(localStorage.getItem("echoTutorialStep")) || 0;
@@ -1858,14 +2166,18 @@ document.getElementById("classType").innerHTML = displayClass;
 document.getElementById("relicCount").innerHTML = relics.length;
 document.getElementById("multi").innerHTML = powerMulti.toFixed(3);
 
-if(bossType == "Nemesis"){
+if(bossType === "CodeNemesis" && !gameOver){
+
+    document.getElementById("enemyHP").innerHTML = "∞";
+
+}else if(bossType === "Nemesis"){
 
     document.getElementById("enemyHP").innerHTML = "???";
 
 }else{
 
     document.getElementById("enemyHP").innerHTML =
-    enemyHP < 0 ? 0 : Math.floor(enemyHP);
+        enemyHP < 0 ? 0 : Math.floor(enemyHP);
 
 }
 
@@ -1949,7 +2261,11 @@ logBox.scrollTop = logBox.scrollHeight;
 
 function autoSave(){
 
-saveGame(currentSaveSlot,true);
+    if(gameOver){
+        return;
+    }
+
+    saveGame(currentSaveSlot,true);
 
 }
 
@@ -2908,8 +3224,13 @@ function recalcRelicBonuses(){
                 break;
 
             case "Void Lantern":
-                relicBattleHeal += 10;
-                break;
+    relicBattleHeal += 10;
+    break;
+
+case "The Last Echo":
+    relicBonusSanity += 2;
+    relicSkillBonus += 0.05;
+    break;
 
         }
 
@@ -3274,6 +3595,29 @@ function spawnMemoryEater(){
 
 }
 
+function spawnCodeNemesis(){
+
+    bossFight = true;
+    bossType = "CodeNemesis";
+    bossName = "NEMESIS";
+    bossDifficulty = "∞";
+
+    // Practically infinite HP, represented safely as a number.
+    enemyMaxHP = Number.MAX_SAFE_INTEGER;
+    enemyHP = enemyMaxHP;
+
+    inBattle = true;
+    corruptionSkip = false;
+
+    log("<span class='enemy'>ERROR: FORBIDDEN CODE DETECTED.</span>");
+    log("<span class='rare'>NEMESIS HAS ENTERED THE MEMORY STREAM.</span>");
+    log("<span class='enemy'>ENEMY HP: ∞</span>");
+    log("<span class='enemy'>WARNING: SURVIVAL PROBABILITY UNKNOWN.</span>");
+
+    updateStats();
+
+}
+
 function spawnNemesis(){
 
     bossFight = true;
@@ -3324,6 +3668,25 @@ function spawnFinalBoss(){
 
 }
 
+function damageEnemy(damage){
+
+    if(bossType === "CodeNemesis"){
+
+        enemyHP = Number.MAX_SAFE_INTEGER;
+        enemyMaxHP = Number.MAX_SAFE_INTEGER;
+
+        return;
+
+    }
+
+    damageEnemy(damage);
+
+    if(enemyHP < 0){
+        enemyHP = 0;
+    }
+
+}
+
 function attackEnemy(){
 
     if(gameOver){
@@ -3369,7 +3732,7 @@ log("<span class='good'>CRITICAL HIT!</span>");
 
 let enemyWasAlive = enemyHP > 0;
 
-enemyHP -= damage;
+damageEnemy(damage);
 
 if(enemyHP < 0){
     enemyHP = 0;
@@ -3442,7 +3805,7 @@ Math.floor(
 let heal =
 Math.floor((4 + level * 0.25) * powerMulti);
 
-enemyHP -= damage;
+damageEnemy(damage);
 
 hp = Math.min(maxHP, hp + heal);
 
@@ -3466,7 +3829,7 @@ Math.floor(
 * relicSkillBonus
 );
 
-enemyHP -= damage;
+damageEnemy(damage);
 
 sanity -= 5;
 
@@ -3486,7 +3849,7 @@ Math.floor(
 * relicSkillBonus
 );
 
-enemyHP -= damage;
+damageEnemy(damage);
 
 log("Warden strikes with force for "
 + damage + " damage.");
@@ -3579,6 +3942,21 @@ function enemyTurn(){
 
 if(gameOver || enemyHP <= 0){
     return;
+}
+
+if(bossType === "CodeNemesis"){
+
+    corruptionSkip = false;
+
+    log("<span class='enemy'>NEMESIS ATTACKS.</span>");
+    log("<span class='enemy'>ALL DEFENSES OVERRIDDEN.</span>");
+
+    playerDeath(
+        "NEMESIS erased Kael in one hit. AHH!"
+    );
+
+    return;
+
 }
 
 if(corruptionSkip){
@@ -4143,6 +4521,8 @@ updateDailyRewardUI();
 
 loadDailyRewardData();
 
+loadRedeemedCodes();
+
 setTimeout(function(){
 
     if(tutorialFinished){
@@ -4247,6 +4627,7 @@ window.rest = () => rest();
 window.fakeTalk = () => fakeTalk();
 
 window.claimDailyReward = () => claimDailyReward();
+window.redeemCode = () => redeemCode();
 
 window.saveGame = (slot) => saveGame(slot);
 window.loadGame = (slot) => loadGame(slot);
