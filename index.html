@@ -2886,15 +2886,11 @@ function rebuildAchievementLog(){
         p.appendChild(document.createTextNode("🏆 "));
         p.appendChild(heading);
 
-        // Recover the description from the code reward data.
         const achievementData = Object.values(codeRewards).find(
             reward => reward.achievement === achievementName
         );
 
-        if(
-            achievementData &&
-            achievementData.achievementDescription
-        ){
+        if(achievementData && achievementData.achievementDescription){
 
             p.appendChild(document.createElement("br"));
 
@@ -2906,7 +2902,6 @@ function rebuildAchievementLog(){
 
         }
 
-        // Preserve the existing title display.
         if(i < titles.length){
 
             p.appendChild(document.createElement("br"));
