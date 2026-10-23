@@ -1103,6 +1103,75 @@ const codeRewards = Object.freeze({
         message: "An echo leads you to 100 Memory Shards."
     },
 
+    "ARCHIVISTS": {
+        shards: 50,
+        achievement: "Archivist Ally",
+        achievementDescription: "You earned the trust of the Archivists and received their gift.",
+        message: "The Archivists share 50 Memory Shards with you."
+    },
+
+    "MEMORYVAULT": {
+        shards: 50,
+        achievement: "Vault Delver",
+        achievementDescription: "You discovered the Memory Vault and claimed a fragment of its hidden wealth.",
+        message: "The Memory Vault opens. +50 Memory Shards."
+    },
+
+    "CORRUPTEDENTITY": {
+        shards: 50,
+        achievement: "Corruption Witness",
+        achievementDescription: "You encountered a corrupted entity and survived long enough to claim its reward.",
+        message: "A corrupted entity leaves behind 50 Memory Shards."
+    },
+
+    "FORGOTTEN": {
+        shards: 50,
+        achievement: "Remembered by the Forgotten",
+        achievementDescription: "Even those erased from history remember your name.",
+        message: "The Forgotten remember you. +50 Memory Shards."
+    },
+
+    "DIVER": {
+        shards: 50,
+        achievement: "Depths Explorer",
+        achievementDescription: "You ventured into the depths of memory and returned with something valuable.",
+        message: "A successful dive returns 50 Memory Shards."
+    },
+
+    "THANKYOU": {
+        shards: 50,
+        achievement: "A Grateful Echo",
+        achievementDescription: "You found a small token of appreciation from the world of ECHOES OF THE FORGOTTEN.",
+        message: "Thank you for playing! +50 Memory Shards."
+    },
+
+    "ECHOHUNTER": {
+        shards: 50,
+        achievement: "Echo Hunter",
+        achievementDescription: "You tracked a mysterious echo until its hidden reward revealed itself.",
+        message: "You tracked an elusive echo. +50 Memory Shards."
+    },
+
+    "ARCHIVIST": {
+        shards: 100,
+        achievement: "Archivist's Favor",
+        achievementDescription: "You gained the favor of an Archivist and received a generous reward.",
+        message: "The Archivist rewards your discovery. +100 Memory Shards."
+    },
+
+    "REBELS": {
+        shards: 100,
+        achievement: "Rebel Contact",
+        achievementDescription: "You established contact with the Rebels and earned their trust.",
+        message: "The Rebels share their hidden stash. +100 Memory Shards."
+    },
+
+    "NEONVEIL": {
+        shards: 100,
+        achievement: "Veil Wanderer",
+        achievementDescription: "You explored the Neon Veil and uncovered a reward hidden beneath its glow.",
+        message: "The Neon Veil reveals 100 Memory Shards."
+    },
 
     "REMEMBER": {
         shards: 100,
@@ -2790,30 +2859,68 @@ async function loadGame(slot){
 
 function rebuildAchievementLog(){
 
+function rebuildAchievementLog(){
+
     const logBox = document.getElementById("achievementLog");
 
     logBox.innerHTML = "";
 
-    if(achievements.length === 0){
+    if(!Array.isArray(achievements) || achievements.length === 0){
+
         logBox.innerHTML = "<p>No achievements unlocked.</p>";
+
         return;
+
     }
 
     for(let i = 0; i < achievements.length; i++){
 
-        let p = document.createElement("p");
+        const achievementName = achievements[i];
+
+        const p = document.createElement("p");
         p.className = "achievement";
 
-        p.innerHTML = "🏆 <b>" + achievements[i] + "</b>";
+        const heading = document.createElement("b");
+        heading.textContent = achievementName;
 
+        p.appendChild(document.createTextNode("🏆 "));
+        p.appendChild(heading);
+
+        // Recover the description from the code reward data.
+        const achievementData = Object.values(codeRewards).find(
+            reward => reward.achievement === achievementName
+        );
+
+        if(
+            achievementData &&
+            achievementData.achievementDescription
+        ){
+
+            p.appendChild(document.createElement("br"));
+
+            p.appendChild(
+                document.createTextNode(
+                    achievementData.achievementDescription
+                )
+            );
+
+        }
+
+        // Preserve the existing title display.
         if(i < titles.length){
-            p.innerHTML +=
-            "<br><span class='rare'>Title: " +
-            titles[i] +
-            "</span>";
+
+            p.appendChild(document.createElement("br"));
+
+            const titleSpan = document.createElement("span");
+            titleSpan.className = "rare";
+            titleSpan.textContent = "Title: " + titles[i];
+
+            p.appendChild(titleSpan);
+
         }
 
         logBox.appendChild(p);
+
     }
 
 }
