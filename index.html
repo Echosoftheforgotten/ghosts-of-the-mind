@@ -935,6 +935,11 @@ let sanity = 100;
 
 let shards = 50;
 
+/* LEVEL PROGRESSION */
+let levelProgress = 0;
+let lastLevelShardTotal = 50;
+let trueNemesisAscension = false;
+
 let faction = "Neutral";
 let classType = "Novice Diver";
 
@@ -2290,6 +2295,7 @@ let bossCooldown = 0;
 
 let disabledRelic = "";
 let nemesisFinalPhase = false;
+let trueNemesisPhase = 0;
 
 function playerDeath(reason = "You died."){
 
@@ -2503,6 +2509,8 @@ async function saveGame(slot,auto=false){
         permanentBossSanity,
         sanity,
         shards,
+        levelProgress,
+        lastLevelShardTotal,
 
         faction,
         classType,
@@ -2704,6 +2712,17 @@ async function loadGame(slot){
 
     sanity = save.sanity;
     shards = save.shards;
+
+    // Migrate older saves without changing their level or shard balance.
+    levelProgress =
+        Number.isFinite(save.levelProgress) && save.levelProgress >= 0
+            ? save.levelProgress
+            : 0;
+
+    lastLevelShardTotal =
+        Number.isFinite(save.lastLevelShardTotal) && save.lastLevelShardTotal >= 0
+            ? save.lastLevelShardTotal
+            : shards;
 
     faction = save.faction;
     classType = save.classType;
@@ -3015,7 +3034,40 @@ powerMulti += 0.005;
 
 }
 
+function syncLevelProgressFromShards(){
+
+    const gained = shards - lastLevelShardTotal;
+
+    if(gained > 0){
+        levelProgress += gained;
+    }
+
+    lastLevelShardTotal = shards;
+
+}
+
+function getLevelUpCost(currentLevel){
+
+    // Smoothly increases the cost as Kael's level rises.
+    return Math.ceil(
+        100 +
+        currentLevel * 1.3 +
+        (currentLevel * currentLevel) / 5000
+    );
+
+}
+
 function levelUp(){
+
+    // TRUE NEMESIS deliberately retains the old massive post-victory ascension.
+    const finalBossAscension = trueNemesisAscension;
+
+    if(finalBossAscension){
+        levelProgress = 0;
+        lastLevelShardTotal = shards;
+    }else{
+        syncLevelProgressFromShards();
+    }
 
     let oldLevel = level;
     let oldHP = maxHP;
@@ -3023,7 +3075,15 @@ function levelUp(){
 
     let levelsGained = 0;
 
-    while(shards >= level * 120){
+    while(
+        finalBossAscension
+            ? shards >= level * 120
+            : levelProgress >= getLevelUpCost(level)
+    ){
+
+        if(!finalBossAscension){
+            levelProgress -= getLevelUpCost(level);
+        }
 
         level++;
         levelsGained++;
@@ -3038,6 +3098,12 @@ function levelUp(){
         }
 
         addMultiplier();
+    }
+
+    if(finalBossAscension){
+        trueNemesisAscension = false;
+        levelProgress = 0;
+        lastLevelShardTotal = shards;
     }
 
     if(levelsGained > 0){
@@ -3534,7 +3600,9 @@ tutorialAction("relic");
 
 if(shards >= 40){
 
+syncLevelProgressFromShards();
 shards -= 40;
+lastLevelShardTotal = shards;
 
 findRelic();
 
@@ -3890,9 +3958,10 @@ function spawnFinalBoss(){
     bossFight = true;
     bossType = "TrueNemesis";
     bossName = "TRUE NEMESIS";
+    trueNemesisPhase = 1;
 
-    enemyMaxHP = Math.floor(maxHP * 5);
-
+    // Three separate health phases; damage cannot spill into the next phase.
+    enemyMaxHP = Math.floor(maxHP * 12);
     enemyHP = enemyMaxHP;
 
     inBattle = true;
@@ -3904,6 +3973,7 @@ function spawnFinalBoss(){
     log("<span class='rare'>TRUE NEMESIS</span>");
     log("<span class='enemy'>THE STRONGEST CORRUPTED ENTITY</span>");
     log("<span class='enemy'>THE SOURCE OF ALL MEMORY DECAY</span>");
+    log("<span class='rare'>PHASE 1 OF 3 — THE AWAKENING</span>");
     log("<span class='enemy'>████████████████</span>");
 
     updateStats();
@@ -3921,11 +3991,60 @@ function damageEnemy(damage){
 
     }
 
+    if(
+        bossType === "TrueNemesis" &&
+        damage >= enemyHP &&
+        trueNemesisPhase < 3
+    ){
+
+        const defeatedPhase = trueNemesisPhase;
+        trueNemesisPhase++;
+
+        const phaseMultiplier = 12 + (trueNemesisPhase - 1) * 4;
+        enemyMaxHP = Math.floor(maxHP * phaseMultiplier);
+        enemyHP = enemyMaxHP;
+
+        log(
+            "<span class='rare'>TRUE NEMESIS PHASE " +
+            defeatedPhase + " DESTROYED.</span>"
+        );
+
+        log(
+            "<span class='enemy'>PHASE " + trueNemesisPhase +
+            " OF 3 — THE CORRUPTION DEEPENS.</span>"
+        );
+
+        updateStats();
+        return;
+
+    }
+
     enemyHP -= damage;
 
     if(enemyHP < 0){
         enemyHP = 0;
     }
+
+}
+
+function trueNemesisStealsAttack(){
+
+    if(bossType !== "TrueNemesis"){
+        return false;
+    }
+
+    if(secureRandom() >= 0.25){
+        return false;
+    }
+
+    log("<span class='enemy'>TRUE NEMESIS CORRUPTS YOUR MEMORY.</span>");
+    log("Kael forgets how to attack. Your turn is lost.");
+
+    enemyTurn();
+    updateStats();
+    autoSave();
+
+    return true;
 
 }
 
@@ -3942,6 +4061,10 @@ log("No enemy present.");
 
 return;
 
+}
+
+if(trueNemesisStealsAttack()){
+    return;
 }
 
 let crit = secureRandom() < 0.2;
@@ -4031,6 +4154,10 @@ log("No enemy present.");
 
 return;
 
+}
+
+if(trueNemesisStealsAttack()){
+    return;
 }
 
 /* EMPATH NERF */
@@ -4150,9 +4277,12 @@ return;
 
 if(shards >= 10){
 
+syncLevelProgressFromShards();
+
 hp += 20;
 
 shards -= 10;
+lastLevelShardTotal = shards;
 
 sanity += 5;
 
@@ -4212,17 +4342,33 @@ if(corruptionSkip){
 }
 
 
-let enemyDamage =
-Math.floor(
-((Math.random()*15)+6+level)
-*
-powerMulti
-);
+let enemyDamage;
+
+if(bossType === "TrueNemesis"){
+
+    const phaseDamageRatio = 0.12 + (trueNemesisPhase - 1) * 0.04;
+
+    enemyDamage = Math.floor(
+        maxHP * phaseDamageRatio * (0.9 + secureRandom() * 0.2)
+    );
+
+    log(
+        "<span class='enemy'>TRUE NEMESIS — PHASE " +
+        trueNemesisPhase + " STRIKE deals " + enemyDamage + " damage.</span>"
+    );
+
+}else{
+
+    enemyDamage = Math.floor(
+        ((Math.random()*15)+6+level) * powerMulti
+    );
+
+    log("<span class='enemy'>Enemy deals "
+    + enemyDamage + " damage.</span>");
+
+}
 
 hp -= enemyDamage;
-
-log("<span class='enemy'>Enemy deals "
-+ enemyDamage + " damage.</span>");
 
 if(secureRandom() < 0.25){
 
@@ -4672,6 +4818,7 @@ unlockAchievement(
 else if(bossType == "TrueNemesis"){
 
     finalBossDefeated = true;
+    trueNemesisAscension = true;
 
 unlockAchievement(
 "The End",
