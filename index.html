@@ -977,7 +977,7 @@ let permanentBossSanity = 0;
 
 let gameOver = false;
 
-let currentSaveSlot = 1;
+let currentSaveSlot = null;
 
 /* DAILY REWARD SYSTEM */
 
@@ -1646,8 +1646,36 @@ async function claimDailyReward(){
 
     // Block overlapping or repeated clicks.
     if(dailyRewardClaimInProgress){
-
         return;
+    }
+
+    // Protect existing saves from claims made by an unloaded character.
+    if(
+        !Number.isInteger(currentSaveSlot) ||
+        currentSaveSlot < 1 ||
+        currentSaveSlot > 3
+    ){
+
+        const hasExistingSave = [1, 2, 3].some(
+            slot => localStorage.getItem("echoSave" + slot) !== null
+        );
+
+        if(hasExistingSave){
+
+            log(
+                "<span class='warning'>" +
+                "LOAD YOUR SAVE FIRST! Daily rewards are locked " +
+                "until you load a character. Your existing progress " +
+                "will not be overwritten." +
+                "</span>"
+            );
+
+            return;
+
+        }
+
+        // A completely new player has no existing save to overwrite.
+        currentSaveSlot = 1;
 
     }
 
@@ -1828,8 +1856,8 @@ async function claimDailyReward(){
 
         updateDailyRewardUI();
 
-        // Persist the updated game state as well.
-        autoSave();
+        // Finish saving the updated character before continuing.
+        await autoSave();
 
     }catch(error){
 
@@ -2421,10 +2449,31 @@ logBox.scrollTop = logBox.scrollHeight;
 function autoSave(){
 
     if(gameOver){
-        return;
+        return Promise.resolve(false);
     }
 
-    saveGame(currentSaveSlot,true);
+    // A loaded or explicitly saved character has an active slot.
+    if(
+        Number.isInteger(currentSaveSlot) &&
+        currentSaveSlot >= 1 &&
+        currentSaveSlot <= 3
+    ){
+        return saveGame(currentSaveSlot, true);
+    }
+
+    // Never overwrite existing progress with a fresh character.
+    const hasExistingSave = [1, 2, 3].some(
+        slot => localStorage.getItem("echoSave" + slot) !== null
+    );
+
+    if(hasExistingSave){
+        return Promise.resolve(false);
+    }
+
+    // No saved characters exist, so this is a new game.
+    currentSaveSlot = 1;
+
+    return saveGame(currentSaveSlot, true);
 
 }
 
