@@ -3711,12 +3711,14 @@ tutorialAction("rest");
         return;
     }
 
-    hp += 15;
-    sanity += 8;
 
-    if(hp > maxHP){
-        hp = maxHP;
-    }
+hp = Math.min(maxHP, hp + 15);
+
+sanity = Math.min(
+    100 + relicBonusSanity + permanentBossSanity,
+    sanity + 20
+);
+
 
 if(sanity > 100 + relicBonusSanity + permanentBossSanity){
     sanity = 100 + relicBonusSanity + permanentBossSanity;
@@ -4266,7 +4268,8 @@ Math.floor(
 
 damageEnemy(damage);
 
-sanity -= 5;
+// Manipulator skills now cost only 1 Sanity.
+sanity = Math.max(0, sanity - 1);
 
 log("Manipulator distorts enemy memory for "
 + damage + " damage.");
@@ -4350,7 +4353,11 @@ hp += 20;
 shards -= 10;
 lastLevelShardTotal = shards;
 
-sanity += 5;
+// Stabilization now restores 10 Sanity.
+sanity = Math.min(
+    100 + relicBonusSanity + permanentBossSanity,
+    sanity + 10
+);
 
 if(hp > maxHP){
 hp = maxHP;
@@ -4436,11 +4443,11 @@ if(bossType === "TrueNemesis"){
 
 hp -= enemyDamage;
 
-if(secureRandom() < 0.25){
+if(secureRandom() < 0.10){
 
-sanity -= 5;
+sanity = Math.max(0, sanity - 2);
 
-log("<span class='warning'>Your sanity weakens.</span>");
+log("<span class='warning'>Your sanity weakens slightly.</span>");
 
 }
 
@@ -4483,16 +4490,40 @@ hp += relicBattleHeal;
 
 if(hp > maxHP)
     hp = maxHP;
-	
-if (soulWeaver) {
 
-    sanity += 1;
+// ALL classes recover Sanity after defeating an enemy.
+const sanityCap = 100 + relicBonusSanity + permanentBossSanity;
+const sanityRecovered = Math.max(
+    0,
+    Math.min(5, sanityCap - sanity)
+);
 
-    if (sanity > 100 + relicBonusSanity + permanentBossSanity) {
-        sanity = 100 + relicBonusSanity + permanentBossSanity;
+sanity += sanityRecovered;
+
+if(sanityRecovered > 0){
+    log(
+        "<span class='good'>Victory restores +" +
+        sanityRecovered +
+        " Sanity.</span>"
+    );
+}
+
+// Soul Weaver retains its extra class bonus.
+if(soulWeaver){
+
+    const extraSanity = Math.max(
+        0,
+        Math.min(
+            1,
+            100 + relicBonusSanity + permanentBossSanity - sanity
+        )
+    );
+
+    sanity += extraSanity;
+
+    if(extraSanity > 0){
+        log("<span class='good'>Soul Weaver restores +1 bonus Sanity.</span>");
     }
-
-    log("<span class='good'>Soul Weaver restores +1 Sanity after victory.</span>");
 
 }
 
