@@ -2613,10 +2613,22 @@ async function saveGame(slot,auto=false){
             updateSaveSlotNames();
             rebuildAchievementLog();
 
+            let savedName =
+                localStorage.getItem("echoSaveName"+slot) ||
+                "Slot " + slot;
+
+            savedName = savedName.replace(/[&<>"']/g, character => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                "\"": "&quot;",
+                "'": "&#39;"
+            }[character]));
+
             log(
                 "<span class='good'>" +
-                "Game Saved to Slot " +
-                slot +
+                "Game Saved: " +
+                savedName +
                 "</span>"
             );
 
@@ -2893,10 +2905,22 @@ async function loadGame(slot){
 
     }
 
+    let loadedName =
+        localStorage.getItem("echoSaveName"+slot) ||
+        "Slot " + slot;
+
+    loadedName = loadedName.replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+    }[character]));
+
     log(
         "<span class='good'>" +
-        "Loaded Save Slot " +
-        slot +
+        "Loaded Save: " +
+        loadedName +
         "</span>"
     );
 
