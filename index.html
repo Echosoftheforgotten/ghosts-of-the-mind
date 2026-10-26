@@ -2308,6 +2308,22 @@ function playerDeath(reason = "You died."){
     enemyHP = 0;
     enemyMaxHP = 0;
 
+    // Permanently lock the active save slot after death.
+    if(
+        Number.isInteger(currentSaveSlot) &&
+        currentSaveSlot >= 1 &&
+        currentSaveSlot <= 3
+    ){
+        try{
+            localStorage.setItem(
+                "echoDeadSave" + currentSaveSlot,
+                "true"
+            );
+        }catch(error){
+            console.error("Death lock save error:", error);
+        }
+    }
+
     log("<span class='enemy'>" + reason + "</span>");
 
     document.body.style.filter = "grayscale(100%)";
@@ -2485,6 +2501,17 @@ function autoSave(){
 
 async function saveGame(slot,auto=false){
 
+    // Never overwrite a save with a dead character.
+    if(gameOver || hp <= 0){
+        log(
+            "<span class='enemy'>" +
+            "SAVE BLOCKED: Your character is dead." +
+            "</span>"
+        );
+
+        return false;
+    }
+
     if(
         !auto &&
         localStorage.getItem("echoSave"+slot)
@@ -2584,6 +2611,10 @@ async function saveGame(slot,auto=false){
             )
         );
 
+        // A successful save by a living character
+        // replaces the old slot and clears its death lock.
+        localStorage.removeItem("echoDeadSave" + slot);
+
         currentSaveSlot = slot;
 
         if(!auto){
@@ -2652,6 +2683,20 @@ async function saveGame(slot,auto=false){
 }
 
 async function loadGame(slot){
+
+    // Death locks survive page refreshes.
+    if(
+        localStorage.getItem("echoDeadSave" + slot) === "true"
+    ){
+        log(
+            "<span class='enemy'>" +
+            "☠ SAVE SLOT " + slot + " IS LOCKED. " +
+            "This character has died permanently." +
+            "</span>"
+        );
+
+        return;
+    }
 
     const raw =
         localStorage.getItem(
