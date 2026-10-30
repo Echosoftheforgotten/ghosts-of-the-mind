@@ -742,6 +742,31 @@ function getSecurityKey(){
                         writeTransaction.oncomplete =
                             function(){
 
+                                // If saved data already exists, its old
+                                // signatures can never match this new key.
+                                try{
+
+                                    const hadOldData = [
+                                        "echoSave1",
+                                        "echoSave2",
+                                        "echoSave3",
+                                        "echoDailyRewardData",
+                                        "echoRedeemedCodes"
+                                    ].some(
+                                        k => localStorage.getItem(k) !== null
+                                    );
+
+                                    if(hadOldData){
+                                        localStorage.setItem(
+                                            "echoKeyWasReset",
+                                            "true"
+                                        );
+                                    }
+
+                                }catch(error){
+                                    console.error(error);
+                                }
+
                                 db.close();
 
                                 resolve(key);
@@ -2722,13 +2747,31 @@ async function loadGame(slot){
 
     }catch(error){
 
-        localStorage.removeItem(
-            "echoSave"+slot
+        // Damaged file: keep it, just refuse to load it.
+        log(
+            "<span class='enemy'>" +
+            "⚠ SAVE SLOT " + slot + " IS DAMAGED AND CANNOT BE READ. " +
+            "The data was kept, not deleted." +
+            "</span>"
         );
+
+        return;
+
+    }
+
+    // Wrong shape = damaged, not tampered.
+    if(
+        !envelope ||
+        typeof envelope !== "object" ||
+        envelope.version !== 1 ||
+        !envelope.data ||
+        typeof envelope.signature !== "string"
+    ){
 
         log(
             "<span class='enemy'>" +
-            "⚠ CORRUPTED SAVE DETECTED." +
+            "⚠ SAVE SLOT " + slot + " HAS AN INVALID FORMAT. " +
+            "The data was kept, not deleted." +
             "</span>"
         );
 
@@ -2743,21 +2786,30 @@ async function loadGame(slot){
 
     if(!save){
 
-        log(
-            "<span class='enemy'>" +
-            "⚠ SAVE TAMPERING DETECTED." +
-            "</span>"
-        );
+        const keyWasReset =
+            localStorage.getItem("echoKeyWasReset") === "true";
 
-        log(
-            "<span class='warning'>" +
-            "This save was modified outside the game and has been rejected." +
-            "</span>"
-        );
+        if(keyWasReset){
 
-        localStorage.removeItem(
-            "echoSave"+slot
-        );
+            log(
+                "<span class='warning'>" +
+                "⚠ SAVE SLOT " + slot + " COULD NOT BE VERIFIED. " +
+                "The security key was reset (browser data may have been cleared). " +
+                "Your save was kept, not deleted." +
+                "</span>"
+            );
+
+        }else{
+
+            log(
+                "<span class='warning'>" +
+                "⚠ SAVE SLOT " + slot + " FAILED VERIFICATION. " +
+                "It may have been modified outside the game. " +
+                "It was not loaded, but it was kept." +
+                "</span>"
+            );
+
+        }
 
         return;
 
