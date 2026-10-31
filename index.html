@@ -289,6 +289,132 @@ h2{
     }
 }
 
+/* =====================================================================
+   MOBILE LAYOUT FIX — paste this just ABOVE the </style> line.
+   Desktop (wider than 900px) is not affected.
+   ===================================================================== */
+
+@media(max-width:900px){
+
+    header{
+        font-size:22px;
+        padding:12px 8px;
+        letter-spacing:1px;
+    }
+
+    /* One column. The two wrappers dissolve so every panel can be
+       re-ordered into a sensible phone order. */
+    #container{
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+        gap:10px;
+        padding:8px;
+    }
+
+    #leftPanel,
+    #mainPanel{
+        display:contents;
+    }
+
+    #container .panel{
+        width:100%;
+        margin:0;
+        padding:12px;
+        box-sizing:border-box;
+    }
+
+    /* Phone order: stats, story, enemy, combat, explore, quests,
+       skills, factions, daily, codes, achievements, saves */
+    #leftPanel>.panel:nth-child(1){order:1;}   /* stats */
+    #mainPanel>.panel:nth-child(1){order:2;}   /* story log */
+    #mainPanel>.panel:nth-child(2){order:3;}   /* enemy */
+    #mainPanel>.panel:nth-child(3){order:4;}   /* combat */
+    #leftPanel>.panel:nth-child(4){order:5;}   /* exploration */
+    #mainPanel>.panel:nth-child(4){order:6;}   /* quests */
+    #leftPanel>.panel:nth-child(2){order:7;}   /* skill trees */
+    #leftPanel>.panel:nth-child(3){order:8;}   /* factions */
+    #leftPanel>.panel:nth-child(6){order:9;}   /* daily rewards */
+    #leftPanel>.panel:nth-child(5){order:10;}  /* codes */
+    #mainPanel>.panel:nth-child(5){order:11;}  /* achievements */
+    #leftPanel>.panel:nth-child(7){order:12;}  /* save slots */
+
+    /* Combat buttons in a 2 x 2 grid */
+    #mainPanel>.panel:nth-child(3){
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+    }
+    #mainPanel>.panel:nth-child(3) h2{
+        grid-column:1 / -1;
+        margin:0;
+    }
+    #mainPanel>.panel:nth-child(3) button{
+        margin:0;
+    }
+
+    /* Bigger, easier tap targets */
+    button{
+        min-height:46px;
+        padding:12px 10px;
+        font-size:16px;
+    }
+    input{
+        font-size:16px;   /* stops iPhones zooming in on tap */
+    }
+
+    .stat{margin-bottom:6px;}
+    #log{height:240px;}
+    #achievementLog{height:160px;}
+
+    .dailyDay{
+        min-height:64px;
+        font-size:12px;
+    }
+
+    /* Leave room so the tutorial panel never hides the last buttons */
+    body{padding-bottom:150px;}
+
+    body #tutPanel{
+        bottom:56px;
+        padding:8px 10px;
+        max-height:40vh;
+        overflow-y:auto;
+    }
+    body #tutPanel #tutTitle{font-size:15px;}
+    body #tutPanel #tutBody{font-size:13px;}
+
+    /* Relic Vault on phones */
+    body #relicVault{padding:6px;}
+    body #relicVault .rvBox{padding:8px;}
+    body #relicVault button,
+    body #relicVault select{
+        padding:10px 8px;
+        font-size:12px;
+    }
+}
+
+@media(max-width:600px){
+    body .rvGrid{grid-template-columns:repeat(2,1fr);}
+}
+
+@media(max-width:480px){
+    .dailyRewardGrid{grid-template-columns:repeat(3,1fr);}
+}
+
+/* Touch screens: no sticky hover colours or zoom after a tap */
+@media(hover:none){
+    button:hover{
+        background:black;
+        color:cyan;
+        transform:none;
+    }
+    button:active{
+        background:cyan;
+        color:black;
+    }
+}
+
 </style>
 </head>
 
