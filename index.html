@@ -5577,6 +5577,259 @@ function renderVault(){
 for(const n of relics){ if(relicByName(n)) relicDiscovered[n] = true; }
 recalcRelicBonuses();
 
+/* =====================================================================
+   ECHOES OF THE FORGOTTEN — TUTORIAL 2.0
+   PASTE: right after the line `recalcRelicBonuses();` that ends the Relic
+   Vault module, and right BEFORE the lines  updateStats();  updateSaveSlotNames();
+   Nothing needs deleting: this takes over the old tutorial functions.
+   ===================================================================== */
+
+const TUT = [
+ {t:"Welcome, Kael",
+  b:"You are a Memory Diver. You earn Memory Shards, level up, collect relics and take down bosses across the Neon Veil. This guide takes about 3 minutes and pays a reward at the end.",
+  tip:"Glowing yellow buttons show where to click. You can minimise or skip this guide at any time.",btn:1},
+
+ {t:"Start a fight",
+  b:"Press <b>Fight Corrupted Entity</b>. Enemies grow stronger as you level up.",
+  hl:["startBattle()"],act:"fight",chk:()=>inBattle||basicAttackKills>0},
+
+ {t:"Win the battle",
+  b:"Press <b>Basic Attack</b> until the enemy's HP reaches 0. The enemy hits back every turn, so keep an eye on your HP bar.",
+  tip:"Every win gives shards, restores Sanity, and refills your explore, dive and rest uses.",
+  hl:["attackEnemy()"],act:"attack",chk:()=>basicAttackKills>0},
+
+ {t:"Explore Neon Veil",need:5,
+  b:()=>"Press <b>Explore Neon Veil</b> 5 times to earn shards. Progress: <b>"+Math.min(tutorialExploreCount,5)+"/5</b>",
+  tip:"Each explore costs 2 Sanity and you get 5 uses per fight. Explore also has a small chance to drop a relic.",
+  hl:["exploreCity()"],act:"explore"},
+
+ {t:"Take a Memory Dive",
+  b:"Press <b>Enter Memory Dive</b>. A dive has three possible outcomes: a shard bonus, a corrupted memory (-15 HP, -10 Sanity), or a free relic.",
+  tip:"You get 3 dives per fight. Risky, but the relic outcome makes it worth it.",
+  hl:["memoryDive()"],act:"dive"},
+
+ {t:"Protect your Sanity",
+  b:"Sanity is your grip on reality. Exploring, diving and enemy hits drain it. Below 40 the screen turns red, and at 0 your mind can collapse and <b>kill Kael</b>.",
+  tip:"Restore Sanity with Rest (+20), Heal (+10, costs 10 shards, outside combat) and by winning fights. You cannot fight at 15 Sanity or less. Death locks that save slot forever.",btn:1},
+
+ {t:"Choose a class",
+  b:"Pick <b>Empath</b> (its skill heals you), <b>Manipulator</b> (hard-hitting) or <b>Warden</b> (steady damage). Then use <b>Use Skill</b> in fights to cast it.",
+  tip:"You can switch class for free at any time.",
+  hl:["unlockEmpath()","unlockManipulator()","unlockWarden()"],chk:()=>classType!=="Novice Diver"},
+
+ {t:"Join a faction",
+  b:"<b>Archivists</b>: +25% Memory Shards. <b>Manipulators</b>: 20% chance enemies skip a turn. <b>Rebels</b>: +25% basic attack damage under 40% HP.",
+  tip:"You can change faction later, so just pick one.",
+  hl:["joinArchivists()","joinManipulators()","joinRebels()"],chk:()=>faction!=="Neutral"},
+
+ {t:"Craft your first relic",
+  b:"Press <b>Craft Relic</b> (40 shards). Relics give permanent power, and there are 53 to collect.",
+  hl:["craftRelic()"],chk:()=>relics.length>0},
+
+ {t:"Open the Relic Vault",
+  b:"Press <b>Open Relic Vault</b>. It holds your collection, bulk crafting (×10 and ×100), equipment, fusion and stats.",
+  hl:["Open Relic Vault"],chk:()=>{const v=document.getElementById("relicVault");return !!(v&&v.classList.contains("open"));}},
+
+ {t:"Equip a relic",
+  b:"In the vault, open the <b>Inventory</b> tab and press <b>Equip</b> on a relic. Slot 1 is open now; slots 2 and 3 unlock at levels 25 and 75.",
+  tip:"Legacy relics like Echo Fragment always work without equipping. Close the vault with CLOSE when you are done.",
+  hl:["Open Relic Vault","Inventory","RV.eq("],chk:()=>equippedRelics.some(Boolean)},
+
+ {t:"Rest up",
+  b:"Press <b>Rest</b> to restore 15 HP and 20 Sanity. You can rest once per battle won.",
+  hl:["rest()"],act:"rest"},
+
+ {t:"Daily rewards, codes and bosses",
+  b:"Claim your <b>Daily Reward</b> every day. A 7-day streak pays a huge bonus plus 50 relics. Enter codes in the <b>Codes</b> panel for free rewards.",
+  tip:"Bosses appear automatically when you press Fight at certain levels, starting at level 25. They drop big permanent bonuses.",btn:1},
+
+ {t:"Save your game",
+  b:"Press any <b>Save Slot</b>. The game autosaves, but if Kael dies that slot is locked for good, so keep a spare slot.",
+  hl:["saveGame("],act:"save"}
+];
+
+let tutMin = false, tutKey = "", tutLastStep = -1;
+const tv = x => typeof x === "function" ? x() : x;
+
+function tutSave(){
+    try{
+        localStorage.setItem("echoTutorialStep",tutorialStep);
+        localStorage.setItem("echoTutorialFinished",String(tutorialFinished));
+        localStorage.setItem("echoTutorialExploreCount",tutorialExploreCount);
+    }catch(e){}
+}
+
+function tutClearHL(){
+    document.querySelectorAll(".tutHL").forEach(x => x.classList.remove("tutHL"));
+}
+
+function tutApplyHL(s){
+    tutClearHL();
+    if(!s.hl) return;
+    let first = null;
+    document.querySelectorAll("button").forEach(b => {
+        if(b.closest("#tutPanel") || b.id === "tutFab") return;
+        const o = b.getAttribute("onclick") || "";
+        const t = (b.textContent || "").trim().toLowerCase();
+        if(s.hl.some(h => o.includes(h) || t === h.toLowerCase())){
+            b.classList.add("tutHL");
+            if(!first) first = b;
+        }
+    });
+    if(first && tutLastStep !== tutorialStep){
+        tutLastStep = tutorialStep;
+        try{ first.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){}
+    }
+}
+
+function tutAdvance(){
+    tutorialStep++;
+    tutKey = "";
+    if(tutorialStep >= TUT.length){ tutFinish(true); return; }
+    tutSave();
+    renderTut();
+}
+
+function tutFinish(reward){
+    tutorialFinished = true;
+    tutSave();
+    renderTut();
+    if(reward && localStorage.getItem("echoTutorialRewarded") !== "true"){
+        try{ localStorage.setItem("echoTutorialRewarded","true"); }catch(e){}
+        if(!gameOver){
+            shards += 200;
+            log("<span class='good'>✔ TUTORIAL COMPLETE! +200 Memory Shards</span>");
+            if(typeof flash === "function") flash("TUTORIAL COMPLETE<br><b>+200 Memory Shards</b>","#00ff88",false);
+            updateStats();
+            levelUp();
+            autoSave();
+        }
+    }else{
+        log("<span class='good'>✔ Tutorial finished.</span>");
+    }
+}
+
+function renderTut(){
+    const p = document.getElementById("tutPanel");
+    const fab = document.getElementById("tutFab");
+    if(!p || !fab) return;
+
+    if(tutorialFinished){
+        p.style.display = "none";
+        tutClearHL();
+        fab.textContent = "📖 Replay tutorial";
+        tutKey = "done";
+        return;
+    }
+
+    const s = TUT[tutorialStep];
+    if(!s) return;
+
+    tutApplyHL(s);
+
+    const title = tv(s.t), body = tv(s.b);
+    const key = [tutorialStep,title,body,tutMin].join("|");
+    if(key === tutKey) return;
+    tutKey = key;
+
+    p.style.display = "block";
+    p.classList.toggle("min",tutMin);
+    fab.textContent = tutMin ? "📖 Show guide" : "📖 Hide guide";
+    document.getElementById("tutStepNo").textContent = "Step " + (tutorialStep + 1) + " of " + TUT.length;
+    document.getElementById("tutFill").style.width = (tutorialStep / TUT.length * 100) + "%";
+    document.getElementById("tutTitle").textContent = title;
+    document.getElementById("tutBody").innerHTML = body;
+    document.getElementById("tutTip").textContent = s.tip ? "Tip: " + s.tip : "";
+    const next = document.getElementById("tutNext");
+    next.style.display = s.btn ? "block" : "none";
+    next.textContent = tutorialStep === 0 ? "Let's go" : "Got it";
+}
+
+function tutTick(){
+    if(tutorialFinished){ if(tutKey !== "done") renderTut(); return; }
+    if(!Number.isInteger(tutorialStep) || tutorialStep < 0) tutorialStep = 0;
+    // Veterans never need the tutorial.
+    if(level >= 25 || tutorialStep >= TUT.length){ tutFinish(false); return; }
+    const s = TUT[tutorialStep];
+    if(s.chk && s.chk()){ tutAdvance(); return; }
+    renderTut();
+}
+
+/* Take over the old tutorial hooks (the game already calls these). */
+tutorialAction = function(action){
+    if(tutorialFinished) return;
+    const s = TUT[tutorialStep];
+    if(!s || s.act !== action) return;
+    if(action === "explore"){
+        tutorialExploreCount++;
+        tutSave();
+        if(tutorialExploreCount >= s.need) tutAdvance(); else renderTut();
+        return;
+    }
+    tutAdvance();
+};
+showTutorial = function(){ renderTut(); };
+nextTutorial = function(){ /* old auto-advance disabled */ };
+
+(function buildTutorial(){
+    const css = document.createElement("style");
+    css.textContent =
+    "#tutPanel{display:none;position:fixed;left:50%;bottom:58px;transform:translateX(-50%);width:min(94vw,470px);z-index:6000;" +
+    "background:rgba(5,5,16,.97);border:2px solid #ffd54a;box-shadow:0 0 22px #ffd54a88;padding:12px 14px;font-family:Consolas,monospace;color:#e8ffff}" +
+    "#tutPanel.min #tutBody,#tutPanel.min #tutTip,#tutPanel.min #tutNext,#tutPanel.min #tutTitle{display:none !important}" +
+    "#tutPanel button{width:auto;margin:0 0 0 6px;padding:5px 10px;font-size:12px;border-color:#ffd54a;color:#ffd54a;background:#000}" +
+    "#tutPanel button:hover{background:#ffd54a;color:#000;transform:none}" +
+    "#tutPanel #tutNext{display:none;width:100%;margin:10px 0 0;padding:10px;font-size:14px}" +
+    "#tutTop{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#ffd54a}" +
+    "#tutBar{height:5px;background:#222;margin:7px 0 9px}#tutFill{height:100%;width:0;background:#ffd54a;transition:.3s}" +
+    "#tutTitle{margin:0 0 6px;color:#fff;font-size:17px}#tutBody{font-size:14px;line-height:1.5}" +
+    "#tutTip{margin-top:8px;font-size:12px;color:#9fe;line-height:1.45}" +
+    "#tutFab{position:fixed;right:10px;bottom:10px;z-index:6000;width:auto;margin:0;padding:8px 12px;font-size:12px;border-color:#ffd54a;color:#ffd54a}" +
+    ".tutHL{outline:3px solid #ffd54a !important;box-shadow:0 0 20px #ffd54a !important;animation:tutPulse 1.1s infinite}" +
+    "@keyframes tutPulse{50%{outline-color:#fff;box-shadow:0 0 6px #ffd54a}}";
+    document.head.appendChild(css);
+
+    const p = document.createElement("div");
+    p.id = "tutPanel";
+    p.innerHTML =
+        "<div id='tutTop'><span id='tutStepNo'></span><span><button id='tutSkip'>Skip</button></span></div>" +
+        "<div id='tutBar'><div id='tutFill'></div></div>" +
+        "<h3 id='tutTitle'></h3><div id='tutBody'></div><div id='tutTip'></div>" +
+        "<button id='tutNext'>Got it</button>";
+    document.body.appendChild(p);
+
+    const fab = document.createElement("button");
+    fab.id = "tutFab";
+    document.body.appendChild(fab);
+
+    document.getElementById("tutNext").onclick = () => tutAdvance();
+    document.getElementById("tutSkip").onclick = () => {
+        if(confirm("Skip the tutorial? You will not get the completion reward.")) tutFinish(false);
+    };
+    fab.onclick = () => {
+        if(tutorialFinished){
+            if(confirm("Replay the tutorial? The reward is only given once.")){
+                tutorialStep = 0; tutorialFinished = false; tutorialExploreCount = 0;
+                tutKey = ""; tutLastStep = -1; tutMin = false;
+                tutSave(); renderTut();
+            }
+        }else{
+            tutMin = !tutMin; tutKey = ""; renderTut();
+        }
+    };
+
+    // Save-slot clicks complete the final step.
+    document.addEventListener("click",e => {
+        const b = e.target.closest ? e.target.closest("button") : null;
+        if(!b || tutorialFinished) return;
+        if((b.getAttribute("onclick") || "").includes("saveGame(")){
+            setTimeout(() => tutorialAction("save"),400);
+        }
+    });
+
+    setInterval(tutTick,500);
+})();
+
 updateStats();
 updateSaveSlotNames();
 
