@@ -5577,6 +5577,52 @@ function fuseRelic(idx){
     relicAfter();
 }
 
+function fuseAllRelics(){
+    if(gameOver) return;
+
+    if(!confirm("Fuse ALL eligible relics to the highest possible level?")) return;
+
+    const counts = relicCounts();
+    let upgrades = 0;
+    let dustSpent = 0;
+
+    for(const d of STANDARD){
+        if(d.legacy || d.ultra) continue;
+
+        let count = counts[d.n] || 0;
+        let lvl = fusionLevel(d.n);
+
+        while(lvl < 5){
+            const need = lvl + 1;
+            const dust = FUSION_DUST[lvl - 1];
+
+            if(count - 1 < need || memoryDust < dust) break;
+
+            removeCopies(d.n, need);
+            count -= need;
+
+            memoryDust -= dust;
+            dustSpent += dust;
+
+            lvl++;
+            relicFusionLevels[d.n] = lvl;
+            totalFusionUpgrades++;
+            upgrades++;
+        }
+    }
+
+    if(upgrades === 0){
+        log("<span class='warning'>No relics can currently be fused.</span>");
+        return;
+    }
+
+    log("<span class='rare'>FUSE ALL COMPLETE! " +
+        upgrades + " upgrades performed. " +
+        dustSpent.toLocaleString() + " Memory Dust spent.</span>");
+
+    relicAfter();
+}
+
 /* ---------- VAULT UI ---------- */
 const TABS = ["Collection","Inventory","Equipped","Fusion","Discovery","Statistics"];
 let rvTab = 0;
@@ -5625,6 +5671,7 @@ window.RV = {
     craft:n => craftRelicBatch(n),
     eq:i => equipRelic(i), un:i => unequipRelic(i),
     dis:i => dismantleRelic(i), fuse:i => fuseRelic(i),
+    fuseAll:() => fuseAllRelics(),
     f:(k,v) => { rvF[k] = v; renderVault(); }
 };
 
@@ -5702,6 +5749,7 @@ function renderVault(){
     else if(rvTab === 3){
         const owned = STANDARD.filter(d => !d.legacy && c[d.n]);
         h += "<p>Fusing consumes extra copies and Memory Dust. You keep one copy.</p>";
+        h += "<button onclick='RV.fuseAll()'>⚡ FUSE ALL</button>";
         h += owned.length ? owned.map(d => {
             const lvl = fusionLevel(d.n);
             const i = RELICS.indexOf(d);
