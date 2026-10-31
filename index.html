@@ -3024,6 +3024,25 @@ async function loadGame(slot){
 
 }
 
+const ACHIEVEMENT_INFO = {
+    "First Boss":["Defeat your first boss.","The Wanderer"],
+    "Guardian Slayer":["Defeat the Hollow Guardian.","Guardian Breaker"],
+    "Strong Fists":["Defeat 10 enemies using Basic Attack.","The Brawler"],
+    "Evolution":["Unlock Class Evolution.","Memory Master"],
+    "The Impossible":["Defeat Nemesis.","Nemesis Hunter"],
+    "The End":["Complete the game.","The Last Memory Diver"],
+    "First Discovery":["Obtain your first relic.",""],
+    "Collector":["Discover 10 unique relics.",""],
+    "Dedicated Diver":["Discover 25 unique relics.",""],
+    "Relic Master":["Discover 40 unique relics.",""],
+    "Beyond Reality":["Discover all 50 standard relics.",""],
+    "Divine Encounter":["Obtain a standard Divine relic.",""],
+    "Fivefold Divinity":["Obtain all five standard Divine relics.",""],
+    "Forbidden Discovery":["Obtain an ultra-rare Divine relic.",""],
+    "Fusion Expert":["Reach fusion Level 5.",""],
+    "Eternal Collector":["Obtain all 53 relics.","THE ETERNAL COLLECTOR"]
+};
+
 function rebuildAchievementLog(){
 
     const logBox = document.getElementById("achievementLog");
@@ -3031,16 +3050,11 @@ function rebuildAchievementLog(){
     logBox.innerHTML = "";
 
     if(!Array.isArray(achievements) || achievements.length === 0){
-
         logBox.innerHTML = "<p>No achievements unlocked.</p>";
-
         return;
-
     }
 
-    for(let i = 0; i < achievements.length; i++){
-
-        const achievementName = achievements[i];
+    for(const achievementName of achievements){
 
         const p = document.createElement("p");
         p.className = "achievement";
@@ -3051,38 +3065,35 @@ function rebuildAchievementLog(){
         p.appendChild(document.createTextNode("🏆 "));
         p.appendChild(heading);
 
-        const achievementData = Object.values(codeRewards).find(
+        const codeData = Object.values(codeRewards).find(
             reward => reward.achievement === achievementName
         );
 
-        if(achievementData && achievementData.achievementDescription){
+        const info = ACHIEVEMENT_INFO[achievementName];
 
+        const description =
+            (codeData && codeData.achievementDescription) ||
+            (info && info[0]) || "";
+
+        const title =
+            (codeData && codeData.title) ||
+            (info && info[1]) || "";
+
+        if(description){
             p.appendChild(document.createElement("br"));
-
-            p.appendChild(
-                document.createTextNode(
-                    achievementData.achievementDescription
-                )
-            );
-
+            p.appendChild(document.createTextNode(description));
         }
 
-        if(i < titles.length){
-
+        if(title){
             p.appendChild(document.createElement("br"));
-
             const titleSpan = document.createElement("span");
             titleSpan.className = "rare";
-            titleSpan.textContent = "Title: " + titles[i];
-
+            titleSpan.textContent = "Title: " + title;
             p.appendChild(titleSpan);
-
         }
 
         logBox.appendChild(p);
-
     }
-
 }
 
 function unlockAchievement(name, description, titleReward = ""){
