@@ -1823,34 +1823,7 @@ async function claimDailyReward(){
                 "</span>"
             );
 
-            const dailyRelicPool = [
-
-                "Dreamcore Prism",
-                "Echo Fragment",
-                "Temporal Compass",
-                "Mindglass Core",
-                "Void Lantern"
-
-            ];
-
-            const relicCounts = {};
-
-            for(let i = 0; i < 50; i++){
-
-                const relic =
-                    dailyRelicPool[
-                        Math.floor(
-                            secureRandom() *
-                            dailyRelicPool.length
-                        )
-                    ];
-
-                relics.push(relic);
-
-                relicCounts[relic] =
-                    (relicCounts[relic] || 0) + 1;
-
-            }
+            const relicCounts = rollMany(50);
 
             recalcRelicBonuses();
 
@@ -2072,7 +2045,7 @@ if(codeRewards[code].boss && inBattle){
         shards += reward.shards || 0;
 
         for(const relic of (reward.relics || [])){
-            relics.push(relic);
+            grantRelic(relic);
         }
 
         recalcRelicBonuses();
@@ -2576,6 +2549,7 @@ async function saveGame(slot,auto=false){
         warden,
 
         relics,
+        ...relicSaveData(),
         powerMulti,
 
         classEvolutionUnlocked,
@@ -2856,6 +2830,8 @@ async function loadGame(slot){
 
     relics =
         save.relics ?? [];
+		
+	loadRelicData(save);
 
     powerMulti =
         save.powerMulti || 1.00;
@@ -3489,13 +3465,15 @@ events[Math.floor(Math.random()*events.length)];
 log(random);
 
 let reward =
-15 * powerMulti * relicShardBonus;
+15 * powerMulti * relicShardBonus * (1 + rx.explore);
 
 if(archivist){
     reward *= 1.25;
 }
 
 shards += Math.floor(reward);
+
+rareRelicEvent(0.02);
 
 sanity -= 2;
 
@@ -3554,7 +3532,7 @@ if(outcome == 0){
 log("You recovered stable Memory Shards.");
 
 let reward =
-35 * powerMulti * relicShardBonus;
+35 * powerMulti * relicShardBonus * (1 + rx.dive);
 
 if(archivist){
     reward *= 1.25;
@@ -3624,124 +3602,7 @@ autoSave();
 
 }
 
-function recalcRelicBonuses(){
 
-    relicBonusHP = 0;
-    relicBonusSanity = 0;
-    relicShardBonus = 1;
-    relicSkillBonus = 1;
-    relicBattleHeal = 0;
-
-    for(let relic of relics){
-
-        switch(relic){
-
-            case "Dreamcore Prism":
-                relicBonusHP += 10;
-                break;
-
-            case "Echo Fragment":
-                relicShardBonus += 0.05;
-                break;
-
-            case "Temporal Compass":
-                relicSkillBonus += 0.10;
-                break;
-
-            case "Mindglass Core":
-                relicBonusSanity += 15;
-                break;
-
-            case "Void Lantern":
-    relicBattleHeal += 10;
-    break;
-
-case "The Last Echo":
-    relicBonusSanity += 2;
-    relicSkillBonus += 0.05;
-    break;
-
-        }
-
-    }
-
-    maxHP =
-100 +
-(level - 1) * 20 +
-relicBonusHP +
-permanentBossHP;
-
-    if(hp > maxHP){
-        hp = maxHP;
-    }
-
-    if(sanity > 100 + relicBonusSanity + permanentBossSanity){
-        sanity = 100 + relicBonusSanity + permanentBossSanity;
-    }
-
-}
-
-function findRelic(){
-
-let relicPool = [
-
-"Dreamcore Prism",
-
-"Echo Fragment",
-
-"Temporal Compass",
-
-"Mindglass Core",
-
-"Void Lantern"
-
-];
-
-let relic =
-relicPool[Math.floor(Math.random()*relicPool.length)];
-
-relics.push(relic);
-
-recalcRelicBonuses();
-
-log("<span class='rare'>Relic Found: "
-+ relic + "</span>");
-
-}
-
-function craftRelic(){
-
-tutorialAction("relic");
-
-
-    if(gameOver){
-        log("Game Over. Load a save first.");
-        return;
-    }
-
-if(shards >= 40){
-
-syncLevelProgressFromShards();
-shards -= 40;
-lastLevelShardTotal = shards;
-
-findRelic();
-
-log("You crafted a memory relic.");
-
-updateStats();
-
-autoSave();
-
-}
-
-else{
-
-log("Not enough shards.");
-
-}
-
-}
 
 function rest(){
 
@@ -4199,6 +4060,9 @@ if(strongFists){
 damage =
 Math.floor(damage * powerMulti);
 
+damage =
+Math.floor(damage * (1 + rx.basic));
+
 if(rebel && hp <= maxHP * 0.40){
 
     damage = Math.floor(damage * 1.25);
@@ -4209,7 +4073,7 @@ if(rebel && hp <= maxHP * 0.40){
 
 if(crit){
 
-damage *= 2;
+damage = Math.floor(damage * (2 + rx.crit));
 
 log("<span class='good'>CRITICAL HIT!</span>");
 
@@ -4288,7 +4152,7 @@ let damage =
 Math.floor(
 (20 + level * 0.8)
 * powerMulti
-* relicSkillBonus
+* relicSkillBonus * (1 + rx.skill)
 );
 
 let heal =
@@ -4315,7 +4179,7 @@ let damage =
 Math.floor(
 (30 + level * 1.5)
 * powerMulti
-* relicSkillBonus
+* relicSkillBonus * (1 + rx.skill)
 );
 
 damageEnemy(damage);
@@ -4336,7 +4200,7 @@ let damage =
 Math.floor(
 (22 + level)
 * powerMulti
-* relicSkillBonus
+* relicSkillBonus * (1 + rx.skill)
 );
 
 damageEnemy(damage);
@@ -4493,6 +4357,14 @@ if(bossType === "TrueNemesis"){
 
 }
 
+enemyDamage = Math.max(
+    1,
+    Math.floor(
+        enemyDamage *
+        (1 - Math.min(0.75, rx.dr))
+    )
+);
+
 hp -= enemyDamage;
 
 if(secureRandom() < 0.10){
@@ -4547,7 +4419,7 @@ if(hp > maxHP)
 const sanityCap = 100 + relicBonusSanity + permanentBossSanity;
 const sanityRecovered = Math.max(
     0,
-    Math.min(5, sanityCap - sanity)
+    Math.min(5 + rx.sanheal, sanityCap - sanity)
 );
 
 sanity += sanityRecovered;
@@ -4625,7 +4497,7 @@ if(success == 1){
 log("You recovered the shard.");
 
 let reward =
-40 * powerMulti * relicShardBonus;
+40 * powerMulti * relicShardBonus * (1 + rx.quest);
 
 if(archivist){
     reward *= 1.25;
@@ -4678,7 +4550,7 @@ if(event == 0){
 log("You discover ancient ruins.");
 
 let reward =
-50 * powerMulti * relicShardBonus;
+60 * powerMulti * relicShardBonus * (1 + rx.quest);
 
 if(archivist){
     reward *= 1.25;
@@ -4701,7 +4573,7 @@ if(event == 2){
 log("You uncover forbidden history.");
 
 let reward =
-60 * powerMulti * relicShardBonus;
+50 * powerMulti * relicShardBonus * (1 + rx.quest);
 
 if(archivist){
     reward *= 1.25;
@@ -4735,7 +4607,7 @@ if(outcome == 0){
 log("The vault survives.");
 
 let reward =
-50 * powerMulti * relicShardBonus;
+50 * powerMulti * relicShardBonus * (1 + rx.quest);
 
 if(archivist){
     reward *= 1.25;
@@ -4990,6 +4862,8 @@ unlockAchievement(
 
 }
 
+    grantBossRelics(bossType);
+
     enemyHP = 0;
     enemyMaxHP = 0;
 
@@ -5048,6 +4922,649 @@ setInterval(function(){
     updateDailyRewardUI();
 
 },10000);
+
+/* =====================================================================
+   ECHOES OF THE FORGOTTEN — RELIC VAULT MODULE
+   ---------------------------------------------------------------------
+   INSTALL (6 edits in your game file, all inside the (() => { ... })() closure)
+
+   A. DELETE your old functions: recalcRelicBonuses(), findRelic(), craftRelic().
+   B. PASTE this whole file just ABOVE the bottom lines:
+          updateStats();
+          updateSaveSlotNames();
+   C. saveGame(): inside `const saveData = {` add this line after `relics,`
+          ...relicSaveData(),
+   D. loadGame(): right after `relics = save.relics ?? [];` add
+          loadRelicData(save);
+   E. Daily Day 7: replace everything from `const dailyRelicPool = [` down to the
+      closing `}` of the `for(let i = 0; i < 50; i++){...}` loop with:
+          const relicCounts = rollMany(50);
+   F. Codes: in redeemCode(), change `relics.push(relic);` to `grantRelic(relic);`
+
+   GAMEPLAY HOOKS (find and replace):
+   - exploreCity:  `15 * powerMulti * relicShardBonus`  ->  `15 * powerMulti * relicShardBonus * (1 + rx.explore)`
+                   and add `rareRelicEvent(0.02);` after `shards += Math.floor(reward);`
+   - memoryDive:   `35 * powerMulti * relicShardBonus`  ->  `35 * powerMulti * relicShardBonus * (1 + rx.dive)`
+   - questOne / questTwo / questThree (4 reward lines): append `* (1 + rx.quest)` after `relicShardBonus`
+   - attackEnemy:  after `damage = Math.floor(damage * powerMulti);` add
+                       damage = Math.floor(damage * (1 + rx.basic));
+                   and change `damage *= 2;` to `damage = Math.floor(damage * (2 + rx.crit));`
+   - enemyTurn:    just before `hp -= enemyDamage;` add
+                       enemyDamage = Math.max(1, Math.floor(enemyDamage * (1 - Math.min(0.75, rx.dr))));
+   - checkBattle:  change `Math.min(5, sanityCap - sanity)` to `Math.min(5 + rx.sanheal, sanityCap - sanity)`
+   - rewardBoss:   just before its final `bossFight = false;` add `grantBossRelics(bossType);`
+   ===================================================================== */
+
+/* ---------- DEFINITIONS ---------- */
+const RARITIES = ["Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine"];
+const RARITY_CHANCE = [5000,2500,1500,745,200,50,5]; // out of 10,000 = exactly 100%
+const RARITY_COLOR = {
+    Common:"#aaaaaa",Uncommon:"#44dd66",Rare:"#4a9dff",Epic:"#b266ff",
+    Legendary:"#ffcc00",Mythic:"#ff3b3b",Divine:"#00ffff",
+    "Ancient Divine":"#00ffff","Forbidden Divine":"#00ffff","Primordial Divine":"#00ffff"
+};
+const DUST_VALUE = {Common:1,Uncommon:3,Rare:8,Epic:20,Legendary:60,Mythic:200,Divine:750};
+const FUSION_MULT = [1,1.25,1.5,1.75,2];
+const FUSION_DUST = [10,25,50,100];
+const SLOT_LEVELS = [1,25,75];
+const FX_LABEL = {
+    shard:"Memory Shard earnings",explore:"exploration rewards",quest:"quest rewards",
+    dive:"Memory Dive rewards",basic:"basic attack damage",skill:"skill damage",
+    dr:"incoming damage reduction",crit:"critical hit damage",hp:"maximum HP",
+    san:"maximum Sanity",heal:"HP recovery after victory",sanheal:"Sanity recovery after victory"
+};
+const PCT_KEYS = ["shard","explore","quest","dive","basic","skill","dr","crit"];
+
+const RELICS = [];
+function D(r,n,fx,o){ RELICS.push(Object.assign({r:r,n:n,fx:fx||{}},o||{})); }
+const L = t => ({legacy:true,txt:t});
+
+D("Common","Echo Fragment",{},L("+5% Memory Shard earnings per owned copy"));
+D("Common","Faded Photograph",{explore:.02});
+D("Common","Rusted Key",{quest:.02});
+D("Common","Neon Dew",{heal:2});
+D("Common","Ashen Token",{hp:3});
+D("Common","Static Pebble",{dive:.02});
+D("Common","Broken Compass",{basic:.02});
+D("Common","Whispering Coin",{shard:.03});
+D("Common","Glass Feather",{sanheal:2});
+D("Common","Dustbound Ring",{hp:5});
+
+D("Uncommon","Dreamcore Prism",{},L("+10 maximum HP per owned copy"));
+D("Uncommon","Paper Moon",{explore:.05});
+D("Uncommon","Memory Thread",{quest:.05});
+D("Uncommon","Lantern Wick",{san:5});
+D("Uncommon","Silver Tear",{heal:5});
+D("Uncommon","Lost Bookmark",{dive:.05});
+D("Uncommon","Clockwork Pin",{skill:.05});
+D("Uncommon","Hollow Acorn",{hp:10});
+D("Uncommon","Raincatcher Lens",{shard:.05});
+D("Uncommon","Echoing Bell",{sanheal:5});
+
+D("Rare","Mindglass Core",{},L("+15 maximum Sanity per owned copy"));
+D("Rare","Mirror of Regret",{skill:.08});
+D("Rare","Warden's Sigil",{dr:.05});
+D("Rare","Archivist Seal",{shard:.12});
+D("Rare","Rebel's Charm",{basic:.10});
+D("Rare","Veilrunner Boots",{explore:.15});
+D("Rare","Fractured Hourglass",{dive:.10});
+D("Rare","Soulglass Pendant",{hp:20});
+D("Rare","Storm-in-a-Bottle",{crit:.10});
+
+D("Epic","Temporal Compass",{},L("+10% skill damage per owned copy"));
+D("Epic","Void Lantern",{},L("+10 HP recovery after battle per owned copy"));
+D("Epic","Shard of First Dawn",{shard:.20});
+D("Epic","Nightweaver Cloak",{dr:.10});
+D("Epic","Memory Eater's Tooth",{basic:.20});
+D("Epic","Crownless Diadem",{hp:30});
+D("Epic","Paradox Engine",{quest:.20});
+
+D("Legendary","The Last Echo",{},L("+2 maximum Sanity and +5% skill damage per owned copy"));
+D("Legendary","Crown of Forgotten Kings",{basic:.25});
+D("Legendary","Heart of Neon Veil",{shard:.30});
+D("Legendary","Atlas of Lost Memories",{explore:.30});
+D("Legendary","King's Final Promise",{hp:50});
+
+D("Mythic","Soul of the Abyss",{san:50});
+D("Mythic","Reality Shard",{skill:.40});
+D("Mythic","Eternal Flame",{heal:25});
+D("Mythic","Nemesis' Broken Mask",{basic:.35});
+
+D("Divine","Origin Memory",{shard:.5,hp:100});
+D("Divine","The First Silence",{san:50,sanheal:10});
+D("Divine","Worldroot",{hp:1000});
+D("Divine","Eye Beyond Time",{skill:.5});
+D("Divine","The Unwritten Name",{basic:.5,shard:.5});
+
+D("Ancient Divine","Heart of the Forgotten God",{shard:1},
+  {ultra:true,p:1/10000,odds:"1 in 10,000 (0.01%)",msg:"AN ANCIENT DIVINE RELIC HAS AWAKENED."});
+D("Forbidden Divine","The Unseeing Eye",{skill:1},
+  {ultra:true,p:1/25000,odds:"1 in 25,000 (0.004%)",msg:"SOMETHING BEYOND REALITY HAS NOTICED YOU."});
+D("Primordial Divine","The First Existence",{shard:2.5,hp:500},
+  {ultra:true,p:1/50000,odds:"1 in 50,000 (0.002%)",msg:"THE FIRST EXISTENCE HAS BEEN DISCOVERED.<br>THE MEMORY STREAM WILL NEVER BE THE SAME."});
+
+const STANDARD = RELICS.filter(x => !x.ultra);
+const ULTRA = RELICS.filter(x => x.ultra);
+const relicByName = n => RELICS.find(x => x.n === n);
+
+/* ---------- STATE (saved per slot) ---------- */
+let equippedRelics = [null,null,null];
+let relicDiscovered = {};
+let relicFusionLevels = {};
+let memoryDust = 0;
+let relicDivinePityCount = 0;
+let totalRelicRolls = 0;
+let relicDiscoveryHistory = [];
+let totalRelicsDismantled = 0;
+let totalFusionUpgrades = 0;
+let relicCraftBusy = false;
+let relicQuiet = false;
+const bossRelicRewards = {
+    // Explicit boss rewards, e.g.  EchoKnight:["Crown of Forgotten Kings"],
+};
+
+/* extra bonus bag read by gameplay hooks */
+let rx = {explore:0,quest:0,dive:0,basic:0,skill:0,dr:0,crit:0,sanheal:0};
+
+function relicSaveData(){
+    return {
+        equippedRelics,relicDiscovered,relicFusionLevels,memoryDust,
+        relicDivinePityCount,totalRelicRolls,relicDiscoveryHistory,
+        totalRelicsDismantled,totalFusionUpgrades
+    };
+}
+
+function loadRelicData(s){
+    relicDiscovered = (s.relicDiscovered && typeof s.relicDiscovered === "object") ? s.relicDiscovered : {};
+    relicFusionLevels = (s.relicFusionLevels && typeof s.relicFusionLevels === "object") ? s.relicFusionLevels : {};
+    memoryDust = Number.isFinite(s.memoryDust) ? s.memoryDust : 0;
+    relicDivinePityCount = Number.isFinite(s.relicDivinePityCount) ? s.relicDivinePityCount : 0;
+    totalRelicRolls = Number.isFinite(s.totalRelicRolls) ? s.totalRelicRolls : 0;
+    relicDiscoveryHistory = Array.isArray(s.relicDiscoveryHistory) ? s.relicDiscoveryHistory : [];
+    totalRelicsDismantled = Number.isFinite(s.totalRelicsDismantled) ? s.totalRelicsDismantled : 0;
+    totalFusionUpgrades = Number.isFinite(s.totalFusionUpgrades) ? s.totalFusionUpgrades : 0;
+    equippedRelics = [null,null,null];
+    if(Array.isArray(s.equippedRelics)){
+        for(let i = 0; i < 3; i++){
+            const n = s.equippedRelics[i];
+            const d = n && relicByName(n);
+            if(d && !d.legacy && relics.includes(n) && !equippedRelics.includes(n)){
+                equippedRelics[i] = n;
+            }
+        }
+    }
+    // Migration: anything already owned counts as discovered.
+    for(const n of relics){
+        if(relicByName(n)){ relicDiscovered[n] = true; }
+    }
+}
+
+/* ---------- INVENTORY HELPERS ---------- */
+function relicCounts(){
+    const c = {};
+    for(const r of relics){ c[r] = (c[r] || 0) + 1; }
+    return c;
+}
+function removeCopies(name,k){
+    for(let i = relics.length - 1; i >= 0 && k > 0; i--){
+        if(relics[i] === name){ relics.splice(i,1); k--; }
+    }
+}
+function fusionLevel(n){ return Math.min(5,Math.max(1,relicFusionLevels[n] || 1)); }
+
+function fxText(fx,m){
+    m = m || 1;
+    return Object.keys(fx).map(k => {
+        const v = fx[k] * m;
+        return PCT_KEYS.includes(k)
+            ? "+" + Math.round(v * 100) + "% " + FX_LABEL[k]
+            : "+" + Math.round(v) + " " + FX_LABEL[k];
+    }).join(", ");
+}
+
+/* ---------- BONUS CALCULATION ---------- */
+function recalcRelicBonuses(){
+    relicBonusHP = 0; relicBonusSanity = 0; relicShardBonus = 1;
+    relicSkillBonus = 1; relicBattleHeal = 0;
+    rx = {explore:0,quest:0,dive:0,basic:0,skill:0,dr:0,crit:0,sanheal:0};
+
+    // Legacy relics: unchanged, per owned copy.
+    for(const relic of relics){
+        switch(relic){
+            case "Dreamcore Prism": relicBonusHP += 10; break;
+            case "Echo Fragment": relicShardBonus += 0.05; break;
+            case "Temporal Compass": relicSkillBonus += 0.10; break;
+            case "Mindglass Core": relicBonusSanity += 15; break;
+            case "Void Lantern": relicBattleHeal += 10; break;
+            case "The Last Echo": relicBonusSanity += 2; relicSkillBonus += 0.05; break;
+        }
+    }
+
+    // New relics: only when equipped in an unlocked slot.
+    for(let i = 0; i < 3; i++){
+        const n = equippedRelics[i];
+        if(!n || level < SLOT_LEVELS[i] || !relics.includes(n)) continue;
+        const d = relicByName(n);
+        if(!d) continue;
+        const m = d.ultra ? 1 : FUSION_MULT[fusionLevel(n) - 1];
+        for(const k in d.fx){
+            const v = d.fx[k] * m;
+            if(k === "hp") relicBonusHP += Math.floor(v);
+            else if(k === "san") relicBonusSanity += Math.floor(v);
+            else if(k === "shard") relicShardBonus += v;
+            else if(k === "skill") relicSkillBonus += v;
+            else if(k === "heal") relicBattleHeal += Math.floor(v);
+            else rx[k] += v;
+        }
+    }
+
+    maxHP = 100 + (level - 1) * 20 + relicBonusHP + permanentBossHP;
+    if(hp > maxHP){ hp = maxHP; }
+    const sanCap = 100 + relicBonusSanity + permanentBossSanity;
+    if(sanity > sanCap){ sanity = sanCap; }
+}
+
+/* ---------- ROLLING ---------- */
+function pickFromRarity(r){
+    const pool = STANDARD.filter(x => x.r === r);
+    const fresh = pool.filter(x => !relicDiscovered[x.n]);
+    const src = fresh.length ? fresh : pool;
+    return src[Math.floor(secureRandom() * src.length)];
+}
+
+function grantRelic(name){
+    const d = relicByName(name);
+    if(d && d.ultra && relicDiscovered[name]) return null; // never duplicated
+    relics.push(name);
+    const first = !relicDiscovered[name];
+    if(first && d){
+        relicDiscovered[name] = true;
+        relicDiscoveryHistory.push({name:name,date:new Date().toLocaleString()});
+        if(relicDiscoveryHistory.length > 300) relicDiscoveryHistory.shift();
+    }
+    if(d) announceRelic(d,first);
+    return name;
+}
+
+function rollRelic(){
+    const got = [];
+    totalRelicRolls++;
+    relicDivinePityCount++;
+
+    let ri = 6;
+    if(relicDivinePityCount < 1500){
+        const v = Math.floor(secureRandom() * 10000);
+        let acc = 0;
+        for(let i = 0; i < 7; i++){
+            acc += RARITY_CHANCE[i];
+            if(v < acc){ ri = i; break; }
+        }
+    }
+    if(ri === 6){ relicDivinePityCount = 0; }
+    got.push(grantRelic(pickFromRarity(RARITIES[ri]).n));
+
+    // Three fully independent ultra-rare checks. No pity, no scaling.
+    for(const u of ULTRA){
+        if(!relicDiscovered[u.n] && secureRandom() < u.p){
+            got.push(grantRelic(u.n));
+        }
+    }
+    return got.filter(Boolean);
+}
+
+function rollMany(n){
+    const counts = {};
+    relicQuiet = true;
+    try{
+        for(let i = 0; i < n; i++){
+            for(const r of rollRelic()){ counts[r] = (counts[r] || 0) + 1; }
+        }
+    }finally{
+        relicQuiet = false;
+    }
+    recalcRelicBonuses();
+    relicAchievements();
+    return counts;
+}
+
+function findRelic(){
+    const got = rollRelic();
+    recalcRelicBonuses();
+    relicAchievements();
+    return got;
+}
+
+function rareRelicEvent(p){
+    if(secureRandom() < p){
+        log("<span class='rare'>A relic glimmers in the rubble...</span>");
+        findRelic();
+    }
+}
+
+function grantBossRelics(type){
+    for(const n of (bossRelicRewards[type] || [])){ grantRelic(n); }
+    recalcRelicBonuses();
+    relicAchievements();
+}
+
+/* ---------- CRAFTING ---------- */
+function craftRelicBatch(n){
+    tutorialAction("relic");
+    if(gameOver){ log("Game Over. Load a save first."); return; }
+    if(relicCraftBusy) return;
+    const cost = 40 * n;
+    if(shards < cost){
+        log("<span class='warning'>Not enough shards. " + n + " relic(s) cost " + cost.toLocaleString() + ".</span>");
+        return;
+    }
+    relicCraftBusy = true;
+    try{
+        syncLevelProgressFromShards();
+        shards -= cost;
+        lastLevelShardTotal = shards;
+        if(n === 1){
+            findRelic();
+            log("You crafted a memory relic.");
+        }else{
+            const c = rollMany(n);
+            log("<span class='rare'>===== CRAFTED ×" + n + " (-" + cost.toLocaleString() + " Shards) =====</span>");
+            Object.keys(c).sort((a,b) => RARITIES.indexOf(relicByName(b).r) - RARITIES.indexOf(relicByName(a).r))
+                .forEach(k => {
+                    const d = relicByName(k);
+                    log("<span style='color:" + RARITY_COLOR[d.r] + "'>" + k + " ×" + c[k] + " (" + d.r + ")</span>");
+                });
+        }
+        updateStats();
+        autoSave();
+        renderVault();
+    }finally{
+        relicCraftBusy = false;
+    }
+}
+function craftRelic(){ craftRelicBatch(1); }
+
+/* ---------- ANNOUNCEMENTS ---------- */
+function flash(html,color,big){
+    const el = document.createElement("div");
+    el.style.cssText =
+        "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;" +
+        "text-align:center;font-family:Consolas,monospace;cursor:pointer;" +
+        (big
+            ? "background:radial-gradient(circle,rgba(0,0,0,.55),rgba(0,0,0,.95));font-size:clamp(18px,4vw,34px);"
+            : "inset:auto;top:12px;left:50%;transform:translateX(-50%);padding:10px 18px;background:#000c;border:2px solid " + color + ";font-size:15px;") +
+        "color:" + color + ";text-shadow:0 0 18px " + color + ";";
+    el.innerHTML = "<div>" + html + "</div>";
+    el.onclick = () => el.remove();
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), big ? 5000 : 2200);
+}
+
+function announceRelic(d,first){
+    const col = RARITY_COLOR[d.r];
+    const ri = RARITIES.indexOf(d.r);
+    if(d.ultra){
+        log("<span style='color:" + col + "'>★★★ " + d.msg.replace("<br>"," ") + " ★★★</span>");
+        log("<span style='color:" + col + "'>" + d.n + " (" + d.r + ")</span>");
+        flash("<div style='font-size:.6em'>" + d.r.toUpperCase() + "</div><br>" + d.msg + "<br><br><b>" + d.n + "</b>",col,true);
+        return;
+    }
+    if(relicQuiet && !first && ri < 6) return;
+    log("<span style='color:" + col + "'>" + (first ? "NEW RELIC: " : "Relic Found: ") + d.n + " [" + d.r + "]</span>");
+    if(ri === 6){
+        flash("DIVINE RELIC DISCOVERED<br><b>" + d.n + "</b>",col,true);
+    }else if(!relicQuiet && ri >= 2){
+        flash(d.r.toUpperCase() + " — " + d.n,col,false);
+    }
+}
+
+/* ---------- ACHIEVEMENTS ---------- */
+function relicAchievements(){
+    const A = (n,desc,t) => { if(!achievements.includes(n)) unlockAchievement(n,desc,t || ""); };
+    const std = STANDARD.filter(x => relicDiscovered[x.n]).length;
+    const ux = ULTRA.filter(x => relicDiscovered[x.n]).length;
+    const total = std + ux;
+    const divs = STANDARD.filter(x => x.r === "Divine");
+    const divFound = divs.filter(x => relicDiscovered[x.n]).length;
+
+    if(total >= 1) A("First Discovery","Obtain your first relic.");
+    if(total >= 10) A("Collector","Discover 10 unique relics.");
+    if(total >= 25) A("Dedicated Diver","Discover 25 unique relics.");
+    if(total >= 40) A("Relic Master","Discover 40 unique relics.");
+    if(std >= 50) A("Beyond Reality","Discover all 50 standard relics.");
+    if(divFound >= 1) A("Divine Encounter","Obtain a standard Divine relic.");
+    if(divFound >= 5) A("Fivefold Divinity","Obtain all five standard Divine relics.");
+    if(ux >= 1) A("Forbidden Discovery","Obtain an ultra-rare Divine relic.");
+    if(STANDARD.some(x => !x.legacy && fusionLevel(x.n) >= 5 && relicDiscovered[x.n])) A("Fusion Expert","Reach fusion Level 5.");
+    if(total >= 53 && !achievements.includes("Eternal Collector")){
+        A("Eternal Collector","Obtain all 53 relics.","THE ETERNAL COLLECTOR");
+        log("<span class='rare'>THE COMPLETE MEMORY VAULT</span>");
+        log("<span class='rare'>53 / 53 — 100% COLLECTION</span>");
+        log("The vault remembers everyone who ever dove. Now it remembers you.");
+        flash("THE COMPLETE MEMORY VAULT<br><b>53 / 53 — 100% COLLECTION</b>","#ffd700",true);
+    }
+}
+
+function relicAfter(){
+    recalcRelicBonuses();
+    relicAchievements();
+    updateStats();
+    renderVault();
+    autoSave();
+}
+
+/* ---------- ACTIONS ---------- */
+function equipRelic(idx){
+    const d = RELICS[idx];
+    if(gameOver || inBattle){ log("<span class='warning'>Relics can only be changed outside combat.</span>"); return; }
+    if(!d || d.legacy || !relics.includes(d.n)) return;
+    if(equippedRelics.includes(d.n)) return;
+    const slot = equippedRelics.findIndex((v,i) => v === null && level >= SLOT_LEVELS[i]);
+    if(slot < 0){ log("<span class='warning'>No free unlocked relic slot.</span>"); return; }
+    equippedRelics[slot] = d.n;
+    log("<span class='good'>Equipped " + d.n + " in Slot " + (slot + 1) + ".</span>");
+    relicAfter();
+}
+function unequipRelic(slot){
+    if(gameOver || inBattle){ log("<span class='warning'>Relics can only be changed outside combat.</span>"); return; }
+    equippedRelics[slot] = null;
+    relicAfter();
+}
+function dismantleRelic(idx){
+    const d = RELICS[idx];
+    const c = relicCounts()[d.n] || 0;
+    if(gameOver || !d || d.legacy || d.ultra || c < 2) return;
+    removeCopies(d.n,1);
+    memoryDust += DUST_VALUE[d.r];
+    totalRelicsDismantled++;
+    log("<span class='good'>Dismantled " + d.n + " → +" + DUST_VALUE[d.r] + " Memory Dust.</span>");
+    relicAfter();
+}
+function fuseRelic(idx){
+    const d = RELICS[idx];
+    if(gameOver || !d || d.legacy || d.ultra) return;
+    const lvl = fusionLevel(d.n);
+    if(lvl >= 5) return;
+    const need = lvl + 1;
+    const dust = FUSION_DUST[lvl - 1];
+    const c = relicCounts()[d.n] || 0;
+    if(c - 1 < need || memoryDust < dust){
+        log("<span class='warning'>Not enough copies or Memory Dust.</span>");
+        return;
+    }
+    removeCopies(d.n,need);
+    memoryDust -= dust;
+    relicFusionLevels[d.n] = lvl + 1;
+    totalFusionUpgrades++;
+    log("<span class='rare'>" + d.n + " fused to Level " + (lvl + 1) + "!</span>");
+    relicAfter();
+}
+
+/* ---------- VAULT UI ---------- */
+const TABS = ["Collection","Inventory","Equipped","Fusion","Discovery","Statistics"];
+let rvTab = 0;
+let rvF = {rar:"All",st:"All",sort:"Default"};
+
+(function injectVaultCSS(){
+    const s = document.createElement("style");
+    s.textContent =
+    "#relicVault{display:none;position:fixed;inset:0;z-index:5000;background:rgba(5,5,16,.97);overflow-y:auto;padding:12px;font-family:Consolas,monospace;color:#0ff}" +
+    "#relicVault.open{display:block}" +
+    "#relicVault .rvBox{max-width:1100px;margin:0 auto;border:2px solid #0ff;box-shadow:0 0 18px #0ff;padding:14px;background:#090920}" +
+    "#relicVault.complete .rvBox{border-color:#ffd700;box-shadow:0 0 30px #ffd700}" +
+    "#relicVault button,#relicVault select{width:auto;margin:3px;padding:8px 10px;font-size:13px;background:#000;color:#0ff;border:2px solid #0ff;font-family:Consolas,monospace}" +
+    "#relicVault button:disabled{opacity:.4;cursor:not-allowed}" +
+    "#relicVault button.on{background:#0ff;color:#000}" +
+    ".rvGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:10px}" +
+    ".rvCard{border:2px solid;padding:10px;background:#000a;font-size:12px;line-height:1.45}" +
+    ".rvCard b{font-size:14px}" +
+    ".rvSil{font-size:44px;text-align:center;color:#223;text-shadow:0 0 6px #335}" +
+    ".rvDivine{animation:glow 2s infinite}" +
+    ".rvBar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between}" +
+    "@media(max-width:600px){.rvGrid{grid-template-columns:1fr 1fr}}";
+    document.head.appendChild(s);
+})();
+
+(function buildVault(){
+    const v = document.createElement("div");
+    v.id = "relicVault";
+    v.innerHTML = "<div class='rvBox'><div class='rvBar'><h2 style='margin:0'>RELIC VAULT</h2>" +
+        "<div id='rvWallet'></div><button onclick='RV.close()'>CLOSE</button></div>" +
+        "<div id='rvCraft'></div><div id='rvTabs'></div><div id='rvBody'></div></div>";
+    document.body.appendChild(v);
+
+    const craftBtn = document.querySelector("button[onclick='craftRelic()']");
+    if(craftBtn){
+        const b = document.createElement("button");
+        b.textContent = "Open Relic Vault";
+        b.onclick = () => { document.getElementById("relicVault").classList.add("open"); renderVault(); };
+        craftBtn.after(b);
+    }
+})();
+
+window.RV = {
+    close:() => document.getElementById("relicVault").classList.remove("open"),
+    tab:i => { rvTab = i; renderVault(); },
+    craft:n => craftRelicBatch(n),
+    eq:i => equipRelic(i), un:i => unequipRelic(i),
+    dis:i => dismantleRelic(i), fuse:i => fuseRelic(i),
+    f:(k,v) => { rvF[k] = v; renderVault(); }
+};
+
+function rvCard(d,c){
+    const col = RARITY_COLOR[d.r];
+    const n = c[d.n] || 0;
+    if(!relicDiscovered[d.n]){
+        return "<div class='rvCard' style='border-color:#334;color:#557'><div class='rvSil'>?</div>" +
+            "<b>???</b><br>" + (d.ultra ? "Unknown" : d.r) + "<br>Undiscovered</div>";
+    }
+    const equipped = equippedRelics.includes(d.n);
+    const eff = d.legacy ? d.txt : fxText(d.fx,d.ultra ? 1 : FUSION_MULT[fusionLevel(d.n) - 1]);
+    return "<div class='rvCard " + (d.r.indexOf("Divine") >= 0 ? "rvDivine" : "") + "' style='border-color:" + col + ";color:" + col + ";box-shadow:0 0 8px " + col + "55'>" +
+        "<b>" + d.n + "</b><br>" + d.r + (d.legacy ? " · Legacy" : "") + "<br>" +
+        "<span style='color:#9fe'>A relic recovered from the memory stream.</span><br>" +
+        "Ability: " + eff + "<br>Owned: " + n +
+        (!d.legacy && !d.ultra ? " · Fusion Lv " + fusionLevel(d.n) : "") +
+        (equipped ? "<br><b>★ EQUIPPED</b>" : "") + "</div>";
+}
+
+function renderVault(){
+    const root = document.getElementById("relicVault");
+    if(!root || !root.classList.contains("open")) return;
+    const c = relicCounts();
+    const total = RELICS.filter(x => relicDiscovered[x.n]).length;
+    if(total >= 53) root.classList.add("complete");
+
+    document.getElementById("rvWallet").innerHTML =
+        "Shards: " + shards.toLocaleString() + " · Dust: " + memoryDust.toLocaleString() + " · " + total + "/53";
+    document.getElementById("rvCraft").innerHTML =
+        [1,10,100].map(n => "<button onclick='RV.craft(" + n + ")' " + (shards < 40 * n ? "disabled" : "") + ">Craft ×" + n +
+        " (" + (40 * n).toLocaleString() + ")</button>").join("");
+    document.getElementById("rvTabs").innerHTML =
+        TABS.map((t,i) => "<button class='" + (i === rvTab ? "on" : "") + "' onclick='RV.tab(" + i + ")'>" + t + "</button>").join("");
+
+    let h = "";
+    if(rvTab === 0){
+        const sel = (k,opts) => "<select onchange=\"RV.f('" + k + "',this.value)\">" +
+            opts.map(o => "<option " + (rvF[k] === o ? "selected" : "") + ">" + o + "</option>").join("") + "</select>";
+        h += "Rarity " + sel("rar",["All"].concat(RARITIES,["Ultra-Rare"])) +
+             " Status " + sel("st",["All","Discovered","Undiscovered","Equipped"]) +
+             " Sort " + sel("sort",["Default","Name","Rarity"]);
+        let list = RELICS.filter(d =>
+            (rvF.rar === "All" || (rvF.rar === "Ultra-Rare" ? d.ultra : (d.r === rvF.rar && !d.ultra))) &&
+            (rvF.st === "All" ||
+             (rvF.st === "Discovered" && relicDiscovered[d.n]) ||
+             (rvF.st === "Undiscovered" && !relicDiscovered[d.n]) ||
+             (rvF.st === "Equipped" && equippedRelics.includes(d.n))));
+        if(rvF.sort === "Name") list = list.slice().sort((a,b) => a.n.localeCompare(b.n));
+        if(rvF.sort === "Rarity") list = list.slice().sort((a,b) => RARITIES.indexOf(b.r.indexOf("Divine") >= 0 ? "Divine" : b.r) - RARITIES.indexOf(a.r.indexOf("Divine") >= 0 ? "Divine" : a.r));
+        h += "<div class='rvGrid'>" + list.map(d => rvCard(d,c)).join("") + "</div>";
+    }
+    else if(rvTab === 1){
+        const owned = RELICS.filter(d => c[d.n]);
+        h += owned.length ? "<div class='rvGrid'>" + owned.map(d => {
+            const i = RELICS.indexOf(d);
+            const can = !d.legacy;
+            return "<div>" + rvCard(d,c) +
+                (can ? "<button onclick='RV.eq(" + i + ")' " + (equippedRelics.includes(d.n) ? "disabled" : "") + ">Equip</button>" : "") +
+                (can && !d.ultra ? "<button onclick='RV.dis(" + i + ")' " + (c[d.n] < 2 ? "disabled" : "") + ">Dismantle +" + DUST_VALUE[d.r] + "</button>" : "") +
+                "</div>";
+        }).join("") + "</div>" : "<p>No relics yet. Craft one to begin.</p>";
+    }
+    else if(rvTab === 2){
+        h += "<p>Change relics outside combat. Legacy relics always work on their own.</p>";
+        h += [0,1,2].map(i => {
+            const locked = level < SLOT_LEVELS[i];
+            const n = equippedRelics[i];
+            return "<div class='rvCard' style='border-color:#0ff;margin:8px 0'><b>Slot " + (i + 1) + "</b> — " +
+                (locked ? "Locked (Level " + SLOT_LEVELS[i] + ")" :
+                 n ? n + " · " + fxText(relicByName(n).fx,relicByName(n).ultra ? 1 : FUSION_MULT[fusionLevel(n) - 1]) +
+                     " <button onclick='RV.un(" + i + ")'>Unequip</button>" : "Empty") + "</div>";
+        }).join("");
+    }
+    else if(rvTab === 3){
+        const owned = STANDARD.filter(d => !d.legacy && c[d.n]);
+        h += "<p>Fusing consumes extra copies and Memory Dust. You keep one copy.</p>";
+        h += owned.length ? owned.map(d => {
+            const lvl = fusionLevel(d.n);
+            const i = RELICS.indexOf(d);
+            if(lvl >= 5) return "<div class='rvCard' style='border-color:" + RARITY_COLOR[d.r] + ";margin:8px 0'><b>" + d.n + "</b> — MAX LEVEL 5 · " + fxText(d.fx,2) + "</div>";
+            const need = lvl + 1, dust = FUSION_DUST[lvl - 1];
+            const ok = c[d.n] - 1 >= need && memoryDust >= dust;
+            return "<div class='rvCard' style='border-color:" + RARITY_COLOR[d.r] + ";margin:8px 0'><b>" + d.n + "</b> Lv " + lvl + " → " + (lvl + 1) +
+                "<br>Now: " + fxText(d.fx,FUSION_MULT[lvl - 1]) + "<br>After: " + fxText(d.fx,FUSION_MULT[lvl]) +
+                "<br>Copies: " + (c[d.n] - 1) + "/" + need + " extra · Dust: " + memoryDust + "/" + dust +
+                "<br><button onclick='RV.fuse(" + i + ")' " + (ok ? "" : "disabled") + ">Fuse</button></div>";
+        }).join("") : "<p>Nothing to fuse yet.</p>";
+    }
+    else if(rvTab === 4){
+        h += "<h3>Ultra-rare odds (no pity, ever)</h3>" + ULTRA.map(d =>
+            "<div>" + (relicDiscovered[d.n] ? "<b style='color:" + RARITY_COLOR[d.r] + "'>" + d.n + "</b>" : "??? (" + d.r + ")") + " — " + d.odds + "</div>").join("");
+        h += "<h3>Discovery history</h3>" + (relicDiscoveryHistory.length ?
+            relicDiscoveryHistory.slice().reverse().map(e => {
+                const d = relicByName(e.name);
+                return "<div style='color:" + (d ? RARITY_COLOR[d.r] : "#fff") + "'>" + e.name + " — " + e.date + "</div>";
+            }).join("") : "<p>Nothing discovered yet.</p>");
+    }
+    else{
+        const prog = r => { const p = STANDARD.filter(x => x.r === r); return p.filter(x => relicDiscovered[x.n]).length + " / " + p.length; };
+        const std = STANDARD.filter(x => relicDiscovered[x.n]).length;
+        const ux = ULTRA.filter(x => relicDiscovered[x.n]).length;
+        const hi = Math.max(1,...Object.keys(relicFusionLevels).map(k => relicFusionLevels[k]));
+        h += "<div class='rvCard' style='border-color:#0ff'>" +
+            "<b>" + std + " / 50 STANDARD RELICS</b><br><b>" + ux + " / 3 ULTRA-RARE DIVINE RELICS</b><br><b>" + (std + ux) + " / 53 TOTAL COLLECTION</b> (" + Math.floor((std + ux) / 53 * 100) + "%)<br><br>" +
+            "Total relic copies: " + relics.length + "<br>" +
+            RARITIES.map(r => r + ": " + prog(r)).join("<br>") + "<br>" +
+            "Ultra-rare Divine: " + ux + " / 3<br><br>" +
+            "Memory Dust: " + memoryDust + "<br>Total normal relic rolls: " + totalRelicRolls +
+            "<br>Relics dismantled: " + totalRelicsDismantled + "<br>Fusion upgrades: " + totalFusionUpgrades +
+            "<br>Highest fusion level: " + hi + "<br>Divine pity: " + relicDivinePityCount + " / 1500</div>";
+    }
+    document.getElementById("rvBody").innerHTML = h;
+}
+
+/* initial sync after the module loads */
+for(const n of relics){ if(relicByName(n)) relicDiscovered[n] = true; }
+recalcRelicBonuses();
 
 updateStats();
 updateSaveSlotNames();
