@@ -289,6 +289,50 @@ h2{
     }
 }
 
+/* DESKTOP LAYOUT FIX */
+@media(min-width:901px){
+
+    #container{
+        display:flex;
+        align-items:flex-start;
+        width:100%;
+        box-sizing:border-box;
+        gap:0;
+    }
+
+    #leftPanel{
+        width:25%;
+        min-width:0;
+        box-sizing:border-box;
+        flex-shrink:0;
+    }
+
+    #mainPanel{
+        width:75%;
+        min-width:0;
+        box-sizing:border-box;
+        flex-shrink:0;
+    }
+
+    #container .panel{
+        box-sizing:border-box;
+        max-width:100%;
+    }
+
+    button{
+        box-sizing:border-box;
+    }
+
+    input{
+        box-sizing:border-box;
+    }
+
+    .dailyRewardGrid{
+        grid-template-columns:repeat(7,minmax(0,1fr));
+    }
+
+}
+
 /* MOBILE LAYOUT FIX */
 
 @media(max-width:900px){
