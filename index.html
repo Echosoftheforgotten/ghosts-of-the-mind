@@ -2848,6 +2848,23 @@ async function saveGame(slot,auto=false){
 
 }
 
+function migrateLegacyEternalCollector(){
+
+    const oldAchievement = "Eternal Collector";
+    const legacyAchievement = "Eternal Collector (Legacy)";
+
+    const index = achievements.indexOf(oldAchievement);
+
+    if(index === -1) return;
+
+    if(!achievements.includes(legacyAchievement)){
+        achievements[index] = legacyAchievement;
+    }else{
+        achievements.splice(index, 1);
+    }
+
+}
+
 async function loadGame(slot){
 
     // Death locks survive page refreshes.
@@ -3066,6 +3083,9 @@ async function loadGame(slot){
     achievements =
         save.achievements ?? [];
 
+    // Migrate the old achievement for existing collectors.
+        migrateLegacyEternalCollector();
+
     titles =
         save.titles ?? [];
 
@@ -3207,7 +3227,11 @@ const ACHIEVEMENT_INFO = {
     "Fivefold Divinity":["Obtain all ten standard Divine relics.",""],
     "Forbidden Discovery":["Obtain an ultra-rare Divine relic.",""],
     "Fusion Expert":["Reach fusion Level 5.",""],
-    "Eternal Collector":["Obtain every relic in the game.","THE ETERNAL COLLECTOR"]
+    "Eternal Collector":["Obtain every relic in the game.","THE ETERNAL COLLECTOR"],
+    "Eternal Collector (Legacy)": [
+        "Obtained every relic before the achievement update.",
+        "THE ETERNAL COLLECTOR"
+    ]
 };
 
 function rebuildAchievementLog(){
