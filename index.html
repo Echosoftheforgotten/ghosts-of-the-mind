@@ -5161,7 +5161,17 @@ const FX_LABEL = {
 const PCT_KEYS = ["shard","explore","quest","dive","basic","skill","dr","crit"];
 
 const RELICS = [];
-function D(r,n,fx,o){ RELICS.push(Object.assign({r:r,n:n,fx:fx||{}},o||{})); }
+
+function D(r,n,fx,o){
+    // Prevent duplicate relic definitions.
+    if(RELICS.some(x => x.n === n)) return;
+
+    RELICS.push(Object.assign(
+        {r:r,n:n,fx:fx||{}},
+        o||{}
+    ));
+}
+
 const L = t => ({legacy:true,txt:t});
 
 /* ================= COMMON ================= */
