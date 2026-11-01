@@ -5706,8 +5706,33 @@ function announceRelic(d,first){
 }
 
 /* ---------- ACHIEVEMENTS ---------- */
+
+function migrateLegacyEternalCollector(){
+    const oldIndex = achievements.indexOf("Eternal Collector");
+
+    if(oldIndex === -1) return false;
+
+    if(achievements.includes("Eternal Collector (Legacy)")){
+        achievements.splice(oldIndex, 1);
+    }else{
+        achievements[oldIndex] = "Eternal Collector (Legacy)";
+    }
+
+    if(typeof rebuildAchievementLog === "function"){
+        rebuildAchievementLog();
+    }
+
+    return true;
+}
 function relicAchievements(){
-    const A = (n,desc,t) => { if(!achievements.includes(n)) unlockAchievement(n,desc,t || ""); };
+
+    migrateLegacyEternalCollector();
+
+    const A = (n,desc,t) => {
+        if(!achievements.includes(n)){
+            unlockAchievement(n,desc,t || "");
+        }
+    };
     const std = STANDARD.filter(x => relicDiscovered[x.n]).length;
     const ux = ULTRA.filter(x => relicDiscovered[x.n]).length;
     const total = std + ux;
@@ -6382,6 +6407,8 @@ nextTutorial = function(){ /* old auto-advance disabled */ };
 
 updateStats();
 updateSaveSlotNames();
+
+migrateLegacyEternalCollector();
 
 rebuildAchievementLog();
 
