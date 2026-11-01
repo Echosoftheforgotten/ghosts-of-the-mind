@@ -3202,12 +3202,12 @@ const ACHIEVEMENT_INFO = {
     "Collector":["Discover 10 unique relics.",""],
     "Dedicated Diver":["Discover 25 unique relics.",""],
     "Relic Master":["Discover 40 unique relics.",""],
-    "Beyond Reality":["Discover all 50 standard relics.",""],
+    "Beyond Reality":["Discover every standard relic.",""],
     "Divine Encounter":["Obtain a standard Divine relic.",""],
-    "Fivefold Divinity":["Obtain all five standard Divine relics.",""],
+    "Fivefold Divinity":["Obtain all ten standard Divine relics.",""],
     "Forbidden Discovery":["Obtain an ultra-rare Divine relic.",""],
     "Fusion Expert":["Reach fusion Level 5.",""],
-    "Eternal Collector":["Obtain all 53 relics.","THE ETERNAL COLLECTOR"]
+    "Eternal Collector":["Obtain every relic in the game.","THE ETERNAL COLLECTOR"]
 };
 
 function rebuildAchievementLog(){
@@ -4728,7 +4728,7 @@ if(event == 0){
 log("You discover ancient ruins.");
 
 let reward =
-60 * powerMulti * relicShardBonus * (1 + rx.quest);
+50 * powerMulti * relicShardBonus * (1 + rx.quest);
 
 if(archivist){
     reward *= 1.25;
@@ -4751,7 +4751,7 @@ if(event == 2){
 log("You uncover forbidden history.");
 
 let reward =
-50 * powerMulti * relicShardBonus * (1 + rx.quest);
+60 * powerMulti * relicShardBonus * (1 + rx.quest);
 
 if(archivist){
     reward *= 1.25;
@@ -5139,7 +5139,9 @@ const RARITY_CHANCE = [5000,2500,1500,745,200,50,5]; // out of 10,000 = exactly 
 const RARITY_COLOR = {
     Common:"#aaaaaa",Uncommon:"#44dd66",Rare:"#4a9dff",Epic:"#b266ff",
     Legendary:"#ffcc00",Mythic:"#ff3b3b",Divine:"#00ffff",
-    "Ancient Divine":"#00ffff","Forbidden Divine":"#00ffff","Primordial Divine":"#00ffff"
+    "Ancient Divine":"#00ffff","Forbidden Divine":"#00ffff","Primordial Divine":"#00ffff",
+    "Celestial Divine":"#9ad1ff","Eternal Divine":"#ff9af5",
+    "Transcendent Divine":"#ffe97a","Super Divine":"#ffffff"
 };
 const DUST_VALUE = {Common:1,Uncommon:3,Rare:8,Epic:20,Legendary:60,Mythic:200,Divine:750};
 const FUSION_MULT = [1,1.25,1.5,1.75,2];
@@ -5213,7 +5215,81 @@ D("Divine","The First Silence",{san:50,sanheal:10});
 D("Divine","Worldroot",{hp:1000});
 D("Divine","Eye Beyond Time",{skill:.5});
 D("Divine","The Unwritten Name",{basic:.5,shard:.5});
+/* ===================== BLOCK A =====================
+   Paste on the line ABOVE:  D("Ancient Divine","Heart of the Forgotten God",...
+   (53 new standard relics) */
 
+// COMMON
+D("Common","Rainworn Ticket",{explore:.03,quest:.01});
+D("Common","Ink-Stained Feather",{quest:.03,shard:.01});
+D("Common","Cracked Hour Dial",{dive:.03});
+D("Common","Brass Memory Pin",{basic:.03});
+D("Common","Quiet Ember",{heal:3});
+D("Common","Blue Thread",{shard:.04});
+D("Common","Hollow Marble",{hp:8});
+D("Common","Dust-Covered Locket",{san:8});
+D("Common","Paper Lantern",{sanheal:3});
+D("Common","Tin Observatory",{crit:.03});
+
+// UNCOMMON
+D("Uncommon","Glass Archive Card",{quest:.06,explore:.02});
+D("Uncommon","Moonlit Compass",{dive:.06});
+D("Uncommon","Copper Sentinel Plate",{dr:.04,hp:10});
+D("Uncommon","Scribe's Thimble",{shard:.07});
+D("Uncommon","Waking Bell",{sanheal:7});
+D("Uncommon","Emberglass Vial",{heal:7});
+D("Uncommon","Silver Root",{hp:15});
+D("Uncommon","Veil-Sewn Mask",{san:12});
+D("Uncommon","Echo Prism",{basic:.07});
+D("Uncommon","Clockwork Sparrow",{skill:.07});
+
+// RARE
+D("Rare","Archivist's Hourglass",{quest:.12,dive:.08});
+D("Rare","Rebel Signal Flare",{basic:.14,explore:.05});
+D("Rare","Deepwater Aegis",{dr:.08});
+D("Rare","Starless Lens",{crit:.15});
+D("Rare","Memory Cartographer",{shard:.15,explore:.08});
+D("Rare","Hollow Crown",{hp:35});
+D("Rare","Glassheart Pendant",{san:30});
+D("Rare","Riftwalker Spurs",{dive:.15});
+D("Rare","Silent Orchestra",{skill:.12,sanheal:8});
+
+// EPIC
+D("Epic","Cathedral of Echoes",{shard:.25});
+D("Epic","Blackglass Bulwark",{dr:.15,hp:50});
+D("Epic","Thread of Tomorrow",{quest:.25,dive:.12});
+D("Epic","Wraithstep Mantle",{explore:.25});
+D("Epic","Sunken Choir",{san:75,sanheal:12});
+D("Epic","Red Comet",{basic:.25,crit:.15});
+D("Epic","Unfinished Map",{skill:.28});
+
+// LEGENDARY
+D("Legendary","Monarch's Last Edict",{basic:.35,hp:75});
+D("Legendary","Astral Ledger",{shard:.35,quest:.20});
+D("Legendary","Veilbreaker Mantle",{dr:.20,heal:25});
+D("Legendary","Clock of the Drowned",{explore:.35,dive:.20});
+D("Legendary","Pale Sovereign",{san:100,sanheal:20});
+D("Legendary","Starfire Conduit",{skill:.35,crit:.20});
+
+// MYTHIC
+D("Mythic","Black Sun Engine",{skill:.50,dr:.10});
+D("Mythic","The Nameless Tide",{shard:.50,dive:.25});
+D("Mythic","Crown of Ashen Stars",{basic:.45,crit:.25});
+D("Mythic","Heart of the Deep Archive",{hp:250,san:50});
+D("Mythic","Last Bastion",{dr:.25,heal:40});
+D("Mythic","Dreaming Singularity",{quest:.45,explore:.30});
+
+// DIVINE
+D("Divine","Crown of the Unremembered",{shard:.75,explore:.25},
+  {lore:"A crown worn by those whose names vanished from history."});
+D("Divine","The Last Sun",{hp:500,heal:50},
+  {lore:"The final light that refused to disappear."});
+D("Divine","Throne of Stillness",{san:100,sanheal:25},
+  {lore:"A throne untouched by the chaos of reality."});
+D("Divine","The Infinite Witness",{skill:.75,crit:.25},
+  {lore:"It has witnessed every battle, including those yet to happen."});
+D("Divine","Law of the First Dawn",{dr:.50,quest:.50},
+  {lore:"The first rule reality ever obeyed."});
 D("Ancient Divine","Heart of the Forgotten God",{shard:1},
   {ultra:true,p:1/10000,odds:"1 in 10,000 (0.01%)",msg:"AN ANCIENT DIVINE RELIC HAS AWAKENED."});
 D("Forbidden Divine","The Unseeing Eye",{skill:1},
@@ -5221,6 +5297,31 @@ D("Forbidden Divine","The Unseeing Eye",{skill:1},
 D("Primordial Divine","The First Existence",{shard:2.5,hp:500},
   {ultra:true,p:1/50000,odds:"1 in 50,000 (0.002%)",msg:"THE FIRST EXISTENCE HAS BEEN DISCOVERED.<br>THE MEMORY STREAM WILL NEVER BE THE SAME."});
 
+/* ===================== BLOCK B =====================
+   Paste on the line BELOW the line ending:
+   THE MEMORY STREAM WILL NEVER BE THE SAME."});
+   (4 new ultra-rare relics) */
+
+D("Celestial Divine","The Celestial Archive",{shard:1.5,hp:250},
+  {ultra:true,p:1/75000,odds:"1 in 75,000",
+   lore:"A record of every memory the stars have carried.",
+   msg:"A CELESTIAL RELIC HAS DESCENDED.<br>THE STARS REMEMBER YOU."});
+
+D("Eternal Divine","The Eternal Witness",{skill:1.5,san:100},
+  {ultra:true,p:1/100000,odds:"1 in 100,000",
+   lore:"A presence that has watched every world begin and end.",
+   msg:"THE ETERNAL WITNESS HAS OPENED ITS EYES.<br>NOTHING IS HIDDEN FROM IT NOW."});
+
+D("Transcendent Divine","The Transcendent Crown",{shard:2,skill:1.5,hp:500},
+  {ultra:true,p:1/250000,odds:"1 in 250,000",
+   lore:"A crown that exists beyond the reach of forgotten reality.",
+   msg:"THE TRANSCENDENT CROWN HAS BEEN FOUND.<br>REALITY ITSELF BOWS BEFORE YOU."});
+
+D("Super Divine","The Absolute Memory",{shard:3,skill:1,basic:1,hp:1000,san:100},
+  {ultra:true,p:1/2000000,odds:"1 in 2,000,000",
+   lore:"SUPER DIVINE · THE RAREST RELIC.",
+   msg:"🌌 IMPOSSIBLE DISCOVERY 🌌<br>THE ABSOLUTE MEMORY<br>SUPER DIVINE RELIC DISCOVERED"});
+   
 const STANDARD = RELICS.filter(x => !x.ultra);
 const ULTRA = RELICS.filter(x => x.ultra);
 const relicByName = n => RELICS.find(x => x.n === n);
@@ -5508,17 +5609,16 @@ function relicAchievements(){
     if(total >= 10) A("Collector","Discover 10 unique relics.");
     if(total >= 25) A("Dedicated Diver","Discover 25 unique relics.");
     if(total >= 40) A("Relic Master","Discover 40 unique relics.");
-    if(std >= 50) A("Beyond Reality","Discover all 50 standard relics.");
+    if(std >= STANDARD.length) A("Beyond Reality","Discover every standard relic.");
     if(divFound >= 1) A("Divine Encounter","Obtain a standard Divine relic.");
     if(divFound >= 5) A("Fivefold Divinity","Obtain all five standard Divine relics.");
     if(ux >= 1) A("Forbidden Discovery","Obtain an ultra-rare Divine relic.");
     if(STANDARD.some(x => !x.legacy && fusionLevel(x.n) >= 5 && relicDiscovered[x.n])) A("Fusion Expert","Reach fusion Level 5.");
-    if(total >= 53 && !achievements.includes("Eternal Collector")){
-        A("Eternal Collector","Obtain all 53 relics.","THE ETERNAL COLLECTOR");
+        if(total >= RELICS.length && !achievements.includes("Eternal Collector")){
+        A("Eternal Collector","Obtain every relic in the game.","THE ETERNAL COLLECTOR");
         log("<span class='rare'>THE COMPLETE MEMORY VAULT</span>");
-        log("<span class='rare'>53 / 53 — 100% COLLECTION</span>");
-        log("The vault remembers everyone who ever dove. Now it remembers you.");
-        flash("THE COMPLETE MEMORY VAULT<br><b>53 / 53 — 100% COLLECTION</b>","#ffd700",true);
+        log("<span class='rare'>" + RELICS.length + " / " + RELICS.length + " — 100% COLLECTION</span>");
+        flash("THE COMPLETE MEMORY VAULT<br><b>" + RELICS.length + " / " + RELICS.length + " — 100% COLLECTION</b>","#ffd700",true);
     }
 }
 
@@ -5675,6 +5775,132 @@ window.RV = {
     f:(k,v) => { rvF[k] = v; renderVault(); }
 };
 
+/* ===== RELIC FLAVOUR TEXT =====
+   Paste this whole block on the line ABOVE:  function rvCard(d,c){
+   Divine relics from the expansion and the 4 newest ultra-rare relics
+   keep the lore already written in their own D(...) lines. */
+
+const LORE = {
+
+/* ---------- COMMON ---------- */
+"Echo Fragment":"A sliver of sound that never finished fading.",
+"Faded Photograph":"Nobody in it remembers being there.",
+"Rusted Key":"It still fits a door that no longer exists.",
+"Neon Dew":"Rain that fell upward and glowed all the way.",
+"Ashen Token":"Currency from a city that burned politely.",
+"Static Pebble":"It hums softly when you stop listening.",
+"Broken Compass":"It points to wherever you wish you were.",
+"Whispering Coin":"Heads is a secret. Tails is a lie.",
+"Glass Feather":"Light enough to fly, sharp enough to remember.",
+"Dustbound Ring":"Worn by someone who promised to return.",
+"Rainworn Ticket":"Valid for one trip to a station that was erased.",
+"Ink-Stained Feather":"It wrote a hundred letters and sent none.",
+"Cracked Hour Dial":"It shows a time that hasn't happened yet.",
+"Brass Memory Pin":"Fastens one small moment to your coat.",
+"Quiet Ember":"A spark that learned to be patient.",
+"Blue Thread":"Pull it, and somewhere a memory unravels.",
+"Hollow Marble":"Roll it and you can hear the room it came from.",
+"Dust-Covered Locket":"Inside is a face, worn smooth by worrying.",
+"Paper Lantern":"It burns without heat and lights only the past.",
+"Tin Observatory":"A tiny telescope aimed at stars that already died.",
+
+/* ---------- UNCOMMON ---------- */
+"Dreamcore Prism":"It bends a dream into a dozen smaller ones.",
+"Paper Moon":"Hung over the Veil so nobody notices the real one is gone.",
+"Memory Thread":"Follow it far enough and you meet yourself.",
+"Lantern Wick":"The last bright thing in a very long night.",
+"Silver Tear":"Cried by someone who forgot why.",
+"Lost Bookmark":"It marks a page in a book nobody finished.",
+"Clockwork Pin":"Ticks in time with a heart that isn't yours.",
+"Hollow Acorn":"A whole forest sleeps inside, waiting to be remembered.",
+"Raincatcher Lens":"It collects storms and keeps only the thunder.",
+"Echoing Bell":"Rings once, then answers itself for hours.",
+"Glass Archive Card":"Borrow a memory. Return it slightly changed.",
+"Moonlit Compass":"It only works when nobody is watching.",
+"Copper Sentinel Plate":"Dented by blows that never landed on you.",
+"Scribe's Thimble":"Worn thin by centuries of careful copying.",
+"Waking Bell":"One chime and the dream politely leaves.",
+"Emberglass Vial":"Liquid warmth, sealed in a winter you can't forget.",
+"Silver Root":"Something very old is holding on underneath.",
+"Veil-Sewn Mask":"Stitched from fog and the faces it covered.",
+"Echo Prism":"One sound goes in. A whole choir comes out.",
+"Clockwork Sparrow":"It sings the same three notes, perfectly, forever.",
+
+/* ---------- RARE ---------- */
+"Mindglass Core":"A thought, polished until it reflects you back.",
+"Mirror of Regret":"It shows the version of you who chose differently.",
+"Warden's Sigil":"Where it is pressed, nothing gets through.",
+"Archivist Seal":"Stamped on everything worth forgetting safely.",
+"Rebel's Charm":"A small, stubborn light in a very large dark.",
+"Veilrunner Boots":"They never touch the ground twice in the same place.",
+"Fractured Hourglass":"The sand falls in several directions at once.",
+"Soulglass Pendant":"Cold to the touch, warm to whatever is inside.",
+"Storm-in-a-Bottle":"Do not shake. It remembers every wind it swallowed.",
+"Archivist's Hourglass":"Time runs out only for those who forget to read.",
+"Rebel Signal Flare":"A bright warning that someone is still fighting.",
+"Deepwater Aegis":"Forged where the pressure turns fear into armor.",
+"Starless Lens":"It shows what the night hides behind the stars.",
+"Memory Cartographer":"Maps places that only existed for a moment.",
+"Hollow Crown":"Heavy with a kingdom that never came.",
+"Glassheart Pendant":"Fragile on purpose. That is how it survives.",
+"Riftwalker Spurs":"Ride the cracks between one memory and the next.",
+"Silent Orchestra":"A thousand instruments, all perfectly, deafeningly still.",
+
+/* ---------- EPIC ---------- */
+"Temporal Compass":"Its needle points to when, not where.",
+"Void Lantern":"It lights the dark by taking its place.",
+"Shard of First Dawn":"A splinter of the very first morning.",
+"Nightweaver Cloak":"Spun from every night you were afraid.",
+"Memory Eater's Tooth":"Still hungry. Still sharp. Still remembers you.",
+"Crownless Diadem":"It chose no head, and the world quietly obeyed.",
+"Paradox Engine":"It runs on questions that have no answers.",
+"Cathedral of Echoes":"Every prayer here is answered by itself.",
+"Blackglass Bulwark":"A wall made of the moment right before impact.",
+"Thread of Tomorrow":"It is spun from days that haven't been decided.",
+"Wraithstep Mantle":"Wear it and your footsteps arrive before you do.",
+"Sunken Choir":"They still sing, far below, to no one.",
+"Red Comet":"It burns once in a lifetime. This is the lifetime.",
+"Unfinished Map":"The blank parts are where you come in.",
+
+/* ---------- LEGENDARY ---------- */
+"The Last Echo":"The final sound the old world ever made.",
+"Crown of Forgotten Kings":"A hundred heads wore it. None are remembered.",
+"Heart of Neon Veil":"The city's pulse, kept in a jar of light.",
+"Atlas of Lost Memories":"Every page is a place you can never visit twice.",
+"King's Final Promise":"Sworn at the end, kept long after.",
+"Monarch's Last Edict":"One command, left unsigned, still obeyed.",
+"Astral Ledger":"Every star owes a debt. This book keeps count.",
+"Veilbreaker Mantle":"The Veil parts for it, then politely closes.",
+"Clock of the Drowned":"It strikes thirteen, only underwater.",
+"Pale Sovereign":"A ruler of silence who never needed a throne.",
+"Starfire Conduit":"A channel for light that has been falling for ages.",
+
+/* ---------- MYTHIC ---------- */
+"Soul of the Abyss":"The deep looked back, and left this behind.",
+"Reality Shard":"A broken piece of what was real, still sharp.",
+"Eternal Flame":"It was never lit. It simply refuses to end.",
+"Nemesis' Broken Mask":"Half a face that never stopped watching.",
+"Black Sun Engine":"A furnace that burns darkness for power.",
+"The Nameless Tide":"It rises over everything, including names.",
+"Crown of Ashen Stars":"Worn by a god whose sky burned down.",
+"Heart of the Deep Archive":"Every forgotten thing beats inside it, slowly.",
+"Last Bastion":"The final wall, still standing, still kind.",
+"Dreaming Singularity":"A point where every dream collapses into one.",
+
+/* ---------- DIVINE (original five) ---------- */
+"Origin Memory":"The first thing anyone ever remembered.",
+"The First Silence":"What was there before the first sound.",
+"Worldroot":"Under every world, one root. This is where it holds.",
+"Eye Beyond Time":"It has seen the end and chosen to stay.",
+"The Unwritten Name":"Say it, and the page quietly rewrites itself.",
+
+/* ---------- ULTRA-RARE (original three) ---------- */
+"Heart of the Forgotten God":"Still beating, in a temple nobody can find.",
+"The Unseeing Eye":"It cannot see. That is what makes it terrifying.",
+"The First Existence":"Before the first memory, there was this."
+
+};
+
 function rvCard(d,c){
     const col = RARITY_COLOR[d.r];
     const n = c[d.n] || 0;
@@ -5697,10 +5923,10 @@ function renderVault(){
     if(!root || !root.classList.contains("open")) return;
     const c = relicCounts();
     const total = RELICS.filter(x => relicDiscovered[x.n]).length;
-    if(total >= 53) root.classList.add("complete");
+    if(total >= RELICS.length) root.classList.add("complete");
 
     document.getElementById("rvWallet").innerHTML =
-        "Shards: " + shards.toLocaleString() + " · Dust: " + memoryDust.toLocaleString() + " · " + total + "/53";
+        "Shards: " + shards.toLocaleString() + " · Dust: " + memoryDust.toLocaleString() + " · " + total + "/" + RELICS.length;
     document.getElementById("rvCraft").innerHTML =
         [1,10,100].map(n => "<button onclick='RV.craft(" + n + ")' " + (shards < 40 * n ? "disabled" : "") + ">Craft ×" + n +
         " (" + (40 * n).toLocaleString() + ")</button>").join("");
@@ -5777,10 +6003,10 @@ function renderVault(){
         const ux = ULTRA.filter(x => relicDiscovered[x.n]).length;
         const hi = Math.max(1,...Object.keys(relicFusionLevels).map(k => relicFusionLevels[k]));
         h += "<div class='rvCard' style='border-color:#0ff'>" +
-            "<b>" + std + " / 50 STANDARD RELICS</b><br><b>" + ux + " / 3 ULTRA-RARE DIVINE RELICS</b><br><b>" + (std + ux) + " / 53 TOTAL COLLECTION</b> (" + Math.floor((std + ux) / 53 * 100) + "%)<br><br>" +
+            "<b>" + std + " / " + STANDARD.length + " STANDARD RELICS</b><br><b>" + ux + " / " + ULTRA.length + " ULTRA-RARE DIVINE RELICS</b><br><b>" + (std + ux) + " / " + RELICS.length + " TOTAL COLLECTION</b> (" + Math.floor((std + ux) / RELICS.length * 100) + "%)<br><br>" +
             "Total relic copies: " + relics.length + "<br>" +
             RARITIES.map(r => r + ": " + prog(r)).join("<br>") + "<br>" +
-            "Ultra-rare Divine: " + ux + " / 3<br><br>" +
+            "Ultra-rare Divine: " + ux + " / " + ULTRA.length + "<br><br>" +
             "Memory Dust: " + memoryDust + "<br>Total normal relic rolls: " + totalRelicRolls +
             "<br>Relics dismantled: " + totalRelicsDismantled + "<br>Fusion upgrades: " + totalFusionUpgrades +
             "<br>Highest fusion level: " + hi + "<br>Divine pity: " + relicDivinePityCount + " / 1500</div>";
@@ -5838,7 +6064,7 @@ const TUT = [
   hl:["joinArchivists()","joinManipulators()","joinRebels()"],chk:()=>faction!=="Neutral"},
 
  {t:"Craft your first relic",
-  b:"Press <b>Craft Relic</b> (40 shards). Relics give permanent power, and there are 53 to collect.",
+  b:"Press <b>Craft Relic</b> (40 shards). Relics give permanent power, and there are 110 to collect.",
   hl:["craftRelic()"],chk:()=>relics.length>0},
 
  {t:"Open the Relic Vault",
