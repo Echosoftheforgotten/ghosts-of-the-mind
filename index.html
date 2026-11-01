@@ -4510,6 +4510,7 @@ if(corruptionSkip){
 
 
 let enemyDamage;
+let enemyAttackMessage = "";
 
 if(bossType === "TrueNemesis"){
 
@@ -4519,10 +4520,8 @@ if(bossType === "TrueNemesis"){
         maxHP * phaseDamageRatio * (0.9 + secureRandom() * 0.2)
     );
 
-    log(
-        "<span class='enemy'>TRUE NEMESIS — PHASE " +
-        trueNemesisPhase + " STRIKE deals " + enemyDamage + " damage.</span>"
-    );
+    enemyAttackMessage =
+        "TRUE NEMESIS — PHASE " + trueNemesisPhase + " STRIKE deals ";
 
 }else{
 
@@ -4530,8 +4529,7 @@ if(bossType === "TrueNemesis"){
         ((Math.random()*15)+6+level) * powerMulti
     );
 
-    log("<span class='enemy'>Enemy deals "
-    + enemyDamage + " damage.</span>");
+    enemyAttackMessage = "Enemy deals ";
 
 }
 
@@ -4541,6 +4539,13 @@ enemyDamage = Math.max(
         enemyDamage *
         (1 - Math.min(0.75, rx.dr))
     )
+);
+
+log(
+    "<span class='enemy'>" +
+    enemyAttackMessage +
+    enemyDamage +
+    " damage.</span>"
 );
 
 hp -= enemyDamage;
@@ -5159,6 +5164,8 @@ const RELICS = [];
 function D(r,n,fx,o){ RELICS.push(Object.assign({r:r,n:n,fx:fx||{}},o||{})); }
 const L = t => ({legacy:true,txt:t});
 
+/* ================= COMMON ================= */
+
 D("Common","Echo Fragment",{},L("+5% Memory Shard earnings per owned copy"));
 D("Common","Faded Photograph",{explore:.02});
 D("Common","Rusted Key",{quest:.02});
@@ -5169,6 +5176,19 @@ D("Common","Broken Compass",{basic:.02});
 D("Common","Whispering Coin",{shard:.03});
 D("Common","Glass Feather",{sanheal:2});
 D("Common","Dustbound Ring",{hp:5});
+
+D("Common","Rainworn Ticket",{explore:.03,quest:.01});
+D("Common","Ink-Stained Feather",{quest:.03,shard:.01});
+D("Common","Cracked Hour Dial",{dive:.03});
+D("Common","Brass Memory Pin",{basic:.03});
+D("Common","Quiet Ember",{heal:3});
+D("Common","Blue Thread",{shard:.04});
+D("Common","Hollow Marble",{hp:8});
+D("Common","Dust-Covered Locket",{san:8});
+D("Common","Paper Lantern",{sanheal:3});
+D("Common","Tin Observatory",{crit:.03});
+
+/* ================= UNCOMMON ================= */
 
 D("Uncommon","Dreamcore Prism",{},L("+10 maximum HP per owned copy"));
 D("Uncommon","Paper Moon",{explore:.05});
@@ -5181,6 +5201,19 @@ D("Uncommon","Hollow Acorn",{hp:10});
 D("Uncommon","Raincatcher Lens",{shard:.05});
 D("Uncommon","Echoing Bell",{sanheal:5});
 
+D("Uncommon","Glass Archive Card",{quest:.06,explore:.02});
+D("Uncommon","Moonlit Compass",{dive:.06});
+D("Uncommon","Copper Sentinel Plate",{dr:.04,hp:10});
+D("Uncommon","Scribe's Thimble",{shard:.07});
+D("Uncommon","Waking Bell",{sanheal:7});
+D("Uncommon","Emberglass Vial",{heal:7});
+D("Uncommon","Silver Root",{hp:15});
+D("Uncommon","Veil-Sewn Mask",{san:12});
+D("Uncommon","Echo Prism",{basic:.07});
+D("Uncommon","Clockwork Sparrow",{skill:.07});
+
+/* ================= RARE ================= */
+
 D("Rare","Mindglass Core",{},L("+15 maximum Sanity per owned copy"));
 D("Rare","Mirror of Regret",{skill:.08});
 D("Rare","Warden's Sigil",{dr:.05});
@@ -5191,6 +5224,18 @@ D("Rare","Fractured Hourglass",{dive:.10});
 D("Rare","Soulglass Pendant",{hp:20});
 D("Rare","Storm-in-a-Bottle",{crit:.10});
 
+D("Rare","Archivist's Hourglass",{quest:.12,dive:.08});
+D("Rare","Rebel Signal Flare",{basic:.14,explore:.05});
+D("Rare","Deepwater Aegis",{dr:.08});
+D("Rare","Starless Lens",{crit:.15});
+D("Rare","Memory Cartographer",{shard:.15,explore:.08});
+D("Rare","Hollow Crown",{hp:35});
+D("Rare","Glassheart Pendant",{san:30});
+D("Rare","Riftwalker Spurs",{dive:.15});
+D("Rare","Silent Orchestra",{skill:.12,sanheal:8});
+
+/* ================= EPIC ================= */
+
 D("Epic","Temporal Compass",{},L("+10% skill damage per owned copy"));
 D("Epic","Void Lantern",{},L("+10 HP recovery after battle per owned copy"));
 D("Epic","Shard of First Dawn",{shard:.20});
@@ -5198,6 +5243,14 @@ D("Epic","Nightweaver Cloak",{dr:.10});
 D("Epic","Memory Eater's Tooth",{basic:.20});
 D("Epic","Crownless Diadem",{hp:30});
 D("Epic","Paradox Engine",{quest:.20});
+
+D("Epic","Cathedral of Echoes",{shard:.25});
+D("Epic","Blackglass Bulwark",{dr:.15,hp:50});
+D("Epic","Thread of Tomorrow",{quest:.25,dive:.12});
+D("Epic","Wraithstep Mantle",{explore:.25});
+D("Epic","Sunken Choir",{san:75,sanheal:12});
+D("Epic","Red Comet",{basic:.25,crit:.15});
+D("Epic","Unfinished Map",{skill:.28});
 
 D("Legendary","The Last Echo",{},L("+2 maximum Sanity and +5% skill damage per owned copy"));
 D("Legendary","Crown of Forgotten Kings",{basic:.25});
@@ -5215,11 +5268,8 @@ D("Divine","The First Silence",{san:50,sanheal:10});
 D("Divine","Worldroot",{hp:1000});
 D("Divine","Eye Beyond Time",{skill:.5});
 D("Divine","The Unwritten Name",{basic:.5,shard:.5});
-/* ===================== BLOCK A =====================
-   Paste on the line ABOVE:  D("Ancient Divine","Heart of the Forgotten God",...
-   (53 new standard relics) */
+/* ================= COMMON ================= */
 
-// COMMON
 D("Common","Rainworn Ticket",{explore:.03,quest:.01});
 D("Common","Ink-Stained Feather",{quest:.03,shard:.01});
 D("Common","Cracked Hour Dial",{dive:.03});
@@ -5231,7 +5281,8 @@ D("Common","Dust-Covered Locket",{san:8});
 D("Common","Paper Lantern",{sanheal:3});
 D("Common","Tin Observatory",{crit:.03});
 
-// UNCOMMON
+/* ================= UNCOMMON ================= */
+
 D("Uncommon","Glass Archive Card",{quest:.06,explore:.02});
 D("Uncommon","Moonlit Compass",{dive:.06});
 D("Uncommon","Copper Sentinel Plate",{dr:.04,hp:10});
@@ -5243,7 +5294,8 @@ D("Uncommon","Veil-Sewn Mask",{san:12});
 D("Uncommon","Echo Prism",{basic:.07});
 D("Uncommon","Clockwork Sparrow",{skill:.07});
 
-// RARE
+/* ================= RARE ================= */
+
 D("Rare","Archivist's Hourglass",{quest:.12,dive:.08});
 D("Rare","Rebel Signal Flare",{basic:.14,explore:.05});
 D("Rare","Deepwater Aegis",{dr:.08});
@@ -5254,7 +5306,8 @@ D("Rare","Glassheart Pendant",{san:30});
 D("Rare","Riftwalker Spurs",{dive:.15});
 D("Rare","Silent Orchestra",{skill:.12,sanheal:8});
 
-// EPIC
+/* ================= EPIC ================= */
+
 D("Epic","Cathedral of Echoes",{shard:.25});
 D("Epic","Blackglass Bulwark",{dr:.15,hp:50});
 D("Epic","Thread of Tomorrow",{quest:.25,dive:.12});
@@ -5263,7 +5316,8 @@ D("Epic","Sunken Choir",{san:75,sanheal:12});
 D("Epic","Red Comet",{basic:.25,crit:.15});
 D("Epic","Unfinished Map",{skill:.28});
 
-// LEGENDARY
+/* ================= LEGENDARY ================= */
+
 D("Legendary","Monarch's Last Edict",{basic:.35,hp:75});
 D("Legendary","Astral Ledger",{shard:.35,quest:.20});
 D("Legendary","Veilbreaker Mantle",{dr:.20,heal:25});
@@ -5271,7 +5325,8 @@ D("Legendary","Clock of the Drowned",{explore:.35,dive:.20});
 D("Legendary","Pale Sovereign",{san:100,sanheal:20});
 D("Legendary","Starfire Conduit",{skill:.35,crit:.20});
 
-// MYTHIC
+/* ================= MYTHIC ================= */
+
 D("Mythic","Black Sun Engine",{skill:.50,dr:.10});
 D("Mythic","The Nameless Tide",{shard:.50,dive:.25});
 D("Mythic","Crown of Ashen Stars",{basic:.45,crit:.25});
@@ -5279,23 +5334,53 @@ D("Mythic","Heart of the Deep Archive",{hp:250,san:50});
 D("Mythic","Last Bastion",{dr:.25,heal:40});
 D("Mythic","Dreaming Singularity",{quest:.45,explore:.30});
 
-// DIVINE
+/* ================= DIVINE ================= */
+
 D("Divine","Crown of the Unremembered",{shard:.75,explore:.25},
   {lore:"A crown worn by those whose names vanished from history."});
+
 D("Divine","The Last Sun",{hp:500,heal:50},
   {lore:"The final light that refused to disappear."});
+
 D("Divine","Throne of Stillness",{san:100,sanheal:25},
   {lore:"A throne untouched by the chaos of reality."});
+
 D("Divine","The Infinite Witness",{skill:.75,crit:.25},
   {lore:"It has witnessed every battle, including those yet to happen."});
+
 D("Divine","Law of the First Dawn",{dr:.50,quest:.50},
   {lore:"The first rule reality ever obeyed."});
+
+/* ================= ULTRA-RARE DIVINE ================= */
+
 D("Ancient Divine","Heart of the Forgotten God",{shard:1},
   {ultra:true,p:1/10000,odds:"1 in 10,000 (0.01%)",msg:"AN ANCIENT DIVINE RELIC HAS AWAKENED."});
+
 D("Forbidden Divine","The Unseeing Eye",{skill:1},
   {ultra:true,p:1/25000,odds:"1 in 25,000 (0.004%)",msg:"SOMETHING BEYOND REALITY HAS NOTICED YOU."});
+
 D("Primordial Divine","The First Existence",{shard:2.5,hp:500},
   {ultra:true,p:1/50000,odds:"1 in 50,000 (0.002%)",msg:"THE FIRST EXISTENCE HAS BEEN DISCOVERED.<br>THE MEMORY STREAM WILL NEVER BE THE SAME."});
+
+D("Celestial Divine","The Celestial Archive",{shard:1.5,hp:250},
+  {ultra:true,p:1/75000,odds:"1 in 75,000",
+   lore:"A record of every memory the stars have carried.",
+   msg:"A CELESTIAL RELIC HAS DESCENDED.<br>THE STARS REMEMBER YOU."});
+
+D("Eternal Divine","The Eternal Witness",{skill:1.5,san:100},
+  {ultra:true,p:1/100000,odds:"1 in 100,000",
+   lore:"A presence that has watched every world begin and end.",
+   msg:"THE ETERNAL WITNESS HAS OPENED ITS EYES.<br>NOTHING IS HIDDEN FROM IT NOW."});
+
+D("Transcendent Divine","The Transcendent Crown",{shard:2,skill:1.5,hp:500},
+  {ultra:true,p:1/250000,odds:"1 in 250,000",
+   lore:"A crown that exists beyond the reach of forgotten reality.",
+   msg:"THE TRANSCENDENT CROWN HAS BEEN FOUND.<br>REALITY ITSELF BOWS BEFORE YOU."});
+
+D("Super Divine","The Absolute Memory",{shard:3,skill:1,basic:1,hp:1000,san:100},
+  {ultra:true,p:1/2000000,odds:"1 in 2,000,000",
+   lore:"SUPER DIVINE · THE RAREST RELIC.",
+   msg:"🌌 IMPOSSIBLE DISCOVERY 🌌<br>THE ABSOLUTE MEMORY<br>SUPER DIVINE RELIC DISCOVERED"});
 
 /* ===================== BLOCK B =====================
    Paste on the line BELOW the line ending:
@@ -5611,7 +5696,7 @@ function relicAchievements(){
     if(total >= 40) A("Relic Master","Discover 40 unique relics.");
     if(std >= STANDARD.length) A("Beyond Reality","Discover every standard relic.");
     if(divFound >= 1) A("Divine Encounter","Obtain a standard Divine relic.");
-    if(divFound >= 5) A("Fivefold Divinity","Obtain all five standard Divine relics.");
+    if(divFound >= 10) A("Tenfold Divinity","Obtain all ten standard Divine relics.");
     if(ux >= 1) A("Forbidden Discovery","Obtain an ultra-rare Divine relic.");
     if(STANDARD.some(x => !x.legacy && fusionLevel(x.n) >= 5 && relicDiscovered[x.n])) A("Fusion Expert","Reach fusion Level 5.");
         if(total >= RELICS.length && !achievements.includes("Eternal Collector")){
@@ -5887,14 +5972,14 @@ const LORE = {
 "Last Bastion":"The final wall, still standing, still kind.",
 "Dreaming Singularity":"A point where every dream collapses into one.",
 
-/* ---------- DIVINE (original five) ---------- */
+/* ---------- DIVINE ---------- */
 "Origin Memory":"The first thing anyone ever remembered.",
 "The First Silence":"What was there before the first sound.",
 "Worldroot":"Under every world, one root. This is where it holds.",
 "Eye Beyond Time":"It has seen the end and chosen to stay.",
 "The Unwritten Name":"Say it, and the page quietly rewrites itself.",
 
-/* ---------- ULTRA-RARE (original three) ---------- */
+/* ---------- ULTRA-RARE ---------- */
 "Heart of the Forgotten God":"Still beating, in a temple nobody can find.",
 "The Unseeing Eye":"It cannot see. That is what makes it terrifying.",
 "The First Existence":"Before the first memory, there was this."
