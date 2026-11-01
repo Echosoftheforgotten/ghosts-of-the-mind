@@ -5417,6 +5417,20 @@ D("Super Divine","The Absolute Memory",{shard:3,skill:1,basic:1,hp:1000,san:100}
    lore:"SUPER DIVINE · THE RAREST RELIC.",
    msg:"🌌 IMPOSSIBLE DISCOVERY 🌌<br>THE ABSOLUTE MEMORY<br>SUPER DIVINE RELIC DISCOVERED"});
    
+// Sort all relics into their correct rarity groups.
+// Ultra-Rare Divine relics always appear at the very end.
+const relicDefinitionOrder = new Map(
+    RELICS.map((d, i) => [d.n, i])
+);
+
+RELICS.sort((a, b) => {
+    const rankA = a.ultra ? RARITIES.length : RARITIES.indexOf(a.r);
+    const rankB = b.ultra ? RARITIES.length : RARITIES.indexOf(b.r);
+
+    return rankA - rankB ||
+        relicDefinitionOrder.get(a.n) - relicDefinitionOrder.get(b.n);
+});
+
 const STANDARD = RELICS.filter(x => !x.ultra);
 const ULTRA = RELICS.filter(x => x.ultra);
 const relicByName = n => RELICS.find(x => x.n === n);
