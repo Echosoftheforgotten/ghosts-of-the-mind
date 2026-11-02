@@ -3224,7 +3224,7 @@ const ACHIEVEMENT_INFO = {
     "Relic Master":["Discover 40 unique relics.",""],
     "Beyond Reality":["Discover every standard relic.",""],
     "Divine Encounter":["Obtain a standard Divine relic.",""],
-    "Fivefold Divinity":["Obtain all ten standard Divine relics.",""],
+    "Tenfold Divinity":["Obtain all ten standard Divine relics.",""],
     "Forbidden Discovery":["Obtain an ultra-rare Divine relic.",""],
     "Fusion Expert":["Reach fusion Level 5.",""],
     "Eternal Collector":["Obtain every relic in the game.","THE ETERNAL COLLECTOR"],
@@ -5416,31 +5416,6 @@ D("Super Divine","The Absolute Memory",{shard:3,skill:1,basic:1,hp:1000,san:100}
    lore:"SUPER DIVINE · THE RAREST RELIC.",
    msg:"🌌 IMPOSSIBLE DISCOVERY 🌌<br>THE ABSOLUTE MEMORY<br>SUPER DIVINE RELIC DISCOVERED"});
 
-/* ===================== BLOCK B =====================
-   Paste on the line BELOW the line ending:
-   THE MEMORY STREAM WILL NEVER BE THE SAME."});
-   (4 new ultra-rare relics) */
-
-D("Celestial Divine","The Celestial Archive",{shard:1.5,hp:250},
-  {ultra:true,p:1/75000,odds:"1 in 75,000",
-   lore:"A record of every memory the stars have carried.",
-   msg:"A CELESTIAL RELIC HAS DESCENDED.<br>THE STARS REMEMBER YOU."});
-
-D("Eternal Divine","The Eternal Witness",{skill:1.5,san:100},
-  {ultra:true,p:1/100000,odds:"1 in 100,000",
-   lore:"A presence that has watched every world begin and end.",
-   msg:"THE ETERNAL WITNESS HAS OPENED ITS EYES.<br>NOTHING IS HIDDEN FROM IT NOW."});
-
-D("Transcendent Divine","The Transcendent Crown",{shard:2,skill:1.5,hp:500},
-  {ultra:true,p:1/250000,odds:"1 in 250,000",
-   lore:"A crown that exists beyond the reach of forgotten reality.",
-   msg:"THE TRANSCENDENT CROWN HAS BEEN FOUND.<br>REALITY ITSELF BOWS BEFORE YOU."});
-
-D("Super Divine","The Absolute Memory",{shard:3,skill:1,basic:1,hp:1000,san:100},
-  {ultra:true,p:1/2000000,odds:"1 in 2,000,000",
-   lore:"SUPER DIVINE · THE RAREST RELIC.",
-   msg:"🌌 IMPOSSIBLE DISCOVERY 🌌<br>THE ABSOLUTE MEMORY<br>SUPER DIVINE RELIC DISCOVERED"});
-   
 // Sort all relics into their correct rarity groups.
 // Ultra-Rare Divine relics always appear at the very end.
 const relicDefinitionOrder = new Map(
@@ -5580,7 +5555,7 @@ function recalcRelicBonuses(){
 function pickFromRarity(r){
     const pool = STANDARD.filter(x => x.r === r);
     const fresh = pool.filter(x => !relicDiscovered[x.n]);
-    const src = fresh.length ? fresh : pool;
+    const src = fresh.length && secureRandom() < 0.5 ? fresh : pool;
     return src[Math.floor(secureRandom() * src.length)];
 }
 
@@ -5660,6 +5635,8 @@ function grantBossRelics(type){
 }
 
 /* ---------- CRAFTING ---------- */
+const rarityRank = d => d.ultra ? 99 : RARITIES.indexOf(d.r);
+
 function craftRelicBatch(n){
     tutorialAction("relic");
     if(gameOver){ log("Game Over. Load a save first."); return; }
@@ -5680,7 +5657,7 @@ function craftRelicBatch(n){
         }else{
             const c = rollMany(n);
             log("<span class='rare'>===== CRAFTED ×" + n + " (-" + cost.toLocaleString() + " Shards) =====</span>");
-            Object.keys(c).sort((a,b) => RARITIES.indexOf(relicByName(b).r) - RARITIES.indexOf(relicByName(a).r))
+            Object.keys(c).sort((a,b) => rarityRank(relicByName(b)) - rarityRank(relicByName(a)))
                 .forEach(k => {
                     const d = relicByName(k);
                     log("<span style='color:" + RARITY_COLOR[d.r] + "'>" + k + " ×" + c[k] + " (" + d.r + ")</span>");
@@ -6070,7 +6047,7 @@ function rvCard(d,c){
     const eff = d.legacy ? d.txt : fxText(d.fx,d.ultra ? 1 : FUSION_MULT[fusionLevel(d.n) - 1]);
     return "<div class='rvCard " + (d.r.indexOf("Divine") >= 0 ? "rvDivine" : "") + "' style='border-color:" + col + ";color:" + col + ";box-shadow:0 0 8px " + col + "55'>" +
         "<b>" + d.n + "</b><br>" + d.r + (d.legacy ? " · Legacy" : "") + "<br>" +
-        "<span style='color:#9fe'>A relic recovered from the memory stream.</span><br>" +
+        "<span style='color:#9fe'>" + (d.lore || LORE[d.n] || "A relic recovered from the memory stream.") + "</span><br>" +
         "Ability: " + eff + "<br>Owned: " + n +
         (!d.legacy && !d.ultra ? " · Fusion Lv " + fusionLevel(d.n) : "") +
         (equipped ? "<br><b>★ EQUIPPED</b>" : "") + "</div>";
@@ -6105,7 +6082,10 @@ function renderVault(){
              (rvF.st === "Undiscovered" && !relicDiscovered[d.n]) ||
              (rvF.st === "Equipped" && equippedRelics.includes(d.n))));
         if(rvF.sort === "Name") list = list.slice().sort((a,b) => a.n.localeCompare(b.n));
-        if(rvF.sort === "Rarity") list = list.slice().sort((a,b) => RARITIES.indexOf(b.r.indexOf("Divine") >= 0 ? "Divine" : b.r) - RARITIES.indexOf(a.r.indexOf("Divine") >= 0 ? "Divine" : a.r));
+        if(rvF.sort === "Rarity") list = list.slice().sort((a,b) =>
+    rarityRank(b) - rarityRank(a) ||
+    (a.ultra && b.ultra ? a.p - b.p : 0)
+);
         h += "<div class='rvGrid'>" + list.map(d => rvCard(d,c)).join("") + "</div>";
     }
     else if(rvTab === 1){
