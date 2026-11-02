@@ -1160,7 +1160,8 @@ let enemyMaxHP = 0;
 
 let inBattle = false;
 
-let relics = [];
+let relicOwned = {};
+let relicTotal = 0;
 
 /* RELIC BONUSES */
 
@@ -2537,7 +2538,7 @@ if(classEvolutionUnlocked){
 }
 
 document.getElementById("classType").innerHTML = displayClass;
-document.getElementById("relicCount").innerHTML = relics.length;
+document.getElementById("relicCount").innerHTML = relicTotal;
 document.getElementById("multi").innerHTML = powerMulti.toFixed(3);
 
 if(bossType === "CodeNemesis" && !gameOver){
@@ -2715,7 +2716,7 @@ async function saveGame(slot,auto=false){
         manipulator,
         warden,
 
-        relics,
+        relics: relicOwned,
         ...relicSaveData(),
         powerMulti,
 
@@ -3012,8 +3013,17 @@ async function loadGame(slot){
     warden =
         save.warden ?? false;
 
-    relics =
-        save.relics ?? [];
+    relicOwned = {};
+
+    if(Array.isArray(save.relics)){
+        for(const n of save.relics){
+            relicOwned[n] = (relicOwned[n] || 0) + 1;
+        }
+    }else if(save.relics && typeof save.relics === "object"){
+        relicOwned = Object.assign({}, save.relics);
+    }
+
+    relicTotal = Object.values(relicOwned).reduce((a,b) => a + b, 0);
 		
 	loadRelicData(save);
 
@@ -5475,26 +5485,31 @@ function loadRelicData(s){
         for(let i = 0; i < 3; i++){
             const n = s.equippedRelics[i];
             const d = n && relicByName(n);
-            if(d && !d.legacy && relics.includes(n) && !equippedRelics.includes(n)){
+            if(d && !d.legacy && relicOwned[n] && !equippedRelics.includes(n)){
                 equippedRelics[i] = n;
             }
         }
     }
     // Migration: anything already owned counts as discovered.
-    for(const n of relics){
+    for(const n in relicOwned){
         if(relicByName(n)){ relicDiscovered[n] = true; }
     }
 }
 
 /* ---------- INVENTORY HELPERS ---------- */
 function relicCounts(){
-    const c = {};
-    for(const r of relics){ c[r] = (c[r] || 0) + 1; }
-    return c;
+    return relicOwned;
 }
+
 function removeCopies(name,k){
-    for(let i = relics.length - 1; i >= 0 && k > 0; i--){
-        if(relics[i] === name){ relics.splice(i,1); k--; }
+    const take = Math.min(relicOwned[name] || 0, k);
+    if(take <= 0) return;
+
+    relicOwned[name] -= take;
+    relicTotal -= take;
+
+    if(relicOwned[name] === 0){
+        delete relicOwned[name];
     }
 }
 function fusionLevel(n){ return Math.min(5,Math.max(1,relicFusionLevels[n] || 1)); }
@@ -5515,22 +5530,18 @@ function recalcRelicBonuses(){
     relicSkillBonus = 1; relicBattleHeal = 0;
     rx = {explore:0,quest:0,dive:0,basic:0,skill:0,dr:0,crit:0,sanheal:0};
 
-    // Legacy relics: unchanged, per owned copy.
-    for(const relic of relics){
-        switch(relic){
-            case "Dreamcore Prism": relicBonusHP += 10; break;
-            case "Echo Fragment": relicShardBonus += 0.05; break;
-            case "Temporal Compass": relicSkillBonus += 0.10; break;
-            case "Mindglass Core": relicBonusSanity += 15; break;
-            case "Void Lantern": relicBattleHeal += 10; break;
-            case "The Last Echo": relicBonusSanity += 2; relicSkillBonus += 0.05; break;
-        }
-    }
+    const o = n => relicOwned[n] || 0;
+
+    relicBonusHP     += 10   * o("Dreamcore Prism");
+    relicShardBonus  += 0.05 * o("Echo Fragment");
+    relicSkillBonus  += 0.10 * o("Temporal Compass") + 0.05 * o("The Last Echo");
+    relicBonusSanity += 15   * o("Mindglass Core")   + 2    * o("The Last Echo");
+    relicBattleHeal  += 10   * o("Void Lantern");
 
     // New relics: only when equipped in an unlocked slot.
     for(let i = 0; i < 3; i++){
         const n = equippedRelics[i];
-        if(!n || level < SLOT_LEVELS[i] || !relics.includes(n)) continue;
+        if(!n || level < SLOT_LEVELS[i] || !relicOwned[n]) continue;
         const d = relicByName(n);
         if(!d) continue;
         const m = d.ultra ? 1 : FUSION_MULT[fusionLevel(n) - 1];
@@ -5562,7 +5573,8 @@ function pickFromRarity(r){
 function grantRelic(name){
     const d = relicByName(name);
     if(d && d.ultra && relicDiscovered[name]) return null; // never duplicated
-    relics.push(name);
+    relicOwned[name] = (relicOwned[name] || 0) + 1;
+    relicTotal++;
     const first = !relicDiscovered[name];
     if(first && d){
         relicDiscovered[name] = true;
@@ -5637,6 +5649,27 @@ function grantBossRelics(type){
 /* ---------- CRAFTING ---------- */
 const rarityRank = d => d.ultra ? 99 : RARITIES.indexOf(d.r);
 
+let craftSaveTimer = null, craftSaving = false;
+
+function queueAutoSave(){
+    clearTimeout(craftSaveTimer);
+
+    craftSaveTimer = setTimeout(async () => {
+        if(craftSaving){
+            queueAutoSave();
+            return;
+        }
+
+        craftSaving = true;
+
+        try{
+            await autoSave();
+        }finally{
+            craftSaving = false;
+        }
+    }, 800);
+}
+
 function craftRelicBatch(n){
     tutorialAction("relic");
     if(gameOver){ log("Game Over. Load a save first."); return; }
@@ -5657,14 +5690,30 @@ function craftRelicBatch(n){
         }else{
             const c = rollMany(n);
             log("<span class='rare'>===== CRAFTED ×" + n + " (-" + cost.toLocaleString() + " Shards) =====</span>");
-            Object.keys(c).sort((a,b) => rarityRank(relicByName(b)) - rarityRank(relicByName(a)))
-                .forEach(k => {
-                    const d = relicByName(k);
-                    log("<span style='color:" + RARITY_COLOR[d.r] + "'>" + k + " ×" + c[k] + " (" + d.r + ")</span>");
-                });
+            const keys = Object.keys(c).sort((a,b) =>
+                rarityRank(relicByName(b)) - rarityRank(relicByName(a))
+            );
+
+            let hidden = 0;
+
+            keys.forEach(k => {
+                const d = relicByName(k);
+
+                if(rarityRank(d) >= 3){
+                    log("<span style='color:" + RARITY_COLOR[d.r] + "'>" +
+                        k + " ×" + c[k] + " (" + d.r + ")</span>");
+                }else{
+                    hidden += c[k];
+                }
+            });
+
+            if(hidden){
+                log("<span style='color:#aaa'>+" +
+                    hidden + " Common/Uncommon/Rare relics</span>");
+            }
         }
         updateStats();
-        autoSave();
+        queueAutoSave();
         renderVault();
     }finally{
         relicCraftBusy = false;
@@ -5762,14 +5811,14 @@ function relicAfter(){
     relicAchievements();
     updateStats();
     renderVault();
-    autoSave();
+    queueAutoSave();
 }
 
 /* ---------- ACTIONS ---------- */
 function equipRelic(idx){
     const d = RELICS[idx];
     if(gameOver || inBattle){ log("<span class='warning'>Relics can only be changed outside combat.</span>"); return; }
-    if(!d || d.legacy || !relics.includes(d.n)) return;
+    if(!d || d.legacy || !relicOwned[d.n]) return;
     if(equippedRelics.includes(d.n)) return;
     const slot = equippedRelics.findIndex((v,i) => v === null && level >= SLOT_LEVELS[i]);
     if(slot < 0){ log("<span class='warning'>No free unlocked relic slot.</span>"); return; }
@@ -6063,7 +6112,7 @@ function renderVault(){
     document.getElementById("rvWallet").innerHTML =
         "Shards: " + shards.toLocaleString() + " · Dust: " + memoryDust.toLocaleString() + " · " + total + "/" + RELICS.length;
     document.getElementById("rvCraft").innerHTML =
-        [1,10,100].map(n => "<button onclick='RV.craft(" + n + ")' " + (shards < 40 * n ? "disabled" : "") + ">Craft ×" + n +
+        [1,10,100,1000].map(n => "<button onclick='RV.craft(" + n + ")' " + (shards < 40 * n ? "disabled" : "") + ">Craft ×" + n +
         " (" + (40 * n).toLocaleString() + ")</button>").join("");
     document.getElementById("rvTabs").innerHTML =
         TABS.map((t,i) => "<button class='" + (i === rvTab ? "on" : "") + "' onclick='RV.tab(" + i + ")'>" + t + "</button>").join("");
@@ -6142,7 +6191,7 @@ function renderVault(){
         const hi = Math.max(1,...Object.keys(relicFusionLevels).map(k => relicFusionLevels[k]));
         h += "<div class='rvCard' style='border-color:#0ff'>" +
             "<b>" + std + " / " + STANDARD.length + " STANDARD RELICS</b><br><b>" + ux + " / " + ULTRA.length + " ULTRA-RARE DIVINE RELICS</b><br><b>" + (std + ux) + " / " + RELICS.length + " TOTAL COLLECTION</b> (" + Math.floor((std + ux) / RELICS.length * 100) + "%)<br><br>" +
-            "Total relic copies: " + relics.length + "<br>" +
+            "Total relic copies: " + relicTotal + "<br>" +
             RARITIES.map(r => r + ": " + prog(r)).join("<br>") + "<br>" +
             "Ultra-rare Divine: " + ux + " / " + ULTRA.length + "<br><br>" +
             "Memory Dust: " + memoryDust + "<br>Total normal relic rolls: " + totalRelicRolls +
@@ -6153,7 +6202,9 @@ function renderVault(){
 }
 
 /* initial sync after the module loads */
-for(const n of relics){ if(relicByName(n)) relicDiscovered[n] = true; }
+for(const n in relicOwned){
+    if(relicByName(n)){ relicDiscovered[n] = true; }
+}
 recalcRelicBonuses();
 
 /* =====================================================================
@@ -6203,10 +6254,10 @@ const TUT = [
 
  {t:"Craft your first relic",
   b:"Press <b>Craft Relic</b> (40 shards). Relics give permanent power, and there are 110 to collect.",
-  hl:["craftRelic()"],chk:()=>relics.length>0},
+  hl:["craftRelic()"],chk:()=>relicTotal>0},
 
  {t:"Open the Relic Vault",
-  b:"Press <b>Open Relic Vault</b>. It holds your collection, bulk crafting (×10 and ×100), equipment, fusion and stats.",
+  b:"Press <b>Open Relic Vault</b>. It holds your collection, bulk crafting (×10, ×100 and ×1000), equipment, fusion and stats.",
   hl:["Open Relic Vault"],chk:()=>{const v=document.getElementById("relicVault");return !!(v&&v.classList.contains("open"));}},
 
  {t:"Equip a relic",
