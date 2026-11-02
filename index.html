@@ -5604,7 +5604,7 @@ function rollRelic(){
 
     // Three fully independent ultra-rare checks. No pity, no scaling.
     for(const u of ULTRA){
-        if(!relicDiscovered[u.n] && secureRandom() < 1){
+        if(!relicDiscovered[u.n] && secureRandom() < u.p){
             got.push(grantRelic(u.n));
         }
     }
