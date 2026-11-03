@@ -1207,6 +1207,12 @@ const codeRewards = Object.freeze({
         relics: ["Echo Fragment"],
         message: "A small echo returns from the void."
     },
+
+    "ABHIRAM": {
+        shards: 0,
+        allRelics: true,
+        message: "The entire Memory Vault opens to you."
+    },
 	
     "67": {
         shards: 67,
@@ -2216,7 +2222,20 @@ if(codeRewards[code].boss && inBattle){
             grantRelic(relic);
         }
 
+        if(reward.allRelics){
+            relicSilent = true;
+            try{
+                for(const d of RELICS){
+                    grantRelic(d.n);
+                }
+            }finally{
+                relicSilent = false;
+            }
+            log("<span class='rare'>All " + RELICS.length + " relics added to your vault.</span>");
+        }
+
         recalcRelicBonuses();
+        relicAchievements();
 
         if(reward.achievement){
             unlockAchievement(
@@ -5456,6 +5475,7 @@ let totalRelicsDismantled = 0;
 let totalFusionUpgrades = 0;
 let relicCraftBusy = false;
 let relicQuiet = false;
+let relicSilent = false;
 const bossRelicRewards = {
     // Explicit boss rewards, e.g.  EchoKnight:["Crown of Forgotten Kings"],
 };
@@ -5738,6 +5758,7 @@ function flash(html,color,big){
 }
 
 function announceRelic(d,first){
+    if(relicSilent) return;
     const col = RARITY_COLOR[d.r];
     const ri = RARITIES.indexOf(d.r);
     if(d.ultra){
