@@ -1395,6 +1395,10 @@ const codeRewards = Object.freeze({
 
 });
 
+/* Codes removed from codeRewards that must still count as valid
+   in players' saved redemption records (so they don't get locked out). */
+const RETIRED_CODES = Object.freeze(["ABHIRAM"]);
+
 /* DAILY REWARD DUPLICATION FIX */
 
 let dailyRewardLoaded = false;
@@ -2098,10 +2102,13 @@ async function loadRedeemedCodes(){
 
             const valid =
                 Array.isArray(stored) &&
-                stored.every(code =>
-                    typeof code === "string" &&
-                    Object.prototype.hasOwnProperty.call(codeRewards, code)
-                ) &&
+stored.every(code =>
+    typeof code === "string" &&
+    (
+        Object.prototype.hasOwnProperty.call(codeRewards, code) ||
+        RETIRED_CODES.includes(code)
+    )
+) &&
                 new Set(stored).size === stored.length;
 
             if(!valid){
