@@ -3239,6 +3239,11 @@ async function loadGame(slot){
         "</span>"
     );
 
+    if(!gameOver){
+        log("<span class='good'>AUTO-SAVE ENABLED</span>");
+        log("Your progress is automatically saved as you play. You do not need to manually save before refreshing or leaving.");
+    }
+
     updateStats();
 
     // Restore the achievement display from the loaded save.
