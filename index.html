@@ -3443,7 +3443,7 @@ function levelUp(){
         levelsGained++;
 
         recalcRelicBonuses();
-        hp = maxHP;
+        hp = Math.min(maxHP, hp + Math.floor(maxHP * 0.25));
 
         sanity += 10;
 
@@ -4604,8 +4604,25 @@ if(bossType === "TrueNemesis"){
 
 }else{
 
+    // Damage scales with max HP so fights stay dangerous
+    let ratio = 0.06;
+
+    if(bossFight){
+        const bossRatio = {
+            LostWanderer:0.08,
+            HollowGuardian:0.09,
+            StaticBeast:0.10,
+            EchoKnight:0.11,
+            VoidWatcher:0.12,
+            King:0.14,
+            MemoryEater:0.16,
+            Nemesis:0.20
+        };
+        ratio = bossRatio[bossType] || 0.10;
+    }
+
     enemyDamage = Math.floor(
-        ((Math.random()*15)+6+level) * powerMulti
+        maxHP * ratio * (0.8 + Math.random() * 0.4)
     );
 
     enemyAttackMessage = "Enemy deals ";
