@@ -8734,5 +8734,45 @@ render();
 })();
 </script>
 
+
+<script>
+/* =====================================================
+   LIFEVERSE FIX: REMARRY AFTER SPOUSE DIES
+   ===================================================== */
+(function(){
+"use strict";
+
+if(window.__LV_REMARRY_FIX)return;
+window.__LV_REMARRY_FIX=true;
+
+/* Allow remarriage when the previous spouse is deceased */
+const oldFindPartner=window.findPartner;
+
+window.findPartner=function(){
+
+    if(S.partner && S.partner.alive===false){
+        S.married=false;
+    }
+
+    oldFindPartner();
+
+};
+
+/* Children require a living spouse */
+const oldHaveChild=window.haveChild;
+
+window.haveChild=function(){
+
+    if(!S.partner || S.partner.alive===false){
+        S.married=false;
+    }
+
+    oldHaveChild();
+
+};
+
+})();
+</script>
+
 </body>
 </html>
