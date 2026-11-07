@@ -9075,5 +9075,143 @@ render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE FAMILY PATCH (small add-on, replaces nothing)
+  PASTE THIS RIGHT BEFORE </body>, AFTER the family-setup add-on.
+  - Labels above every Name / Age / Money box in the Customize Family window
+  - New section: Grandparents' Brothers & Sisters
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LVGS)return;window.__LVGS=1;
+if(!window.LVF)return;                       /* needs the family-setup add-on */
+
+const q=id=>document.getElementById(id);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const MALE=['James','John','Robert','Michael','William','David','Richard','Joseph','Thomas','Charles','Daniel','George','Edward','Henry','Arthur','Oliver','Samuel','Walter','Frank','Peter'];
+const FEMALE=['Mary','Patricia','Linda','Elizabeth','Barbara','Susan','Sarah','Margaret','Dorothy','Helen','Anna','Emma','Grace','Evelyn','Ruth','Alice','Florence','Rose','Irene','Joan'];
+const SURN=['Smith','Johnson','Williams','Brown','Jones','Miller','Davis','Wilson','Taylor','Moore','Martin','Thompson','White','Harris','Clark','Lewis','Walker','Hall','Young','King'];
+const clean=s=>String(s||'').replace(/[<>&"'`]/g,'').trim().slice(0,40);
+const num=v=>{const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)&&String(v).trim()!==''?n:NaN;};
+const nameFor=(g,sur)=>pick(g==='Male'?MALE:FEMALE)+' '+(sur||pick(SURN));
+const rest=n=>String(n||'').trim().split(/\s+/).slice(1).join(' ');
+
+const GPS=[['Maternal Grandfather','mgf','Male'],['Maternal Grandmother','mgm','Female'],['Paternal Grandfather','pgf','Male'],['Paternal Grandmother','pgm','Female']];
+
+/* ---------- labels above the boxes ---------- */
+function labelFor(el){
+ if(el.dataset&&el.dataset.l)return el.dataset.l;
+ const k=(el.id||'')+' '+(el.className||'');
+ if(/fm_n_|fm-gg-n/.test(k))return 'Name';
+ if(/fm_a_|fm-gg-a/.test(k))return 'Age';
+ if(/fm_m_|fm-gg-m/.test(k))return 'Money ($)';
+ if(/fm-gg-g/.test(k))return 'Relation';
+ return '';
+}
+function addLabels(){
+ const menu=q('lvFamMenu');if(!menu)return;
+ menu.querySelectorAll('div[style*="grid-template-columns"]').forEach(g=>{
+  if(g.dataset.lbl)return;
+  const kids=[...g.children];
+  if(!kids.some(labelFor))return;
+  const h=document.createElement('div');
+  h.style.cssText='display:grid;gap:8px;font-size:11px;font-weight:bold;color:#93c5fd;margin-bottom:2px;grid-template-columns:'+g.style.gridTemplateColumns;
+  h.innerHTML=kids.map(k=>`<span>${labelFor(k)}</span>`).join('');
+  g.parentNode.insertBefore(h,g);
+  g.dataset.lbl='1';
+ });
+}
+
+/* ---------- grandparents' siblings section ---------- */
+function buildSection(){
+ const menu=q('lvFamMenu');if(!menu||q('lvSibSec'))return;
+ const anchor=menu.querySelector('button[onclick="LVF.addGG()"]');if(!anchor)return;
+ const sec=document.createElement('div');sec.id='lvSibSec';
+ sec.innerHTML=`<h2 style="margin-top:20px">👫 Grandparents' Brothers & Sisters</h2>
+  <p class="muted">Add the brothers and sisters of your grandparents (your great-uncles and great-aunts). Blank name = random.</p>
+  <div id="lvSibList"></div>
+  <button class="action" onclick="LVGS.add()">➕ Add brother / sister</button>`;
+ anchor.insertAdjacentElement('afterend',sec);
+}
+function addSib(){
+ buildSection();
+ const box=q('lvSibList');
+ if(box.children.length>=12){popup('👫 Too many','You can add up to 12.');return;}
+ const row=document.createElement('div');
+ row.className='ls-row';row.style.cssText='margin:8px 0;padding:8px;border:1px solid #263244;border-radius:8px';
+ row.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1.6fr;gap:8px;margin-bottom:6px">
+   <select class="ls-g" data-l="Is a" style="margin:0"><option value="Male">Brother</option><option value="Female">Sister</option></select>
+   <select class="ls-of" data-l="Sibling of" style="margin:0">${GPS.map((g,i)=>`<option value="${i}">${g[0]}</option>`).join('')}</select>
+  </div>
+  <div style="display:grid;grid-template-columns:2fr 1fr 1.3fr auto;gap:8px">
+   <input class="ls-n" data-l="Name" placeholder="Name (blank = random)" style="margin:0">
+   <input class="ls-a" data-l="Age" type="number" min="1" max="120" style="margin:0">
+   <input class="ls-m" data-l="Money ($)" type="number" min="0" style="margin:0">
+   <button class="action danger" style="margin:0" onclick="this.closest('.ls-row').remove()">🗑️</button>
+  </div>`;
+ row.querySelector('.ls-a').value=rand(50,85);
+ row.querySelector('.ls-m').value=rand(500,50000);
+ box.appendChild(row);
+ addLabels();
+}
+
+/* keep labels and the new section present after every open / add */
+const _open=LVF.open;
+LVF.open=function(){_open.apply(this,arguments);buildSection();addLabels();};
+const _addGG=LVF.addGG;
+LVF.addGG=function(){_addGG.apply(this,arguments);addLabels();};
+window.LVGS={add:addSib};
+
+/* ---------- apply when the life starts ---------- */
+function applySiblings(){
+ const m=q('fm_n_mom');
+ if(!m||!q('lvSibList')||m.value===''||!S.extendedFamily)return;   /* family window never opened */
+ S.extendedFamily.grandSiblings=[...q('lvSibList').querySelectorAll('.ls-row')].map(r=>{
+  const g=r.querySelector('.ls-g').value,gp=GPS[Number(r.querySelector('.ls-of').value)]||GPS[0];
+  const gpName=clean(q('fm_n_'+gp[1]).value);
+  let name=clean(r.querySelector('.ls-n').value)||nameFor(g,rest(gpName)||null);
+  let age=Math.floor(num(r.querySelector('.ls-a').value));if(!(age>=1&&age<=120))age=rand(50,85);
+  let money=Math.round(num(r.querySelector('.ls-m').value));if(!(money>=0))money=rand(500,50000);
+  return{name,role:(g==='Male'?'Brother':'Sister')+' of '+gp[0],age,relationship:rand(50,85),wealth:Math.min(money,1e12),alive:true,career:'Family Member'};
+ });
+}
+const _bnl=window.beginNewLife;
+window.beginNewLife=function(){_bnl.apply(this,arguments);applySiblings();render();};
+
+/* ---------- show them in-game (read only) + yearly aging ---------- */
+function showCard(){
+ const sec=q('family');if(!sec||!S.extendedFamily)return;
+ const list=S.extendedFamily.grandSiblings;
+ let box=q('lvGrandSib');
+ if(!Array.isArray(list)||!list.length){if(box)box.remove();return;}
+ if(!box){box=document.createElement('div');box.id='lvGrandSib';box.className='card';sec.appendChild(box);}
+ box.innerHTML=`<h2>👫 Great-Uncles & Great-Aunts</h2><div class="grid">${list.map(p=>{
+  const dead=p.alive===false;
+  return `<div class="card" style="${dead?'opacity:.55':''}"><b>${escapeHTML(p.name)}</b><br>${escapeHTML(p.role)} • Age ${p.age}<br>${dead?'🕊️ Deceased':'💰 '+money(safeNumber(p.wealth,0))}</div>`;
+ }).join('')}</div>`;
+}
+const _age=window.ageUp;
+window.ageUp=function(){
+ const before=S.age;
+ _age.apply(this,arguments);
+ if(S.age>before&&!S.dead){
+  const l=S.extendedFamily&&S.extendedFamily.grandSiblings;
+  if(Array.isArray(l)&&l.length){
+   l.forEach(p=>{
+    if(p.alive===false)return;
+    p.age=safeNumber(p.age,60)+1;
+    if(chance(clamp(2+Math.max(0,p.age-60)*1.8,2,60))){p.alive=false;addEvent(`🕊️ ${p.name} (${String(p.role).toLowerCase()}) passed away at age ${p.age}.`);}
+   });
+   render();
+  }
+ }
+};
+const _render=render;
+render=function(){_render();showCard();};
+render();
+})();
+</script>
+
 </body>
 </html>
