@@ -8469,5 +8469,134 @@ render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE HOMICIDE ADD-ON v2  (fictional life-sim crime option, text only)
+  REPLACE the old kill add-on with this one, right before </body>
+  (before the Autosave add-on if you can). Adds a "☠️ Homicide" card
+  to the 🚨 Crime page. Sentence if caught: 2 to 3 years.
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LVKILL)return;window.__LVKILL=1;
+const q=id=>document.getElementById(id);
+let sel=0;
+
+/* everyone in your life who is an adult (18+) */
+function targets(){
+ const t=[{n:'A stranger',bonus:0,grief:false,remove:()=>{}}];
+ const add=(n,bonus,grief,remove)=>t.push({n,bonus,grief,remove});
+ const adult=p=>safeNumber(p.age,18)>=18;
+
+ (S.friends||[]).slice(0,40).forEach(f=>add(f.name+' (friend)',8,true,()=>{const i=S.friends.indexOf(f);if(i>=0)S.friends.splice(i,1);}));
+ (S.parents||[]).forEach(p=>{if(p.alive)add(p.name+' ('+String(p.role||'parent').toLowerCase()+')',8,true,()=>{p.alive=false;});});
+ (S.siblings||[]).forEach(s=>{if(s.alive!==false&&adult(s)&&safeNumber(s.age,0)>=18)add(s.name+' (sibling)',8,true,()=>{const i=S.siblings.indexOf(s);if(i>=0)S.siblings.splice(i,1);});});
+ if(S.partner&&S.partner.alive)add(S.partner.name+' (partner)',8,true,()=>{S.partner.alive=false;});
+ (S.childProfiles||[]).forEach(c=>{if(c.alive&&safeNumber(c.age,0)>=18)add(c.name+' (adult child)',10,true,()=>{c.alive=false;});});
+ (S.teachers||[]).forEach(x=>add(x.name+' (teacher)',8,false,()=>{const i=S.teachers.indexOf(x);if(i>=0)S.teachers.splice(i,1);}));
+ if(S.v7&&Array.isArray(S.v7.cow))S.v7.cow.forEach(c=>add(c.n+(c.rival?' (rival)':' (coworker)'),10,false,()=>{const i=S.v7.cow.indexOf(c);if(i>=0)S.v7.cow.splice(i,1);}));
+ if(S.v7&&S.v7.boss&&S.career!=='None')add(S.v7.boss.n.replace(' (Boss)','')+' (boss)',10,false,()=>{S.v7.boss={n:['Morgan','Riley','Quinn','Avery','Jordan'][rand(0,4)]+' (Boss)',rel:rand(30,50)};});
+
+ const fam=(obj)=>{if(!obj)return;['grandparents','greatGrandparents','aunts','uncles','cousins','nieces','nephews'].forEach(k=>{
+  (obj[k]||[]).forEach(p=>{if(p.alive!==false&&safeNumber(p.age,0)>=18)add(p.name+' ('+String(p.role||k).toLowerCase()+')',8,true,()=>{p.alive=false;});});});};
+ fam(S.extendedFamily);
+ fam(S.v5&&S.v5.family);
+ return t;
+}
+
+function arrest(why,detection){
+ S.stats.arrests++;S.criminalRecord=true;
+ if(S.v7)S.v7.expunged=false;
+ S.wanted=5;
+ S.prisonYears=rand(2,3);
+ S.coldCases=0;
+ const fine=Math.min(S.money,rand(5000,60000));
+ S.money-=fine;
+ S.reputation=clamp(S.reputation-rand(25,40),0,100);
+ S.fame=clamp(S.fame-rand(3,10),0,100);
+ S.happiness=clamp(S.happiness-rand(15,30),0,100);
+ if(S.career!=='None'){S.career='None';S.careerTrack='None';S.salary=0;S.careerLevel=0;S.performance=50;}
+ addEvent(`🚔 ${playerName()} was convicted of homicide and sentenced to ${S.prisonYears} years.`);
+ popup('🚔 CONVICTED',`${why}<br><br>Sentence: <b>${S.prisonYears} years</b><br>Fine: <b>${money(fine)}</b><br>Wanted level: <b>5/5</b>${detection?`<br><span class="muted">Chance of being caught was ${Math.round(detection)}%.</span>`:''}`);
+}
+
+function kill(){
+ const list=targets(),t=list[sel]||list[0];
+ if(S.dead)return;
+ if(S.age<18)return popup('🔒 Not available','This option unlocks at age 18.');
+ if(S.prisonYears>0)return popup('🔒 Prison','You cannot do this while serving a sentence.');
+ if((S.limits.crime||0)>=1)return popup('⏳ Crime limit','You have already used your yearly crime action.');
+ if(!confirm(`Commit homicide against: ${t.n}?\n\nIf you are caught, the sentence is 2 to 3 years in prison.`))return;
+
+ S.limits.crime=1;S.stats.crimes++;
+ S.kills=(S.kills||0)+1;
+
+ const detection=clamp(
+  35+S.wanted*6+(S.criminalRecord?6:0)+t.bonus
+  -safeNumber(S.luck,50)*.06-safeNumber(S.reputation,50)*.03
+  -(S.lifePlus&&S.lifePlus.lawyer?5:0),25,90);
+
+ t.remove();           /* the victim is removed either way */
+ sel=0;
+
+ if(chance(detection)){
+  arrest(`Investigators linked ${playerName()} to the death of <b>${escapeHTML(t.n)}</b>.`,detection);
+ }else{
+  S.coldCases=(S.coldCases||0)+1;
+  S.wanted=clamp(S.wanted+3,0,5);
+  S.happiness=clamp(S.happiness-rand(10,25)-(t.grief?rand(5,15):0),0,100);
+  S.health=clamp(S.health-rand(0,5),0,100);
+  if(t.n!=='A stranger'){
+   (S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship-rand(3,10),0,100));
+   (S.parents||[]).forEach(p=>{if(p.alive)p.relationship=clamp(p.relationship-rand(3,10),0,100);});
+   if(S.partner&&S.partner.alive)S.partner.relationship=clamp(S.partner.relationship-rand(3,10),0,100);
+  }
+  addEvent(`☠️ ${playerName()} avoided arrest. An investigation is open.`);
+  popup('🕵️ No arrest, for now',`Nobody has been charged yet, but an investigation is open.<br><br>Wanted level: <b>${S.wanted}/5</b><br>Open cases: <b>${S.coldCases}</b><br><span class="muted">Every year there is a chance detectives catch up with you.</span>`);
+ }
+ render();
+}
+
+/* open cases can catch up with you each year */
+const _age=ageUp;
+ageUp=function(){
+ const before=S.age;
+ _age();
+ if(S.age>before&&!S.dead&&S.coldCases>0&&S.prisonYears<=0){
+  const p=clamp(S.coldCases*6+S.wanted*2-safeNumber(S.luck,50)*.03,4,40);
+  if(chance(p))arrest('Detectives reopened the case and found the evidence they needed.',p);
+  else{
+   if(chance(25)){S.coldCases=Math.max(0,S.coldCases-1);addEvent('🗂️ An old case went cold.');}
+   render();
+  }
+ }
+};
+
+window.KILL={
+ pick(v){sel=Number(v)||0;},
+ go:kill
+};
+
+function renderKill(){
+ const sec=q('crime');
+ if(!sec||!sec.classList.contains('active'))return;
+ let box=q('killBox');
+ if(!box){box=document.createElement('div');box.id='killBox';box.className='card';sec.appendChild(box);}
+ const a=document.activeElement;
+ if(a&&a.id==='killTarget')return;           /* don't rebuild while the dropdown is open */
+ const list=targets();
+ if(sel>=list.length)sel=0;
+ box.innerHTML=`<h2>☠️ Homicide</h2>
+  <p class="muted">Text only. Age 18+, uses your one crime action for the year. Targets are the adults in your life: friends, parents, siblings, partner, adult children, teachers, coworkers, your boss, extended family, or a stranger. If you're caught: 2 to 3 years in prison. If you're not, an open case can still catch up with you later. Open cases: <b>${S.coldCases||0}</b> • Total: <b>${S.kills||0}</b></p>
+  <select id="killTarget" onchange="KILL.pick(this.value)">${list.map((t,i)=>`<option value="${i}" ${i===sel?'selected':''}>${escapeHTML(t.n)}</option>`).join('')}</select>
+  <button class="action danger" onclick="KILL.go()">☠️ Proceed</button>`;
+}
+
+const _render=render;
+render=function(){_render();renderKill();};
+render();
+})();
+</script>
+
 </body>
 </html>
