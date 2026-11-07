@@ -4827,7 +4827,7 @@ if(!S.limits)
 S.limits=defaultLimits();
 
 document.getElementById("topMoney").textContent=
-Math.round(S.money).toLocaleString();
+Math.round(S.money).toLocaleString("en-US");
 
 document.getElementById("topDate").textContent=
 `${S.birthYear+S.age} • Age ${S.age}`;
@@ -4891,7 +4891,7 @@ document.getElementById("careerTrack").textContent=
 S.careerTrack;
 
 document.getElementById("salary").textContent=
-S.salary.toLocaleString();
+S.salary.toLocaleString("en-US");
 
 document.getElementById("performance").textContent=
 S.performance+"%";
