@@ -8489,9 +8489,9 @@ function targets(){
  const adult=p=>safeNumber(p.age,18)>=18;
 
  (S.friends||[]).slice(0,40).forEach(f=>add(f.name+' (friend)',8,true,()=>{const i=S.friends.indexOf(f);if(i>=0)S.friends.splice(i,1);}));
- (S.parents||[]).forEach(p=>{if(p.alive)add(p.name+' ('+String(p.role||'parent').toLowerCase()+')',8,true,()=>{p.alive=false;});});
+ (S.parents||[]).forEach(p=>{if(p.alive)add(p.name+' ('+String(p.role||'parent').toLowerCase()+')',8,true,()=>{p.alive=false;const w=Math.max(0,Math.round(safeNumber(p.wealth,0)));p.wealth=0;return w;});});
  (S.siblings||[]).forEach(s=>{if(s.alive!==false&&adult(s)&&safeNumber(s.age,0)>=18)add(s.name+' (sibling)',8,true,()=>{const i=S.siblings.indexOf(s);if(i>=0)S.siblings.splice(i,1);});});
- if(S.partner&&S.partner.alive)add(S.partner.name+' (partner)',8,true,()=>{S.partner.alive=false;});
+ if(S.partner&&S.partner.alive)add(S.partner.name+' (partner)',8,true,()=>{S.partner.alive=false;const w=Math.max(0,Math.round(safeNumber(S.partner.wealth,0)));S.partner.wealth=0;return w;});
  (S.childProfiles||[]).forEach(c=>{if(c.alive&&safeNumber(c.age,0)>=18)add(c.name+' (adult child)',10,true,()=>{c.alive=false;});});
  (S.teachers||[]).forEach(x=>add(x.name+' (teacher)',8,false,()=>{const i=S.teachers.indexOf(x);if(i>=0)S.teachers.splice(i,1);}));
  if(S.v7&&Array.isArray(S.v7.cow))S.v7.cow.forEach(c=>add(c.n+(c.rival?' (rival)':' (coworker)'),10,false,()=>{const i=S.v7.cow.indexOf(c);if(i>=0)S.v7.cow.splice(i,1);}));
@@ -8500,7 +8500,7 @@ function targets(){
  const fam=(obj)=>{if(!obj)return;['grandparents','greatGrandparents','aunts','uncles','cousins','nieces','nephews'].forEach(k=>{
   (obj[k]||[]).forEach(p=>{if(p.alive!==false&&safeNumber(p.age,0)>=18)add(p.name+' ('+String(p.role||k).toLowerCase()+')',8,true,()=>{p.alive=false;});});});};
  fam(S.extendedFamily);
- fam(S.v5&&S.v5.family);
+ if(S.v5&&S.v5.family&&S.v5.family!==S.extendedFamily)fam(S.v5.family);   /* skip if it is the same list */
  return t;
 }
 
@@ -8536,11 +8536,17 @@ function kill(){
   -safeNumber(S.luck,50)*.06-safeNumber(S.reputation,50)*.03
   -(S.lifePlus&&S.lifePlus.lawyer?5:0),25,90);
 
- t.remove();           /* the victim is removed either way */
+ const gained=Math.max(0,Math.round(t.remove()||0));   /* the victim is removed either way */
+ if(gained>0){
+  S.money+=gained;
+  S.stats.inheritances++;
+  addEvent(`💰 ${playerName()} took ${money(gained)} from ${t.n}'s estate.`);
+ }
+ const gainLine=gained>0?`<br>Estate taken: <b>${money(gained)}</b>`:'';
  sel=0;
 
  if(chance(detection)){
-  arrest(`Investigators linked ${playerName()} to the death of <b>${escapeHTML(t.n)}</b>.`,detection);
+  arrest(`Investigators linked ${playerName()} to the death of <b>${escapeHTML(t.n)}</b>.${gainLine}`,detection);
  }else{
   S.coldCases=(S.coldCases||0)+1;
   S.wanted=clamp(S.wanted+3,0,5);
@@ -8552,7 +8558,7 @@ function kill(){
    if(S.partner&&S.partner.alive)S.partner.relationship=clamp(S.partner.relationship-rand(3,10),0,100);
   }
   addEvent(`☠️ ${playerName()} avoided arrest. An investigation is open.`);
-  popup('🕵️ No arrest, for now',`Nobody has been charged yet, but an investigation is open.<br><br>Wanted level: <b>${S.wanted}/5</b><br>Open cases: <b>${S.coldCases}</b><br><span class="muted">Every year there is a chance detectives catch up with you.</span>`);
+  popup('🕵️ No arrest, for now',`Nobody has been charged yet, but an investigation is open.${gainLine}<br><br>Wanted level: <b>${S.wanted}/5</b><br>Open cases: <b>${S.coldCases}</b><br><span class="muted">Every year there is a chance detectives catch up with you.</span>`);
  }
  render();
 }
@@ -8587,13 +8593,143 @@ function renderKill(){
  const list=targets();
  if(sel>=list.length)sel=0;
  box.innerHTML=`<h2>☠️ Homicide</h2>
-  <p class="muted">Text only. Age 18+, uses your one crime action for the year. Targets are the adults in your life: friends, parents, siblings, partner, adult children, teachers, coworkers, your boss, extended family, or a stranger. If you're caught: 2 to 3 years in prison. If you're not, an open case can still catch up with you later. Open cases: <b>${S.coldCases||0}</b> • Total: <b>${S.kills||0}</b></p>
+  <p class="muted">Text only. Age 18+, uses your one crime action for the year. Killing a parent or your partner gives you all their money. Targets are the adults in your life: friends, parents, siblings, partner, adult children, teachers, coworkers, your boss, extended family, or a stranger. If you're caught: 2 to 3 years in prison. If you're not, an open case can still catch up with you later. Open cases: <b>${S.coldCases||0}</b> • Total: <b>${S.kills||0}</b></p>
   <select id="killTarget" onchange="KILL.pick(this.value)">${list.map((t,i)=>`<option value="${i}" ${i===sel?'selected':''}>${escapeHTML(t.n)}</option>`).join('')}</select>
   <button class="action danger" onclick="KILL.go()">☠️ Proceed</button>`;
 }
 
 const _render=render;
 render=function(){_render();renderKill();};
+render();
+})();
+</script>
+
+<!-- =====================================================================
+  LIFEVERSE FAMILY MONEY + INHERITANCE ADD-ON
+  PASTE THIS RIGHT BEFORE </body> (before the Autosave add-on if you can).
+  - Grandparents, aunts, uncles and cousins now show their money
+  - Grandparents $1k-$100k, aunts / uncles / cousins $500-$50k
+  - Extended family now ages every year (before, they never aged)
+  - Grandparents die fast; when one dies the estate is split equally
+    between your living parents, aunts and uncles
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LVFAM)return;window.__LVFAM=1;
+const q=id=>document.getElementById(id);
+const GROUPS=[['Grandparents','grandparents','👴'],['Aunts','aunts','👩'],['Uncles','uncles','👨'],['Cousins','cousins','🧒'],['Nieces','nieces','👧'],['Nephews','nephews','👦']];
+
+/* ---------- one family list for everything ---------- */
+function ensureFamily(){
+ if(typeof seedExtendedFamily==='function')seedExtendedFamily();
+ const ef=S.extendedFamily;
+ if(!ef)return null;
+ ['grandparents','greatGrandparents','aunts','uncles','cousins','nieces','nephews'].forEach(k=>{if(!Array.isArray(ef[k]))ef[k]=[];});
+ /* the old "Entire Family Dynasty" list kept its own separate relatives; make it use this one */
+ if(!S.v5||typeof S.v5!=='object')S.v5={};
+ S.v5.family=ef;
+ /* one-time money reset into the new ranges */
+ if(!S.famMoneyV2){
+  S.famMoneyV2=true;
+  ef.grandparents.forEach(p=>{p.wealth=rand(1000,100000);});
+  ['aunts','uncles','cousins'].forEach(k=>ef[k].forEach(p=>{p.wealth=rand(500,50000);}));
+ }
+ return ef;
+}
+
+/* ---------- inheritance ---------- */
+function heirs(){
+ const ef=S.extendedFamily||{},h=[];
+ (S.parents||[]).forEach(p=>{if(p.alive)h.push(p);});
+ (ef.aunts||[]).forEach(p=>{if(p.alive!==false)h.push(p);});
+ (ef.uncles||[]).forEach(p=>{if(p.alive!==false)h.push(p);});
+ return h;
+}
+function settleEstate(g){
+ if(g.settled)return;
+ g.settled=true;
+ const estate=Math.max(0,Math.round(safeNumber(g.wealth,0)));
+ g.wealth=0;
+ if(estate<=0)return;
+ const h=heirs();
+ if(!h.length){
+  S.money+=estate;S.stats.inheritances++;
+  addEvent(`💰 ${playerName()} inherited ${money(estate)} from ${g.name}, because there were no other heirs.`);
+  return;
+ }
+ const share=Math.floor(estate/h.length);
+ h.forEach(x=>{x.wealth=safeNumber(x.wealth,0)+share;});
+ const rest=estate-share*h.length;
+ if(rest>0)h[0].wealth+=rest;
+ addEvent(`💰 ${g.name}'s estate of ${money(estate)} was split equally between ${h.length} heirs (${money(share)} each).`);
+}
+function settleAll(){
+ const ef=S.extendedFamily;if(!ef)return;
+ ['grandparents','greatGrandparents'].forEach(k=>(ef[k]||[]).forEach(p=>{if(p.alive===false)settleEstate(p);}));
+}
+
+/* ---------- yearly aging + deaths ---------- */
+const DEATH={
+ grandparents:p=>clamp(2+Math.max(0,p.age-60)*1.8,2,60),        /* ~24% a year at 72 */
+ greatGrandparents:p=>clamp(10+Math.max(0,p.age-80)*3,10,70),
+ aunts:p=>p.age>=58?clamp((p.age-57)*1.5,1,40):.3,
+ uncles:p=>p.age>=58?clamp((p.age-57)*1.5,1,40):.3,
+ cousins:p=>p.age>=70?clamp((p.age-69)*2,1,30):.2,
+ nieces:p=>.1,
+ nephews:p=>.1
+};
+function processFamily(){
+ const ef=ensureFamily();if(!ef)return;
+ Object.keys(DEATH).forEach(k=>(ef[k]||[]).forEach(p=>{
+  if(p.alive===false)return;
+  p.age=safeNumber(p.age,30)+1;
+  if(chance(DEATH[k](p))){
+   p.alive=false;
+   if(safeNumber(p.relationship,0)>=60)S.happiness=clamp(S.happiness-rand(3,10),0,100);
+   addEvent(`🕊️ ${p.name} (${String(p.role||k).toLowerCase()}) passed away at age ${p.age}.`);
+  }
+ }));
+ settleAll();
+}
+
+const _age=ageUp;
+ageUp=function(){
+ const before=S.age;
+ _age();
+ if(S.age>before&&!S.dead){processFamily();render();}
+};
+
+/* ---------- display (with money) ---------- */
+const row=(title,p,i)=>{
+ const dead=p.alive===false;
+ return `<p style="${dead?'opacity:.55':''}"><b>${escapeHTML(p.name)}</b> — ${escapeHTML(p.role||title)} • Age ${p.age} • ❤️ ${p.relationship}%<br>
+  ${dead?'🕊️ Deceased':`💰 ${money(safeNumber(p.wealth,0))}`}
+  ${dead?'':`<br><button class="action" onclick="v5TalkFamily('${title}',${i})">💬 Connect</button>`}</p>`;
+};
+renderV5Family=function(){
+ const ef=ensureFamily();if(!ef)return;
+ let total=0;
+ GROUPS.forEach(g=>(ef[g[1]]||[]).forEach(p=>{if(p.alive!==false)total+=safeNumber(p.wealth,0);}));
+ const group=g=>{
+  const arr=ef[g[1]]||[];
+  return `<div class="card"><h3>${g[2]} ${g[0]}</h3>${arr.length?arr.map((p,i)=>row(g[0],p,i)).join(''):'None yet.'}</div>`;
+ };
+ v5Card('family','v5FullFamily','🌳 Entire Family Dynasty',
+  `<p>Combined wealth of your living extended family: <b>${money(total)}</b></p>
+   <p class="muted">When a grandparent dies, the estate is split equally between your living parents, aunts and uncles.</p>
+   <div class="grid">${GROUPS.map(group).join('')}</div>`);
+};
+/* the old "Entire Family Tree" card listed the same relatives without money */
+renderMegaFamilyTree=function(){const b=q('fullFamilyTree');if(b)b.remove();};
+
+/* ---------- render hook ---------- */
+const _render=render;
+render=function(){
+ ensureFamily();
+ settleAll();       /* also settles estates of grandparents killed by the player */
+ _render();
+};
 render();
 })();
 </script>
