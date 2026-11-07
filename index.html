@@ -8775,20 +8775,27 @@ window.haveChild=function(){
 </script>
 
 <!-- =====================================================================
-  LIFEVERSE NAMES + CUSTOM FAMILY + CUSTOM STOCKS + PARTNER GENDER
-  PASTE THIS RIGHT BEFORE </body>, AFTER ALL OTHER SCRIPTS
-  (it must be the LAST script in the file).
+  LIFEVERSE FAMILY SETUP + NAMES + CUSTOM STOCKS + PARTNER GENDER (v2)
+  REPLACES the earlier "lifeverse-names-stocks-addon". Delete that one first.
+  PASTE THIS RIGHT BEFORE </body>, AFTER ALL OTHER SCRIPTS (must be last).
+
+  - "👨‍👩‍👧 Customize Family" button on the 🌎 Create Your Life screen:
+      mother, father, 4 grandparents, great-grandparents
+      (name, age, money). Only available BEFORE the life starts.
+  - Mother always gets a female name, father a male name.
+  - Stocks page: custom quantity buy/sell, Buy MAX, Sell all.
+  - Find Partner: choose male or female, matching names.
   ===================================================================== -->
 <script>
 (function(){
 'use strict';
-if(window.__LVNAMES)return;window.__LVNAMES=1;
+if(window.__LVNAMES2)return;window.__LVNAMES2=1;
 
 const q=id=>document.getElementById(id);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 
 /* ---------- name lists ---------- */
-const MALE=['James','John','Robert','Michael','William','David','Richard','Joseph','Thomas','Charles','Daniel','Matthew','Anthony','Mark','Paul','Steven','Andrew','Kenneth','Joshua','Kevin','Brian','George','Edward','Ronald','Timothy','Jason','Jeffrey','Ryan','Jacob','Gary','Nicholas','Eric','Jonathan','Stephen','Larry','Justin','Scott','Brandon','Benjamin','Samuel','Henry','Arthur','Oliver','Oscar','Liam','Noah','Ethan','Lucas','Leo','Max','Ryan','Daniel','Oliver','Raj','Wei','Hiro','Carlos','Omar','Ahmed'];
+const MALE=['James','John','Robert','Michael','William','David','Richard','Joseph','Thomas','Charles','Daniel','Matthew','Anthony','Mark','Paul','Steven','Andrew','Kenneth','Joshua','Kevin','Brian','George','Edward','Ronald','Timothy','Jason','Jeffrey','Ryan','Jacob','Gary','Nicholas','Eric','Jonathan','Stephen','Larry','Justin','Scott','Brandon','Benjamin','Samuel','Henry','Arthur','Oliver','Oscar','Liam','Noah','Ethan','Lucas','Leo','Max','Raj','Wei','Hiro','Carlos','Omar','Ahmed','Robert'];
 const FEMALE=['Mary','Patricia','Jennifer','Linda','Elizabeth','Barbara','Susan','Jessica','Sarah','Karen','Nancy','Lisa','Margaret','Betty','Sandra','Ashley','Dorothy','Kimberly','Emily','Donna','Michelle','Carol','Amanda','Melissa','Deborah','Stephanie','Rebecca','Laura','Sharon','Cynthia','Kathleen','Amy','Angela','Helen','Anna','Brenda','Emma','Olivia','Sophia','Ava','Mia','Isabella','Charlotte','Amelia','Ella','Chloe','Lily','Sophie','Grace','Evelyn','Maya','Priya','Mei','Yuki','Sofia','Fatima','Aisha'];
 const SURN=['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Wilson','Anderson','Taylor','Thomas','Moore','Martin','Jackson','Thompson','White','Harris','Clark','Lewis','Walker','Hall','Young','King','Wright','Scott','Green','Baker','Adams','Nelson','Carter','Mitchell','Perez','Roberts','Turner','Phillips','Campbell','Parker','Evans','Edwards','Collins','Stewart','Morris','Murphy','Cook','Rogers','Morgan','Cooper','Reed','Bailey','Tan','Lim','Lee','Wong','Chen','Patel','Singh','Kim','Sato'];
 
@@ -8797,10 +8804,11 @@ const isM=n=>MALE.includes(first(n));
 const isF=n=>FEMALE.includes(first(n));
 const rest=n=>String(n||'').trim().split(/\s+/).slice(1).join(' ');
 const nameFor=(g,sur)=>pick(g==='Male'?MALE:FEMALE)+' '+(sur||pick(SURN));
-const num=v=>{const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:NaN;};
+const num=v=>{const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)&&String(v).trim()!==''?n:NaN;};
+const clean=s=>String(s||'').replace(/[<>&"'`]/g,'').trim().slice(0,40);
 
 /* =========================================================
-   1. PARENT + CHILD NAMES MATCH THEIR GENDER
+   1. DEFAULT PARENTS / NEW BABIES MATCH THEIR GENDER
    ========================================================= */
 function fixParents(){
  if(!S||!Array.isArray(S.parents)||S.parentsGenderFixed)return;
@@ -8813,7 +8821,6 @@ function fixParents(){
  });
  S.parentsGenderFixed=true;
 }
-
 const _hc=window.haveChild;
 window.haveChild=function(){
  const n=(S.childProfiles||[]).length;
@@ -8832,7 +8839,7 @@ window.haveChild=function(){
 };
 
 /* =========================================================
-   2. FIND PARTNER: CHOOSE MALE OR FEMALE
+   2. FIND PARTNER: MALE OR FEMALE
    ========================================================= */
 function meetPartner(g){
  const name=nameFor(g);
@@ -8856,56 +8863,149 @@ window.findPartner=function(){
 };
 
 /* =========================================================
-   3. CUSTOM GRANDPARENTS / GREAT-GRANDPARENTS
+   3. FAMILY SETUP ON THE "CREATE YOUR LIFE" SCREEN
    ========================================================= */
-const REL=[
- ['Maternal Grandfather','grandparents','Male'],
- ['Maternal Grandmother','grandparents','Female'],
- ['Paternal Grandfather','grandparents','Male'],
- ['Paternal Grandmother','grandparents','Female'],
- ['Great-Grandfather','greatGrandparents','Male'],
- ['Great-Grandmother','greatGrandparents','Female']
-];
-function efam(){
- if(typeof seedExtendedFamily==='function')seedExtendedFamily();
- const ef=S.extendedFamily;if(!ef)return null;
- ['grandparents','greatGrandparents'].forEach(k=>{if(!Array.isArray(ef[k]))ef[k]=[];});
- return ef;
+const GP=[['Maternal Grandfather','Male','mgf'],['Maternal Grandmother','Female','mgm'],['Paternal Grandfather','Male','pgf'],['Paternal Grandmother','Female','pgm']];
+let filled=false;
+
+function fRow(label,id){
+ return `<div style="margin:8px 0"><div class="muted" style="font-size:12px;margin-bottom:2px">${label}</div>
+  <div style="display:grid;grid-template-columns:2fr 1fr 1.3fr;gap:8px">
+   <input id="fm_n_${id}" placeholder="Name (blank = random)" style="margin:0">
+   <input id="fm_a_${id}" type="number" min="1" max="120" placeholder="Age" style="margin:0">
+   <input id="fm_m_${id}" type="number" min="0" placeholder="Money $" style="margin:0">
+  </div></div>`;
 }
-function renderCustomFamily(){
- const sec=q('family');if(!sec)return;
- const ef=efam();if(!ef)return;
- let box=q('lvCustomFam');
- if(!box){
-  box=document.createElement('div');box.id='lvCustomFam';box.className='card';
-  box.innerHTML=`<h2>👴 Custom Grandparents & Great-Grandparents</h2>
-   <p class="muted">Add your own relatives with any name, age and money. Leave the name blank for a random one that fits the gender. When one dies, the estate is split between your living parents, aunts and uncles.</p>
-   <div class="two">
-    <div><label>Relation</label><select id="cgRel">${REL.map((r,i)=>`<option value="${i}">${r[0]}</option>`).join('')}</select></div>
-    <div><label>Name</label><input id="cgName" placeholder="Leave blank for random"></div>
-    <div><label>Age</label><input id="cgAge" type="number" min="40" max="120" value="75"></div>
-    <div><label>Money ($)</label><input id="cgMoney" type="number" min="0" step="1" value="50000"></div>
-   </div>
-   <button class="action good" onclick="LVN.addRel()">➕ Add relative</button>
-   <div id="cgList" style="margin-top:12px"></div>`;
-  sec.appendChild(box);
- }
- const row=(key,p,i)=>{
-  const dead=p.alive===false;
-  return `<div class="card" style="${dead?'opacity:.55':''}"><b>${escapeHTML(p.name)}</b> — ${escapeHTML(p.role||key)} • Age ${p.age}<br>
-   ${dead?'🕊️ Deceased':`💰 ${money(safeNumber(p.wealth,0))} • ❤️ ${p.relationship}%`}<br>
-   <button class="action" onclick="LVN.edit('${key}',${i})">✏️ Edit</button>
-   <button class="action danger" onclick="LVN.remove('${key}',${i})">🗑️ Remove</button></div>`;
- };
- const list=q('cgList');
- list.innerHTML=
-  `<h3>👴 Grandparents (${ef.grandparents.length})</h3><div class="grid">${ef.grandparents.map((p,i)=>row('grandparents',p,i)).join('')||'<span class="muted">None.</span>'}</div>
-   <h3>🧓 Great-Grandparents (${ef.greatGrandparents.length})</h3><div class="grid">${ef.greatGrandparents.map((p,i)=>row('greatGrandparents',p,i)).join('')||'<span class="muted">None.</span>'}</div>`;
+function buildMenu(){
+ if(q('lvFamMenu'))return;
+ const d=document.createElement('div');
+ d.id='lvFamMenu';d.className='popup-bg';d.style.cssText='display:none;z-index:250';
+ d.innerHTML=`<div class="popup" style="max-width:760px">
+  <h1>👨‍👩‍👧 Customize Family</h1>
+  <p class="muted">Choose the names, ages and money of your family before your life begins. Leave a name blank for a random one. <b>This cannot be changed after your life starts.</b></p>
+  <h2>👪 Parents</h2>${fRow('👩 Mother','mom')}${fRow('👨 Father','dad')}
+  <h2>👴 Grandparents</h2>${GP.map(g=>fRow((g[1]==='Male'?'👴 ':'👵 ')+g[0],g[2])).join('')}
+  <h2>🧓 Great-Grandparents</h2>
+  <div id="fmGG"></div>
+  <button class="action" onclick="LVF.addGG()">➕ Add great-grandparent</button>
+  <br><br>
+  <button class="action" onclick="LVF.random()">🎲 Randomize family</button>
+  <button class="action gold" onclick="LVF.done()">✅ DONE</button>
+ </div>`;
+ document.body.appendChild(d);
 }
+function setRow(id,name,age,money){
+ q('fm_n_'+id).value=name;q('fm_a_'+id).value=age;q('fm_m_'+id).value=money;
+}
+function addGG(data){
+ const box=q('fmGG');
+ if(box.children.length>=8){popup('🧓 Too many','You can have up to 8 great-grandparents.');return;}
+ const g=data&&data.g||pick(['Male','Female']);
+ const row=document.createElement('div');
+ row.className='fm-gg';row.style.cssText='margin:8px 0;padding:8px;border:1px solid #263244;border-radius:8px';
+ row.innerHTML=`<div style="display:grid;grid-template-columns:1.3fr 2fr;gap:8px;margin-bottom:6px">
+   <select class="fm-gg-g" style="margin:0"><option value="Male" ${g==='Male'?'selected':''}>Great-Grandfather</option><option value="Female" ${g==='Female'?'selected':''}>Great-Grandmother</option></select>
+   <input class="fm-gg-n" placeholder="Name (blank = random)" style="margin:0">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1.3fr auto;gap:8px">
+   <input class="fm-gg-a" type="number" min="1" max="120" placeholder="Age" style="margin:0">
+   <input class="fm-gg-m" type="number" min="0" placeholder="Money $" style="margin:0">
+   <button class="action danger" style="margin:0" onclick="this.closest('.fm-gg').remove()">🗑️</button>
+  </div>`;
+ row.querySelector('.fm-gg-n').value=data&&data.n||'';
+ row.querySelector('.fm-gg-a').value=data&&data.a||rand(75,100);
+ row.querySelector('.fm-gg-m').value=data&&data.m!==undefined?data.m:rand(1000,100000);
+ box.appendChild(row);
+}
+function randomFamily(){
+ const mine=clean((q('startName')&&q('startName').value||'').split(/\s+/).slice(-1)[0])||pick(SURN);
+ const momSur=pick(SURN);
+ setRow('mom',nameFor('Female',momSur),rand(20,40),rand(2000,150000));
+ setRow('dad',nameFor('Male',mine),rand(22,48),rand(2000,150000));
+ setRow('mgf',nameFor('Male',momSur),rand(55,82),rand(1000,100000));
+ setRow('mgm',nameFor('Female',momSur),rand(55,82),rand(1000,100000));
+ setRow('pgf',nameFor('Male',mine),rand(55,82),rand(1000,100000));
+ setRow('pgm',nameFor('Female',mine),rand(55,82),rand(1000,100000));
+ q('fmGG').innerHTML='';
+ filled=true;
+}
+function readRow(id,g,minAge,maxMoney){
+ let name=clean(q('fm_n_'+id).value);
+ if(!name)name=nameFor(g);
+ let age=Math.floor(num(q('fm_a_'+id).value));
+ if(!(age>=minAge&&age<=120))age=Math.max(minAge,Math.min(120,age>120?120:rand(minAge,minAge+20)));
+ let m=Math.round(num(q('fm_m_'+id).value));
+ if(!(m>=0))m=rand(1000,maxMoney||100000);
+ return{name,age,m:Math.min(m,1e12)};
+}
+function applyFamily(){
+ if(!filled)return;                      /* never opened the family screen: defaults stay */
+ megaEnsure();
+ const ef=S.extendedFamily;
+ /* parents */
+ S.parents.forEach(p=>{
+  const id=p.role==='Mother'?'mom':p.role==='Father'?'dad':null;
+  if(!id)return;
+  const v=readRow(id,id==='mom'?'Female':'Male',16,150000);
+  p.name=v.name;p.age=v.age;p.wealth=v.m;
+ });
+ S.parentsGenderFixed=true;
+ /* grandparents */
+ ef.grandparents=GP.map(g=>{
+  const v=readRow(g[2],g[1],30,100000);
+  return{name:v.name,role:g[0],age:v.age,relationship:rand(55,90),wealth:v.m,alive:true,career:'Family Member'};
+ });
+ /* great-grandparents */
+ ef.greatGrandparents=[...document.querySelectorAll('#fmGG .fm-gg')].map(r=>{
+  const g=r.querySelector('.fm-gg-g').value;
+  let name=clean(r.querySelector('.fm-gg-n').value)||nameFor(g);
+  let age=Math.floor(num(r.querySelector('.fm-gg-a').value));if(!(age>=1&&age<=120))age=rand(75,100);
+  let m=Math.round(num(r.querySelector('.fm-gg-m').value));if(!(m>=0))m=rand(1000,100000);
+  return{name,role:g==='Male'?'Great-Grandfather':'Great-Grandmother',age,relationship:rand(55,90),wealth:Math.min(m,1e12),alive:true,career:'Family Member'};
+ });
+ S.famMoneyV2=true;                      /* stop the old one-time random money reset */
+ addEvent(`👨‍👩‍👧 ${playerName()} was born into a customized family.`);
+}
+window.LVF={
+ open(){buildMenu();if(!filled)randomFamily();q('lvFamMenu').style.display='flex';},
+ done(){q('lvFamMenu').style.display='none';},
+ random:randomFamily,
+ addGG
+};
+function addButton(){
+ const sm=q('startMenu');if(!sm||q('lvFamBtn'))return;
+ const rb=sm.querySelector('button[onclick*="randomizeStartStats"]');if(!rb)return;
+ const b=document.createElement('button');
+ b.id='lvFamBtn';b.className='action purple';b.textContent='👨‍👩‍👧 Customize Family';
+ b.setAttribute('onclick','LVF.open()');
+ rb.insertAdjacentElement('afterend',b);
+}
+addButton();
+
+const _bnl=window.beginNewLife;
+window.beginNewLife=function(){
+ _bnl.apply(this,arguments);
+ applyFamily();
+ render();
+};
 
 /* =========================================================
    4. CUSTOM STOCK TRADING
    ========================================================= */
+function maxAfford(price){
+ let n=Math.floor(S.money/price);
+ while(n>0&&Math.round(price*n)>S.money)n--;
+ return Math.max(0,n);
+}
+function upd(){
+ const info=q('lvTInfo'),sel=q('lvTSym');
+ if(!info||!sel||!S.v6||!sel.value)return;
+ const st=S.v6.stocks[sel.value];if(!st)return;
+ const h=(S.v6.hold&&S.v6.hold[sel.value])||0;
+ const qty=Math.floor(num(q('lvTQty').value));
+ info.innerHTML=`Cash: <b>${money(S.money)}</b> • Price: <b>$${st.p.toFixed(2)}</b> • Held: <b>${h.toLocaleString()}</b> (${money(h*st.p)}) • Max you can buy: <b>${maxAfford(st.p).toLocaleString()}</b>`
+  +(qty>=1?`<br>${qty.toLocaleString()} share(s) = <b>${money(Math.round(st.p*qty))}</b>`:'');
+}
 function stockBox(){
  const sec=q('v6_stocks');
  if(!sec||!S.v6||!S.v6.stocks)return;
@@ -8924,8 +9024,7 @@ function stockBox(){
    </div>`;
   sec.appendChild(box);
  }
- const sel=q('lvTSym'),cur=sel.value;
- const keys=Object.keys(S.v6.stocks);
+ const sel=q('lvTSym'),cur=sel.value,keys=Object.keys(S.v6.stocks);
  sel.innerHTML=keys.map(k=>{
   const st=S.v6.stocks[k],h=(S.v6.hold&&S.v6.hold[k])||0;
   return `<option value="${k}">${k} — $${st.p.toFixed(2)} (held ${h})</option>`;
@@ -8933,65 +9032,13 @@ function stockBox(){
  if(cur&&keys.includes(cur))sel.value=cur;
  upd();
 }
-function maxAfford(price){
- let n=Math.floor(S.money/price);
- while(n>0&&Math.round(price*n)>S.money)n--;
- return Math.max(0,n);
-}
-function upd(){
- const info=q('lvTInfo'),sel=q('lvTSym');
- if(!info||!sel||!S.v6||!sel.value)return;
- const st=S.v6.stocks[sel.value];if(!st)return;
- const h=(S.v6.hold&&S.v6.hold[sel.value])||0;
- const qty=Math.floor(num(q('lvTQty').value));
- info.innerHTML=`Cash: <b>${money(S.money)}</b> • Price: <b>$${st.p.toFixed(2)}</b> • Held: <b>${h}</b> (${money(h*st.p)}) • Max you can buy: <b>${maxAfford(st.p).toLocaleString()}</b>`
-  +(qty>=1?`<br>${qty.toLocaleString()} share(s) = <b>${money(Math.round(st.p*qty))}</b>`:'');
-}
-
-/* =========================================================
-   PUBLIC ACTIONS
-   ========================================================= */
 window.LVN={
  upd,
- addRel(){
-  const ef=efam();if(!ef)return;
-  const r=REL[Number(q('cgRel').value)]||REL[0];
-  const list=ef[r[1]];
-  if(list.length>=8)return popup('👴 Too many','You can have up to 8 of this type.');
-  let age=Math.floor(num(q('cgAge').value));
-  if(!(age>=1&&age<=120))return popup('Invalid age','Enter an age from 1 to 120.');
-  let m=Math.round(num(q('cgMoney').value));
-  if(!(m>=0))return popup('Invalid money','Enter an amount of $0 or more.');
-  m=Math.min(m,1e12);
-  let name=String(q('cgName').value||'').replace(/[<>&"'`]/g,'').trim().slice(0,40);
-  if(!name)name=nameFor(r[2],(S.name.split(/\s+/).slice(-1)[0]||null));
-  list.push({name,role:r[0],age,relationship:rand(55,90),wealth:m,alive:true,career:'Family Member'});
-  addEvent(`👴 ${r[0]} ${name} joined your family tree with ${money(m)}.`);
-  q('cgName').value='';
-  render();
- },
- edit(key,i){
-  const ef=efam(),p=ef&&ef[key]&&ef[key][i];if(!p)return;
-  const n=prompt('Name:',p.name);
-  if(n===null)return;
-  const m=prompt('Money ($):',String(Math.round(safeNumber(p.wealth,0))));
-  if(m===null)return;
-  const nm=String(n).replace(/[<>&"'`]/g,'').trim().slice(0,40);
-  if(nm)p.name=nm;
-  const mv=Math.round(num(m));
-  if(mv>=0)p.wealth=Math.min(mv,1e12);
-  render();
- },
- remove(key,i){
-  const ef=efam(),p=ef&&ef[key]&&ef[key][i];if(!p)return;
-  if(!confirm('Remove '+p.name+' from your family?'))return;
-  ef[key].splice(i,1);render();
- },
  buy(max){
   if(!S.v6)return;
   if(S.age<18)return popup('📈 Too young','Investing starts at age 18.');
   const sym=q('lvTSym').value,st=S.v6.stocks[sym];if(!st)return;
-  let n=max?maxAfford(st.p):Math.floor(num(q('lvTQty').value));
+  const n=max?maxAfford(st.p):Math.floor(num(q('lvTQty').value));
   if(!(n>=1))return popup(max?'💸 Not enough cash':'Invalid amount',max?`You can't afford even 1 share of ${sym}.`:'Enter a whole number of shares (1 or more).');
   const cost=Math.round(st.p*n);
   if(S.money<cost)return popup('💸 Not enough cash',`${n.toLocaleString()} share(s) of ${sym} cost <b>${money(cost)}</b>. You have <b>${money(S.money)}</b>.`);
@@ -9006,7 +9053,7 @@ window.LVN={
   const sym=q('lvTSym').value,st=S.v6.stocks[sym];if(!st)return;
   const held=(S.v6.hold&&S.v6.hold[sym])||0;
   if(!held)return popup('📉 Nothing to sell',`You don't own any ${sym}.`);
-  let n=all?held:Math.floor(num(q('lvTQty').value));
+  const n=all?held:Math.floor(num(q('lvTQty').value));
   if(!(n>=1))return popup('Invalid amount','Enter a whole number of shares (1 or more).');
   if(n>held)return popup('📉 Not enough shares',`You only own <b>${held.toLocaleString()}</b> ${sym}.`);
   const gain=Math.round(st.p*n);
@@ -9022,7 +9069,6 @@ const _render=render;
 render=function(){
  fixParents();
  _render();
- renderCustomFamily();
  stockBox();
 };
 render();
