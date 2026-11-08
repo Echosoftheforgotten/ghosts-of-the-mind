@@ -9974,5 +9974,605 @@ init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V11 ADD-ON — paste RIGHT BEFORE </body>, AFTER every other
+  script (must be LAST). Everything lives in S.lv11 (old saves are safe).
+  Adds: 🌴 Retirement, 🏠 Mortgages, 💔 Divorce & alimony, 🧾 Income tax,
+  📜 Full life timeline (searchable, every event of your life).
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV11)return;window.__LV11=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand;
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+let tab='retire',flt='';
+
+function init(){
+ if(!S.lv11||typeof S.lv11!=='object')S.lv11={};
+ const d={retired:false,retAge:0,tax:true,taxPaid:0,log:[],mort:[],alimony:null,divorces:0,paidOff:0};
+ for(const k in d)if(S.lv11[k]===undefined||S.lv11[k]===null)S.lv11[k]=d[k];
+}
+function fx(o){for(const k in o)S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}
+function toast(m){let t=q('lv11t');if(!t){t=document.createElement('div');t.id='lv11t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #fb923c;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+const credit=()=>(S.lv10&&S.lv10.credit)||650;
+function dent(n){if(S.lv10)S.lv10.credit=clamp(S.lv10.credit+n,300,850);}
+const pmt=(P,rt,n)=>Math.round(rt?P*rt/(1-Math.pow(1+rt,-n)):P/n);
+const taxOf=s=>{let t=0;[[30000,100000,.1],[100000,500000,.2],[500000,1e15,.3]].forEach(b=>{if(s>b[0])t+=(Math.min(s,b[1])-b[0])*b[2];});return Math.round(t);};
+const income=()=>(S.career!=='None'?S.salary:0)+((S.footballContract&&S.footballContract.salary)||0)+((S.basketballContract&&S.basketballContract.salary)||0);
+const myTax=()=>Math.round(taxOf(income())*((S.lifePlus&&S.lifePlus.accountant)?.8:1));
+const owed=()=>S.lv11.mort.reduce((a,m)=>a+m.bal,0);
+
+/* ---------- full timeline: every event is kept (the game only keeps 50) ---------- */
+const _ae=window.addEvent;
+window.addEvent=function(t){_ae.apply(this,arguments);try{init();const L=S.lv11.log;L.unshift({y:S.birthYear+S.age,a:S.age,t:String(t)});if(L.length>1200)L.length=1200;}catch(e){}};
+
+/* ---------- net worth minus mortgage debt ---------- */
+const _nw=window.netWorth;
+window.netWorth=function(){return Math.max(0,_nw()-(S.lv11?owed():0));};
+
+/* ---------- retired players cannot take a new career ---------- */
+const _ac=window.applyCareer;
+window.applyCareer=function(n){init();if(S.lv11.retired)return popup('🌴 Retired','You are retired. Come out of retirement on the 🌴 Life Admin page first.');return _ac.apply(this,arguments);};
+
+/* ---------- ACTIONS ---------- */
+window.LV11={
+ tab(t){tab=t;render();},
+ flt(v){flt=String(v||'').toLowerCase();list();},
+ retire(){if(S.age<55)return popup('🌴 Too early','You can retire from age 55.');if(S.career==='None')return popup('🌴 No career','You need a job to retire from.');
+  if(!confirm(`Retire from ${S.career}? You can come back later.`))return;S.lv11.retired=true;S.lv11.retAge=S.age;window.quitJob();fx({happiness:6});addEvent(`🌴 ${playerName()} retired at age ${S.age}.`);render();},
+ unretire(){S.lv11.retired=false;addEvent(`💼 ${playerName()} came out of retirement.`);render();},
+ taxTog(){S.lv11.tax=!S.lv11.tax;render();},
+ mort(i){const h=houses[i];if(!h)return;if(S.age<18)return popup('🔒 Too young','You must be 18+.');if(S.lv11.mort.length>=3)return popup('🏦 Limit','Maximum 3 mortgages at once.');
+  const down=Math.round(h[1]*.2),rate=+clamp(.07-(credit()-600)/250*.03,.035,.09).toFixed(3),pay=pmt(h[1]-down,rate,20);
+  if(S.money<down)return popup('💸 Down payment',`A 20% down payment is <b>${money(down)}</b>.`);
+  if(pay>Math.max(income()*.45,S.money*.1))return popup('🏦 Declined',`Yearly payment ${money(pay)} is too high for your income (${money(income())}/yr).`);
+  S.money-=down;S.houses.push(h[0]);if(S.lv9&&Array.isArray(S.lv9.rent))S.lv9.rent.push(false);
+  S.lv11.mort.push({n:h[0],bal:h[1]-down,rate,pay,miss:0});addEvent(`🏠 ${playerName()} took a mortgage on a ${h[0]}: ${money(pay)}/yr at ${(rate*100).toFixed(1)}%.`);
+  popup('🏠 Mortgage approved',`<b>${E(h[0])}</b><br>Down payment: ${money(down)}<br>Payment: <b>${money(pay)}/year</b> for 20 years at ${(rate*100).toFixed(1)}%.`);render();},
+ payoff(i){const m=S.lv11.mort[i];if(!m)return;if(S.money<m.bal)return popup('💸 Not enough cash',`Paying off needs ${money(m.bal)}.`);S.money-=m.bal;S.lv11.mort.splice(i,1);S.lv11.paidOff++;dent(15);addEvent(`✅ ${playerName()} paid off the mortgage on ${m.n}.`);render();},
+ divorce(k){const p=S.partner;if(!p||p.alive===false||!S.married)return popup('💔 Not married','You have no living spouse.');
+  if(k==='ami'&&p.relationship<40)return popup('⚖️ Not amicable','Your relationship is too damaged for an amicable split. Try a contested divorce.');
+  const pct=k==='ami'?.25:.45,legal=k==='ami'?3000:12000;if(!confirm(`${k==='ami'?'Amicable':'Contested'} divorce from ${p.name}? It costs about ${Math.round(pct*100)}% of your cash plus ${money(legal)} in fees.`))return;
+  const lost=Math.round(S.money*pct)+legal;S.money=Math.max(0,S.money-lost);S.lv11.alimony=S.salary>0?{amt:Math.round(S.salary*.06),left:k==='ami'?3:6}:null;
+  fx({happiness:-12,reputation:k==='ami'?0:-5});(S.childProfiles||[]).forEach(c=>{if(c.alive)c.relationship=clamp(c.relationship-r(4,12),0,100);});
+  S.partner=null;S.married=false;S.lv11.divorces++;addEvent(`💔 ${playerName()} divorced ${p.name}.`);popup('💔 Divorced',`You paid <b>${money(lost)}</b>.${S.lv11.alimony?`<br>Alimony: ${money(S.lv11.alimony.amt)}/year for ${S.lv11.alimony.left} years.`:''}<br>You are free to find a new partner.`);render();}
+};
+
+/* ---------- YEARLY ---------- */
+function year(){
+ const L=S.lv11;
+ /* mortgages */
+ L.mort=L.mort.filter(m=>{const idx=S.houses.indexOf(m.n);
+  if(idx<0){const c=Math.min(S.money,m.bal);S.money-=c;if(c<m.bal)dent(-30);addEvent(`🏦 You sold ${m.n}; the mortgage was settled (${money(c)}).`);return false;}
+  m.bal=Math.round(m.bal*(1+m.rate));const p=Math.min(m.pay,m.bal);
+  if(S.money>=p){S.money-=p;m.bal-=p;m.miss=0;if(m.bal<=1){L.paidOff++;addEvent(`✅ The mortgage on ${m.n} is fully paid.`);return false;}return true;}
+  m.miss++;dent(-25);fx({happiness:-5});
+  if(m.miss>=2){S.houses.splice(idx,1);if(S.lv9&&Array.isArray(S.lv9.rent))S.lv9.rent.splice(idx,1);dent(-40);addEvent(`🏚️ The bank foreclosed on your ${m.n}.`);return false;}
+  addEvent(`⚠️ You missed the mortgage payment on ${m.n}. One more and the bank forecloses.`);return true;});
+ /* alimony */
+ if(L.alimony&&L.alimony.left>0){const a=Math.min(S.money,L.alimony.amt);S.money-=a;L.alimony.left--;addEvent(`💸 Alimony paid: ${money(a)}.`);if(L.alimony.left<=0)L.alimony=null;}
+ /* retirement income */
+ if(L.retired){let inc=0;if(S.age>=65)inc+=12000;const f=S.lifePlus&&S.lifePlus.retirement||0;
+  if(S.age>=60&&f>0){const d=Math.min(f,Math.max(1000,Math.round(f*.05)));S.lifePlus.retirement-=d;inc+=d;}
+  if(inc){S.money+=inc;S.stats.moneyEarned+=inc;addEvent(`🌴 Retirement income: ${money(inc)}.`);}
+  fx({happiness:r(0,3)});}
+ /* income tax */
+ if(L.tax){const t=myTax();if(t>0){const p=Math.min(S.money,t);S.money-=p;L.taxPaid+=p;addEvent(`🧾 Income tax paid: ${money(p)}.`);}}
+}
+const _age=window.ageUp;
+window.ageUp=function(){init();if(S.dead)return _age.apply(this,arguments);const b=S.age,s0=S;_age.apply(this,arguments);if(!S.dead&&s0===S&&S.age>b){init();year();render();}};
+
+/* ---------- UI ---------- */
+const TABS=[['retire','🌴 Retirement'],['mort','🏠 Mortgages'],['marr','💔 Marriage'],['tax','🧾 Taxes'],['log','📜 Timeline']];
+function list(){const el=q('lv11list');if(!el)return;const a=S.lv11.log.filter(x=>!flt||x.t.toLowerCase().includes(flt)||String(x.a)===flt).slice(0,250);
+ el.innerHTML=a.map(x=>`<div class="news"><b>Age ${x.a} • ${x.y}</b><br>${E(x.t)}</div>`).join('')||'<p class="muted">No matching events.</p>';}
+function body(){const L=S.lv11;
+ if(tab==='retire'){const f=(S.lifePlus&&S.lifePlus.retirement)||0;return `<div class="card"><h2>🌴 Retirement</h2><p>Status: <b>${L.retired?'Retired since '+L.retAge:'Working life'}</b></p>
+  <p class="muted">Retire from age 55 and stop working. From age 60 you draw 5% of your retirement fund each year (${money(f)} saved); from 65 a state pension of $12,000/year is added, plus any pension plan.</p>
+  ${L.retired?btn('💼 Come out of retirement','LV11.unretire()'):btn('🌴 Retire now','LV11.retire()','gold',S.age<55||S.career==='None')}</div>`;}
+ if(tab==='mort')return `<div class="card"><h2>🏦 Open mortgages (${L.mort.length}/3)</h2><p class="muted">Debt owed: ${money(owed())} • Credit score ${credit()}. Miss two payments and the bank takes the house.</p>${L.mort.map((m,i)=>`<p><b>${E(m.n)}</b> • owes ${money(m.bal)} • ${money(m.pay)}/yr • ${(m.rate*100).toFixed(1)}% ${btn('Pay off','LV11.payoff('+i+')','good')}</p>`).join('')||'<p class="muted">None.</p>'}</div>
+  <div class="grid">${houses.map((h,i)=>{const d=Math.round(h[1]*.2),rt=clamp(.07-(credit()-600)/250*.03,.035,.09);return `<div class="card"><h3>🏠 ${E(h[0])}</h3><p>${money(h[1])}<br><span class="muted">Down ${money(d)} • ${money(pmt(h[1]-d,rt,20))}/yr</span></p>${btn('Get mortgage','LV11.mort('+i+')')}</div>`;}).join('')}</div>`;
+ if(tab==='marr'){const p=S.partner;return `<div class="card"><h2>💔 Marriage</h2>${p&&p.alive!==false&&S.married?`<p>Married to <b>${E(p.name)}</b> • relationship ${p.relationship}%</p>${btn('🤝 Amicable divorce (25% cash + $3k)','LV11.divorce("ami")')}${btn('⚔️ Contested divorce (45% cash + $12k)','LV11.divorce("con")','danger')}`:'<p class="muted">You are not married. Use Family → Find Partner.</p>'}
+  <p class="muted">Divorces: ${L.divorces}${L.alimony?` • Alimony ${money(L.alimony.amt)}/yr for ${L.alimony.left} more year(s)`:''}</p></div>`;}
+ if(tab==='tax')return `<div class="card"><h2>🧾 Income tax</h2><p class="muted">Charged every year on salary and sports contracts. 0% to $30k, 10% to $100k, 20% to $500k, 30% above. An accountant (Life+) cuts it by 20%.</p>
+  <p>Automatic tax: <b>${L.tax?'ON':'OFF'}</b> ${btn(L.tax?'Turn off':'Turn on','LV11.taxTog()')}</p><p>Estimated this year: <b>${money(myTax())}</b> • Paid in total: <b>${money(L.taxPaid)}</b></p></div>`;
+ return `<div class="card"><h2>📜 Life timeline (${L.log.length} events)</h2><input placeholder="🔎 Search events or type an age..." value="${E(flt)}" oninput="LV11.flt(this.value)"><div id="lv11list"></div></div>`;
+}
+function page(){const el=q('lv11_c');if(!el)return;const a=document.activeElement;if(a&&a.tagName==='INPUT'&&el.contains(a))return;
+ el.innerHTML=`<div>${TABS.map(t=>btn(t[1],`LV11.tab('${t[0]}')`,tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;if(tab==='log')list();}
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('lv11'))return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ const s=document.createElement('section');s.id='lv11';s.className='page';s.innerHTML='<h1>🌴 Life Admin</h1><div id="lv11_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.textContent='🌴 Life Admin';b.setAttribute('onclick',"showPage('lv11',this)");side.insertBefore(b,anc);})();
+[['Retired','Retire from your career.',()=>S.lv11&&S.lv11.retired],['Mortgage Free','Pay off a mortgage.',()=>S.lv11&&S.lv11.paidOff>=1],['Homeowner Debt','Hold a mortgage.',()=>S.lv11&&S.lv11.mort.length>=1],['Second Chance','Get divorced.',()=>S.lv11&&S.lv11.divorces>=1],['Taxpayer','Pay $100,000 in tax.',()=>S.lv11&&S.lv11.taxPaid>=100000]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+const _render=window.render;
+window.render=function(){init();_render();const p=q('lv11');if(p&&p.classList.contains('active'))page();};
+init();render();
+})();
+</script>
+
+<!-- =====================================================================
+  LIFEVERSE V12 ADD-ON — 15 NEW FEATURES. Paste RIGHT BEFORE </body>,
+  AFTER every other script (must be LAST). Everything lives in S.lv12.
+  1 Dating app  2 Proposals & weddings  3 Charity giving  4 Charity foundation
+  5 Gym membership  6 Night school  7 Crypto wallet  8 House flipping
+  9 Time capsule  10 Addictions & rehab  11 Natural disasters (insurance)
+  12 Car accidents (insurance)  13 Birthday gifts  14 Pet shows
+  15 Garage sales  (+ Mentoring a young person)
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV12)return;window.__LV12=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const M=['Alex','Ben','Carlos','Dev','Eli','Finn','Hugo','Ivan','Kai','Leo'],F=['Aya','Bella','Chloe','Dina','Elena','Fiona','Gia','Hana','Iris','Mei'],SN=['Reed','Park','Silva','Nair','Cole','Moreau','Tan','Ortiz','Khan','Berg'];
+const ADD=[['Smoking',{health:-3,happiness:-1},1500],['Heavy drinking',{health:-3,happiness:-2},3000],['Gambling habit',{happiness:-2},0],['Gaming binge',{happiness:-1,smarts:-1},500]];
+let tab='love';
+const bad=s=>String(s||'').replace(/[<>&"'`]/g,'').trim().slice(0,80);
+
+function init(){
+ if(!S.lv12||typeof S.lv12!=='object')S.lv12={};
+ const d={used:{},dating:[],crypto:{p:100,h:[100],u:0},flips:[],flipProfit:0,flipsDone:0,caps:[],add:null,gym:false,school:0,fnd:false,given:0,mentee:null,mentored:0,petWins:0,gifts:0,accidents:0,disasters:0};
+ for(const k in d)if(S.lv12[k]===undefined||S.lv12[k]===null)S.lv12[k]=d[k];
+}
+function fx(o){for(const k in o)S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}
+function toast(m){let t=q('lv12t');if(!t){t=document.createElement('div');t.id='lv12t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #f472b6;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+const U=id=>S.lv12.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${label}</b> ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${label} costs <b>${money(cost)}</b>.`);return false;}S.money-=cost;S.lv12.used[id]=U(id)+1;S.stats.activities++;return true;}
+const hv=n=>{const f=houses.find(h=>h[0]===n);return f?f[1]:0;};
+const cryptoVal=()=>Math.round(S.lv12.crypto.u*S.lv12.crypto.p);
+const flipVal=()=>S.lv12.flips.reduce((a,f)=>a+f.price,0);
+const _nw=window.netWorth;
+window.netWorth=function(){return _nw()+(S.lv12?cryptoVal()+flipVal():0);};
+
+/* ---------- ACTIONS ---------- */
+window.LV12={
+ tab(t){tab=t;render();},
+ /* 1 dating app */
+ match(){if(S.age<18)return popup('🔒 Too young','Dating apps are 18+.');if(!use('match',2,'The dating app'))return;
+  const add=g=>{const L=S.lv12.dating;if(L.length>=4)L.shift();const n=pick(g==='Male'?M:F)+' '+pick(SN);L.push({n,g,age:clamp(S.age+r(-4,5),18,99),rel:r(25,55),w:r(1000,200000)});toast('💘 New match: '+n);render();};
+  decision('💘 Dating app','Who are you looking for?',[{title:'👨 Men',class:'good',action:()=>add('Male')},{title:'👩 Women',class:'good',action:()=>add('Female')},{title:'🎲 Anyone',action:()=>add(pick(['Male','Female']))}]);},
+ date(i){const d=S.lv12.dating[i];if(!d)return;if(!use('date',3,'Dates',80))return;
+  if(chance(10)){S.lv12.dating.splice(i,1);fx({happiness:-3});addEvent(`👻 ${d.n} ghosted ${playerName()}.`);toast(d.n+' ghosted you.');}
+  else{d.rel=clamp(d.rel+r(6,14)+Math.round(safeNumber(S.charisma,50)/25),0,100);fx({happiness:r(2,5)});S.stats.relationships++;addEvent(`🍷 ${playerName()} went on a date with ${d.n}.`);}render();},
+ dump(i){S.lv12.dating.splice(i,1);render();},
+ /* 2 proposals & weddings */
+ propose(i){const d=S.lv12.dating[i];if(!d)return;if(S.married&&S.partner&&S.partner.alive!==false)return popup('💍 Already married','You already have a spouse.');
+  if(d.rel<70)return popup('💍 Too soon','You need a relationship of 70%+ to propose.');
+  if(!chance(clamp(d.rel-10+safeNumber(S.charisma,50)*.2,30,95))){d.rel=clamp(d.rel-15,0,100);fx({happiness:-6});addEvent(`💔 ${d.n} turned down ${playerName()}'s proposal.`);return popup('💔 Rejected',`${E(d.n)} said no.`);}
+  const wed=(cost,h,f)=>()=>{if(S.money<cost){cost=200;h=3;f=0;}S.money-=cost;S.partner={name:d.n,gender:d.g,age:d.age,relationship:d.rel,wealth:d.w,alive:true};S.married=true;S.lv12.dating.splice(S.lv12.dating.indexOf(d),1);
+   fx({happiness:h});(S.friends||[]).forEach(x=>x.relationship=clamp(x.relationship+f,0,100));addEvent(`💍 ${playerName()} married ${d.n}.`);popup('💍 MARRIED!',`${E(playerName())} married <b>${E(d.n)}</b>. Cost: ${money(cost)}.`);render();};
+  decision('💍 They said YES!','Plan the wedding.',[{title:'🏛️ Courthouse ($200)',description:'Simple and sweet.',action:wed(200,3,0)},{title:'⛪ Classic wedding ($8,000)',description:'Friends and family.',class:'good',action:wed(8000,7,4)},{title:'🏰 Dream wedding ($40,000)',description:'Unforgettable.',class:'gold',action:wed(40000,12,8)}]);},
+ /* 3+4 charity */
+ give(a){if(S.age<10)return popup('🔒 Too young','Give from age 10.');if(!use('give',3,'Donations',a))return;S.lv12.given+=a;fx({reputation:Math.min(6,1+Math.floor(a/2000)),happiness:2});if(chance(8))fx({fame:1});addEvent(`🎁 ${playerName()} donated ${money(a)}.`);render();},
+ found(){if(S.age<18)return;if(S.lv12.fnd)return;if(S.money<100000)return popup('💸 Not enough money','Founding a foundation costs $100,000.');S.money-=100000;S.lv12.fnd=true;fx({reputation:8,fame:3});addEvent(`🏛️ ${playerName()} founded a charitable foundation.`);render();},
+ /* 5 gym */
+ gym(){if(S.age<14)return popup('🔒 Too young','Gyms are 14+.');S.lv12.gym=!S.lv12.gym;render();},
+ /* 6 night school */
+ school(){if(S.age<18)return popup('🔒 Too young','Night school is 18+.');if(!use('school',2,'Night school',1500))return;S.academic=clamp(S.academic+r(3,6),0,100);fx({smarts:2});S.lv12.school++;if(S.lv12.school%5===0){fx({reputation:3});addEvent('🎓 You earned a night-school certificate.');}addEvent(`🌙 ${playerName()} took a night class.`);render();},
+ /* 7 crypto */
+ cbuy(a){if(S.age<18)return popup('🔒 Too young','Investing is 18+.');const c=S.lv12.crypto;const n=a==='max'?Math.floor(S.money):a;if(n<1||S.money<n)return popup('💸 Not enough cash',`You have ${money(S.money)}.`);S.money-=n;c.u+=n/c.p;addEvent(`🪙 ${playerName()} bought ${money(n)} of crypto.`);render();},
+ csell(){const c=S.lv12.crypto;if(c.u<=0)return;const v=cryptoVal();S.money+=v;c.u=0;addEvent(`🪙 ${playerName()} sold crypto for ${money(v)}.`);render();},
+ /* 8 flipping */
+ flip(){if(S.age<18)return popup('🔒 Too young','You must be 18+.');if(S.lv12.flips.length>=2)return popup('🏚️ Limit','Two flips at a time.');const p=r(40000,120000);if(S.money<p)return popup('💸 Not enough cash',`This one costs ${money(p)}.`);
+  S.money-=p;S.lv12.flips.push({n:pick(['Fixer-upper Cottage','Run-down Flat','Old Farmhouse','Leaky Townhouse']),price:p,reno:false});addEvent(`🏚️ ${playerName()} bought a fixer-upper for ${money(p)}.`);render();},
+ reno(i){const f=S.lv12.flips[i];if(!f||f.reno)return;const c=Math.round(f.price*.15);if(S.money<c)return popup('💸 Not enough cash',`Renovation costs ${money(c)}.`);S.money-=c;f.reno=true;render();},
+ /* 9 time capsule */
+ cap(){if(S.age<8)return popup('🔒 Too young','From age 8.');const t=prompt('Write a note to your future self (opens in 10 years):');if(!t||!bad(t))return;if(!use('cap',1,'A time capsule',1000))return;
+  S.lv12.caps.push({open:S.age+10,note:bad(t),dep:1000});addEvent(`⏳ ${playerName()} buried a time capsule.`);render();},
+ /* 10 rehab */
+ rehab(){const a=S.lv12.add;if(!a)return;if(!use('rehab',1,'Rehab',3000))return;if(chance(clamp(35+safeNumber(S.discipline,50)*.4,20,85))){S.lv12.add=null;fx({happiness:8,health:3});addEvent(`💚 ${playerName()} overcame ${a.t.toLowerCase()}.`);popup('💚 Clean','You overcame your addiction.');}else{fx({happiness:-3});popup('😞 Setback','Rehab did not stick this time. You can try again next year.');}render();},
+ /* 15 garage sale */
+ garage(){if(S.age<14)return popup('🔒 Too young','From age 14.');if(!use('garage',1,'A garage sale'))return;const m=r(200,1800);S.money+=m;fx({happiness:1});addEvent(`🛍️ ${playerName()} made ${money(m)} at a garage sale.`);toast('+'+money(m));render();},
+ /* 14 pet show */
+ pet(){if(!S.pets)return popup('🐾 No pet','Adopt a pet first.');if(!use('pet',1,'A pet show',100))return;if(chance(35)){const m=r(1000,5000);S.money+=m;S.lv12.petWins++;fx({fame:1,happiness:6});addEvent(`🏆 ${playerName()}'s pet won a show: ${money(m)}.`);popup('🏆 Best in Show',`Your pet won <b>${money(m)}</b>!`);}else{fx({happiness:2});toast('Your pet had fun but did not place.');}render();},
+ /* mentoring */
+ mentee(){if(S.age<25)return popup('🔒 Too young','Mentoring is 25+.');if(S.lv12.mentee)return;const g=chance(50)?'Male':'Female';S.lv12.mentee={n:pick(g==='Male'?M:F)+' '+pick(SN),age:r(12,17),skill:0};addEvent(`🧑‍🏫 ${playerName()} began mentoring ${S.lv12.mentee.n}.`);render();},
+ mentor(){const m=S.lv12.mentee;if(!m)return;if(!use('mentor',2,'Mentoring'))return;m.skill=clamp(m.skill+r(5,12),0,100);fx({happiness:3,reputation:1});render();}
+};
+
+/* ---------- YEARLY ---------- */
+function year(){
+ const L=S.lv12;L.used={};
+ /* crypto */
+ const c=L.crypto;c.p=Math.round(clamp(c.p*(1+r(-45,80)/100),5,5000)*100)/100;c.h.push(c.p);if(c.h.length>20)c.h.shift();
+ /* flips */
+ const mk=S.v6&&S.v6.econ?(S.v6.econ.state==='Boom'?1.1:S.v6.econ.state==='Recession'?.9:1):1;
+ L.flips=L.flips.filter(f=>{const sale=Math.round(f.price*(f.reno?r(115,150):r(85,110))/100*mk),pf=sale-f.price-(f.reno?Math.round(f.price*.15):0);S.money+=sale;L.flipProfit+=pf;L.flipsDone++;addEvent(`🏚️ The ${f.n} sold for ${money(sale)} (${pf>=0?'profit':'loss'} ${money(Math.abs(pf))}).`);return false;});
+ /* gym */
+ if(L.gym){if(S.money>=600){S.money-=600;fx({health:2,athleticSkill:2,energy:2});}else{L.gym=false;addEvent('🏋️ You could not afford the gym and cancelled.');}}
+ /* foundation */
+ if(L.fnd){const g=Math.min(S.money,Math.max(1000,Math.round(S.money*.01)));S.money-=g;L.given+=g;fx({reputation:2,fame:1});addEvent(`🏛️ Your foundation donated ${money(g)}.`);}
+ /* addiction */
+ if(L.add){const a=ADD.find(x=>x[0]===L.add.t);fx(a[1]);if(a[2])S.money=Math.max(0,S.money-a[2]);if(L.add.t==='Gambling habit')S.money=Math.max(0,S.money-r(1000,8000));L.add.y++;}
+ else if(S.age>=16&&(S.happiness<45||(S.lifePlus&&S.lifePlus.stress>60))&&chance(6)){const a=pick(ADD);L.add={t:a[0],y:0};addEvent(`⚠️ ${playerName()} developed an addiction: ${a[0].toLowerCase()}.`);}
+ /* disasters */
+ if(chance(6)){L.disasters++;const t=pick(['flood','storm','fire','earthquake']);
+  if(S.houses.length){const n=pick(S.houses),dmg=Math.round(hv(n)*.06),ins=S.lifePlus&&S.lifePlus.insurance&&S.lifePlus.insurance.home,p=Math.min(S.money,ins?Math.round(dmg*.2):dmg);S.money-=p;if(S.lifePlus)S.lifePlus.homeCondition=clamp(S.lifePlus.homeCondition-10,0,100);addEvent(`🌪️ A ${t} damaged your ${n}. ${ins?'Insurance covered most of it. ':''}You paid ${money(p)}.`);}
+  else{const p=Math.min(S.money,1500);S.money-=p;addEvent(`🌪️ A ${t} destroyed some of ${playerName()}'s belongings (${money(p)}).`);}}
+ /* car accident */
+ if(S.cars.length&&S.lv10&&S.lv10.license&&chance(4)){L.accidents++;const ins=S.lifePlus&&S.lifePlus.insurance&&S.lifePlus.insurance.car,p=Math.min(S.money,ins?1000:4000);S.money-=p;fx({health:-r(2,12)});addEvent(`🚗 ${playerName()} was in a car accident. Cost ${money(p)}${ins?' (insured)':''}.`);}
+ /* birthday gifts */
+ const kin=(S.parents||[]).filter(p=>p.alive!==false&&p.relationship>=50);if(kin.length){const g=r(50,500)*kin.length;S.money+=g;L.gifts+=g;fx({happiness:2});addEvent(`🎂 Birthday gifts from family: ${money(g)}.`);}
+ /* time capsules */
+ L.caps=L.caps.filter(k=>{if(S.age<k.open)return true;const v=Math.round(k.dep*1.5);S.money+=v;fx({happiness:10});addEvent(`⏳ Time capsule opened: "${k.note}" (+${money(v)}).`);popup('⏳ Time capsule',`Your note from 10 years ago:<br><br><i>${E(k.note)}</i><br><br>You found <b>${money(v)}</b> inside.`);return false;});
+ /* mentee */
+ const m=L.mentee;if(m){m.age++;if(m.age>=22||m.skill>=90){const g=Math.round(5000+m.skill*300);S.money+=g;L.mentored++;(S.friends=S.friends||[]).push({name:m.n,relationship:r(70,95)});fx({reputation:5,happiness:8});addEvent(`🧑‍🏫 Your mentee ${m.n} succeeded and thanked you with ${money(g)}.`);L.mentee=null;}}
+}
+const _age=window.ageUp;
+window.ageUp=function(){init();if(S.dead)return _age.apply(this,arguments);const b=S.age,s0=S;_age.apply(this,arguments);if(!S.dead&&s0===S&&S.age>b){init();year();render();}};
+
+/* ---------- UI ---------- */
+const TABS=[['love','💘 Love'],['money','💰 Money'],['health','💪 Health'],['life','🌟 Life']];
+const grid=a=>`<div class="grid">${a.join('')}</div>`;
+const card=(t,p,b)=>`<div class="card"><h3>${t}</h3><p class="muted">${p}</p>${b}</div>`;
+function body(){const L=S.lv12;
+ if(tab==='love')return card('💘 Dating app',`Matches: ${L.dating.length}/4 • Dates this year ${U('date')}/3`,btn('Find matches '+U('match')+'/2','LV12.match()','gold',U('match')>=2))+'<br>'+(grid(L.dating.map((d,i)=>`<div class="card"><h3>${d.g==='Male'?'👨':'👩'} ${E(d.n)}</h3><p class="muted">Age ${d.age} • relationship ${d.rel}%</p>${btn('🍷 Date ($80)','LV12.date('+i+')','',U('date')>=3)}${btn('💍 Propose','LV12.propose('+i+')','good',d.rel<70)}${btn('🗑️','LV12.dump('+i+')','danger')}</div>`))||'')+'<p class="muted">Propose at 70%+ relationship. Marrying sets up your spouse, so you can have children as usual.</p>';
+ if(tab==='money'){const c=L.crypto,ch=(c.h.length>1?(c.p/c.h[c.h.length-2]-1)*100:0);return grid([
+  card('🪙 Crypto wallet',`Price $${c.p.toFixed(2)} (${ch>=0?'+':''}${ch.toFixed(0)}% last year) • Holding ${money(cryptoVal())}<br>Swings from -45% to +80% each year.`,btn('Buy $1,000','LV12.cbuy(1000)')+btn('Buy max','LV12.cbuy("max")','danger')+btn('Sell all','LV12.csell()','good',c.u<=0)),
+  card('🏚️ House flipping',`Active ${L.flips.length}/2 • Flipped ${L.flipsDone} • Profit ${money(L.flipProfit)}<br>Sells next year. Renovating (15%) lifts the price.`,btn('Buy a fixer-upper','LV12.flip()','gold')+L.flips.map((f,i)=>`<br>${E(f.n)} ${money(f.price)} ${btn(f.reno?'✅ Renovated':'🔨 Renovate','LV12.reno('+i+')','',f.reno)}`).join('')),
+  card('🎁 Charity',`Given in total: ${money(L.given)} • Donations ${U('give')}/3`,btn('$500','LV12.give(500)')+btn('$5,000','LV12.give(5000)')+btn('$50,000','LV12.give(50000)','gold')),
+  card('🏛️ Foundation','$100,000 to found. Donates 1% of your cash every year for reputation.',btn(L.fnd?'✅ Founded':'Found it','LV12.found()','',L.fnd)),
+  card('🛍️ Garage sale','Sell old stuff for $200-$1,800.',btn('Hold sale '+U('garage')+'/1','LV12.garage()','',U('garage')>=1))]);}
+ if(tab==='health')return grid([
+  card('🏋️ Gym membership','$600/yr. Each year: +2 health, +2 athleticism, +2 energy.',btn(L.gym?'✅ Member (cancel)':'Join the gym','LV12.gym()',L.gym?'good':'')),
+  card('⚠️ Addiction',L.add?`<b class="red">${E(L.add.t)}</b> for ${L.add.y} year(s). Costs health, happiness and money.`:'None. Low happiness or high stress raises the risk.',btn('Rehab ($3,000) '+U('rehab')+'/1','LV12.rehab()','good',!L.add||U('rehab')>=1)),
+  card('🌙 Night school','$1,500 per course. +academic and smarts. Every 5th course earns a certificate.',btn('Take a course '+U('school')+'/2','LV12.school()','',U('school')>=2))]);
+ const m=L.mentee;return grid([
+  card('⏳ Time capsule','$1,000 buried for 10 years. Returns 1.5x with your note.',btn('Bury one '+U('cap')+'/1','LV12.cap()','',U('cap')>=1)+`<br><span class="muted">Buried: ${L.caps.length}</span>`),
+  card('🧑‍🏫 Mentoring',m?`${E(m.n)} (${m.age}) • skill ${m.skill}%. Grows up at 22 or 90% skill and thanks you.`:'Guide a young person. A successful mentee becomes a friend and sends a gift.',m?btn('Mentor '+U('mentor')+'/2','LV12.mentor()','good',U('mentor')>=2):btn('Take on a mentee','LV12.mentee()','gold')),
+  card('🏆 Pet show',`Pets: ${S.pets||0} • Wins: ${L.petWins}`,btn('Enter ($100) '+U('pet')+'/1','LV12.pet()','',U('pet')>=1)),
+  card('📊 Life events','Random yearly events are now active: natural disasters (insurance helps), car accidents, birthday gifts and addictions.',`<span class="badge">🌪️ ${L.disasters}</span><span class="badge">🚗 ${L.accidents}</span><span class="badge">🎂 ${money(L.gifts)}</span>`)]);}
+function page(){const el=q('lv12_c');if(!el)return;el.innerHTML=`<div>${TABS.map(t=>btn(t[1],`LV12.tab('${t[0]}')`,tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;}
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('lv12'))return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ const s=document.createElement('section');s.id='lv12';s.className='page';s.innerHTML='<h1>🌟 Life Extras</h1><div id="lv12_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.textContent='🌟 Life Extras';b.setAttribute('onclick',"showPage('lv12',this)");side.insertBefore(b,anc);})();
+[['Hopeless Romantic','Get married through the dating app.',()=>S.lv12&&S.married&&S.stats.relationships>=3],['Diamond Hands','Hold $100,000 in crypto.',()=>S.lv12&&cryptoVal()>=1e5],['House Flipper','Flip 3 houses.',()=>S.lv12&&S.lv12.flipsDone>=3],['Philanthropist','Donate $250,000 in total.',()=>S.lv12&&S.lv12.given>=250000],['Mentor','Successfully mentor someone.',()=>S.lv12&&S.lv12.mentored>=1],['Best in Show','Win a pet show.',()=>S.lv12&&S.lv12.petWins>=1]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+const _render=window.render;
+window.render=function(){init();_render();const p=q('lv12');if(p&&p.classList.contains('active'))page();};
+init();render();
+})();
+</script>
+
+<!-- =====================================================================
+  LIFEVERSE V13 ADD-ON — 20 NEW FEATURES. Paste RIGHT BEFORE </body>,
+  AFTER every other script (must be LAST). Everything lives in S.lv13.
+  FINANCE: 1 Credit card  2 Subscriptions  3 Student loans  4 Bonds
+           5 Pawn shop  6 Savings goal
+  YOUTH:   7 Lemonade stand  8 Allowance  9 Prom & graduation
+  SOCIAL:  10 Country club  11 DNA test  12 Family vacation
+           13 Elder care  14 Enemies & feuds  15 Roommate
+  CAREER:  16 Sabbatical  17 Talent competition  18 Youth coaching
+  EVENTS:  19 Scams & identity theft  20 Pandemics
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV13)return;window.__LV13=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const NM=['Alex','Sam','Riley','Jordan','Casey','Morgan','Taylor','Drew','Robin','Quinn'],SN=['Reed','Park','Silva','Nair','Cole','Moreau','Tan','Ortiz','Khan','Berg'];
+const SUBS=[['📺','Streaming',120,{happiness:1}],['🎵','Music',100,{happiness:1,creativity:1}],['📚','Learning platform',240,{smarts:2}],['🧘','Wellness app',150,{happiness:1,health:1}],['📰','News',100,{smarts:1,reputation:1}]];
+let tab='fin';
+
+function init(){
+ if(!S.lv13||typeof S.lv13!=='object')S.lv13={};
+ const d={used:{},cc:0,subs:[],sl:0,bonds:0,pawn:[],goal:null,club:false,dna:false,enemies:[],room:false,coach:0,wins:0,scams:0,pandemics:0,promDone:false,gradDone:false,vac:0};
+ for(const k in d)if(S.lv13[k]===undefined||S.lv13[k]===null)S.lv13[k]=d[k];
+}
+function fx(o){for(const k in o)S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}
+function toast(m){let t=q('lv13t');if(!t){t=document.createElement('div');t.id='lv13t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #38bdf8;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+const U=id=>S.lv13.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${label}</b> ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${label} costs <b>${money(cost)}</b>.`);return false;}S.money-=cost;S.lv13.used[id]=U(id)+1;S.stats.activities++;return true;}
+const credit=()=>(S.lv10&&S.lv10.credit)||650;
+function dent(n){if(S.lv10)S.lv10.credit=clamp(S.lv10.credit+n,300,850);}
+const hv=n=>{const f=cars.find(c=>c[0]===n);return f?f[1]:0;};
+const gsave=()=>S.lv13.goal?S.lv13.goal.s:0;
+/* popup queue for events that should wait for the age-up popup */
+const Q=[];let dr=0;
+function later(f){Q.push(f);if(dr)return;dr=1;(function t(){if(!Q.length){dr=0;return;}const bg=q('popupBg');if(bg.style.display==='flex'||q('startMenu').style.display==='flex'){setTimeout(t,700);return;}Q.shift()();setTimeout(t,700);})();}
+
+const _nw=window.netWorth;
+window.netWorth=function(){const L=S.lv13;return L?Math.max(0,_nw()+L.bonds+gsave()-L.cc-L.sl+L.pawn.reduce((a,p)=>a+0,0)):_nw();};
+const ccLimit=()=>Math.max(1000,Math.round((credit()-400)*25));
+
+/* ---------- ACTIONS ---------- */
+window.LV13={
+ tab(t){tab=t;render();},
+ /* 1 credit card */
+ charge(a){if(S.age<18)return popup('🔒 Too young','You must be 18+.');const L=S.lv13;if(L.cc+a>ccLimit())return popup('💳 Declined',`Your limit is ${money(ccLimit())}. Balance ${money(L.cc)}.`);L.cc+=a;S.money+=a;addEvent(`💳 ${playerName()} took a ${money(a)} cash advance.`);render();},
+ ccpay(a){const L=S.lv13,p=Math.min(a==='all'?L.cc:a,L.cc,S.money);if(p<1)return popup('💸 No cash','You have nothing to pay with.');S.money-=p;L.cc-=p;if(L.cc<1){L.cc=0;dent(8);}render();},
+ /* 2 subscriptions */
+ sub(i){const L=S.lv13;if(S.age<10)return popup('🔒 Too young','From age 10.');L.subs=L.subs.includes(i)?L.subs.filter(x=>x!==i):L.subs.concat(i);render();},
+ /* 3 student loan */
+ sloan(a){if(S.age<17)return popup('🔒 Too young','From age 17.');const L=S.lv13;if(L.sl+a>80000)return popup('🎓 Limit','Student debt is capped at $80,000.');L.sl+=a;S.money+=a;addEvent(`🎓 ${playerName()} borrowed ${money(a)} in student loans.`);render();},
+ srepay(){const L=S.lv13,p=Math.min(L.sl,S.money);if(p<1)return;S.money-=p;L.sl-=p;if(L.sl<1){L.sl=0;dent(10);addEvent('🎓 Student loans fully repaid!');}render();},
+ /* 4 bonds */
+ bbuy(a){if(S.age<18)return popup('🔒 Too young','From age 18.');if(S.money<a)return popup('💸 Not enough cash',`You have ${money(S.money)}.`);S.money-=a;S.lv13.bonds+=a;render();},
+ bsell(){const L=S.lv13;S.money+=L.bonds;L.bonds=0;render();},
+ /* 5 pawn shop */
+ pawn(i){const n=S.cars[i];if(!n)return;if(!confirm(`Pawn your ${n}? You get 40% now and must buy it back for 115% of that within 2 years.`))return;const v=Math.round(hv(n)*.4);S.cars.splice(i,1);S.money+=v;S.lv13.pawn.push({n,loan:v,due:S.age+2});addEvent(`🏪 ${playerName()} pawned a ${n} for ${money(v)}.`);render();},
+ redeem(i){const p=S.lv13.pawn[i];if(!p)return;const c=Math.round(p.loan*1.15);if(S.money<c)return popup('💸 Not enough cash',`Buying it back costs ${money(c)}.`);S.money-=c;S.cars.push(p.n);S.lv13.pawn.splice(i,1);addEvent(`🏪 ${playerName()} bought back the ${p.n}.`);render();},
+ /* 6 savings goal */
+ goal(){if(S.lv13.goal)return;const t=Number(String(prompt('Savings goal in dollars (min 1,000):','10000')||'').replace(/[$,\s]/g,''));if(!(t>=1000))return;S.lv13.goal={t:Math.min(Math.floor(t),1e9),s:0};render();},
+ gadd(a){const g=S.lv13.goal;if(!g)return;const n=a==='all'?Math.floor(S.money):a;if(n<1||S.money<n)return popup('💸 Not enough cash',`You have ${money(S.money)}.`);const x=Math.min(n,g.t-g.s);S.money-=x;g.s+=x;
+  if(g.s>=g.t){const b=Math.round(g.t*.05);S.money+=g.t+b;S.lv13.goal=null;fx({happiness:10,discipline:3});addEvent(`🎯 ${playerName()} hit a savings goal of ${money(g.t)} and earned a ${money(b)} bonus!`);popup('🎯 Goal reached!',`You saved <b>${money(g.t)}</b> and got a <b>${money(b)}</b> bonus.`);}render();},
+ /* 7 lemonade */
+ lemon(){if(S.age<6||S.age>15)return popup('🍋 Kids only','The lemonade stand is for ages 6-15.');if(!use('lemon',2,'The lemonade stand'))return;const m=r(20,150);S.money+=m;fx({happiness:2,discipline:1});addEvent(`🍋 ${playerName()} earned ${money(m)} at a lemonade stand.`);toast('+'+money(m));render();},
+ /* 10 club */
+ club(){if(S.age<21)return popup('🔒 Too young','Clubs are 21+.');const L=S.lv13;if(L.club){L.club=false;return render();}if(S.money<5000)return popup('💸 Not enough cash','Joining costs $5,000 (then $3,000/yr).');S.money-=5000;L.club=true;fx({reputation:4});addEvent(`🏌️ ${playerName()} joined the country club.`);render();},
+ netw(){if(!S.lv13.club)return;if(!use('netw',2,'Club networking'))return;if(S.lifePlus)S.lifePlus.network=(S.lifePlus.network||0)+1;fx({reputation:1,charisma:1});
+  if(chance(40)){(S.friends=S.friends||[]).push({name:pick(NM)+' '+pick(SN)+' (club)',relationship:r(45,70)});toast('🤝 You made a new club friend.');}else if(chance(30)&&S.career!=='None'){fx({perf:0});S.performance=clamp(S.performance+6,0,100);toast('💼 A contact boosted your career.');}render();},
+ /* 11 DNA */
+ dna(){if(S.age<18)return popup('🔒 Too young','From age 18.');if(S.lv13.dna)return;if(S.money<100)return popup('💸 Not enough cash','The kit costs $100.');S.money-=100;S.lv13.dna=true;const x=r(1,3);
+  if(x===1){const g=chance(50)?'Female':'Male',n=pick(NM)+' '+(S.name.split(' ').pop()||'Family');(S.siblings=S.siblings||[]).push({name:n,gender:g,age:Math.max(1,S.age+r(-12,12)),relationship:r(35,60),wealth:r(1000,60000),alive:true,illness:null});addEvent(`🧬 A DNA test revealed a half-sibling: ${n}.`);popup('🧬 Surprise!',`You have a half-brother/sister: <b>${E(n)}</b>. They were added to your family.`);}
+  else if(x===2){const c=pick(['Ireland','Japan','Brazil','Nigeria','India','Sweden','Mexico','Greece']);fx({happiness:5});addEvent(`🧬 Your DNA test shows strong ancestry from ${c}.`);popup('🧬 Ancestry',`Your roots trace strongly to <b>${c}</b>.`);}
+  else{const h=pick(['heart disease','diabetes','high blood pressure']);fx({discipline:2});addEvent(`🧬 Your DNA test found a higher risk of ${h}.`);popup('🧬 Health report',`You carry a higher risk of <b>${h}</b>. Regular checkups help.`);}render();},
+ /* 12 vacation */
+ vac(){const kids=(S.childProfiles||[]).filter(c=>c.alive),par=(S.parents||[]).filter(p=>p.alive!==false);if(!(S.partner&&S.partner.alive!==false)&&!kids.length&&!par.length)return popup('✈️ Nobody to go with','You need a partner, child or parent.');if(!use('vac',1,'A family vacation',3000))return;
+  if(S.partner&&S.partner.alive!==false)S.partner.relationship=clamp(S.partner.relationship+8,0,100);kids.forEach(c=>c.relationship=clamp(c.relationship+8,0,100));par.forEach(p=>p.relationship=clamp(p.relationship+5,0,100));fx({happiness:10});S.countries++;S.lv13.vac++;addEvent(`🏖️ ${playerName()} took a family vacation.`);render();},
+ /* 13 elder care */
+ care(k){const o=careList()[k];if(!o)return;if(!use('care',2,'Medical care',2000))return;const ch=o.illness.chronic?30:75;
+  if(chance(ch)){addEvent(`💚 ${o.name} recovered from ${o.illness.n} thanks to your support.`);o.illness=null;o.relationship=clamp(safeNumber(o.relationship,50)+10,0,100);popup('💚 Treatment worked',`${E(o.name)} is doing much better.`);}else{o.relationship=clamp(safeNumber(o.relationship,50)+4,0,100);toast('The treatment helped a little.');}render();},
+ /* 14 enemies */
+ peace(i){const e=S.lv13.enemies[i];if(!e)return;if(!use('peace',2,'Making peace'))return;if(chance(clamp(40+safeNumber(S.charisma,50)*.3,20,80))){S.lv13.enemies.splice(i,1);fx({happiness:4,reputation:2});addEvent(`🕊️ ${playerName()} made peace with ${e}.`);}else{fx({happiness:-2});toast(e+' wasn\'t ready to forgive.');}render();},
+ sab(i){const e=S.lv13.enemies[i];if(!e)return;if(!use('sab',1,'Sabotage'))return;if(chance(40)){S.lv13.enemies.splice(i,1);fx({happiness:2});addEvent(`😈 ${playerName()} drove ${e} out of town.`);}else{fx({reputation:-6,happiness:-3});addEvent(`😈 ${playerName()}'s scheme against ${e} was exposed.`);popup('😈 Exposed','Your scheme was uncovered. Reputation dropped.');}render();},
+ /* 15 roommate */
+ room(){if(!S.houses.length&&!(S.rentals||[]).length)return popup('🏠 No home','You need a home first.');S.lv13.room=!S.lv13.room;render();},
+ /* 16 sabbatical */
+ sab2(){if(S.career==='None')return popup('💼 No job','You need a job to take a sabbatical.');if(!use('sabb',1,'A sabbatical'))return;const c=Math.round(S.salary*.5);if(S.money<c){S.lv13.used.sabb--;return popup('💸 Not enough cash',`A sabbatical costs about ${money(c)} in lost pay.`);}
+  S.money-=c;fx({happiness:15,health:8,energy:40});S.performance=clamp(S.performance-10,0,100);if(S.lifePlus)S.lifePlus.stress=clamp(S.lifePlus.stress-30,0,100);addEvent(`🏝️ ${playerName()} took a sabbatical.`);popup('🏝️ Recharged','You feel brand new. Performance dipped a little.');render();},
+ /* 17 talent */
+ talent(k){if(S.age<16)return popup('🔒 Too young','From age 16.');if(!use('talent',1,'A talent competition'))return;
+  const sc=safeNumber(S.creativity,50)*.4+safeNumber(S.charisma,50)*.3+S.looks*.1+safeNumber(S.luck,50)*.1+r(-15,15);
+  if(sc>=52){const m=r(10000,50000);S.money+=m;fx({fame:8,happiness:10});S.lv13.wins++;addEvent(`🏆 ${playerName()} won the ${k} competition!`);popup('🏆 WINNER!',`You won the <b>${k}</b> competition: <b>${money(m)}</b> and big fame.`);}
+  else if(sc>=40){fx({fame:3,happiness:3});toast('🥈 Runner-up! +3 fame.');}else{fx({happiness:-3});toast('You were eliminated early.');}render();},
+ /* 18 coaching */
+ coach(){if(S.age<21)return popup('🔒 Too young','From age 21.');if(!use('coach',1,'Youth coaching'))return;S.lv13.coach++;fx({reputation:3,happiness:2});if(chance(10)){fx({fame:2});addEvent(`🏅 A player you coach became a local star.`);}else addEvent(`🏅 ${playerName()} coached a youth team.`);render();}
+};
+function careList(){const L=[],ef=S.extendedFamily||{};(S.parents||[]).forEach(o=>L.push(o));(S.siblings||[]).forEach(o=>L.push(o));['grandparents','aunts','uncles'].forEach(k=>(ef[k]||[]).forEach(o=>L.push(o)));return L.filter(o=>o.alive!==false&&o.illness);}
+
+/* ---------- YEARLY ---------- */
+function year(){
+ const L=S.lv13;L.used={};
+ /* credit card */
+ if(L.cc>0){L.cc=Math.round(L.cc*1.22);const m=Math.min(L.cc,Math.max(50,Math.round(L.cc*.1)));if(S.money>=m){S.money-=m;L.cc-=m;}else{dent(-30);addEvent('💳 You missed a credit card payment.');}}
+ /* subscriptions */
+ L.subs=L.subs.filter(i=>{const s=SUBS[i];if(S.money<s[2])return false;S.money-=s[2];fx(s[3]);return true;});
+ /* student loan */
+ if(L.sl>0){L.sl=Math.round(L.sl*1.05);if(S.salary>0&&S.career!=='None'){const p=Math.min(S.money,Math.round(L.sl*.1));S.money-=p;L.sl-=p;if(L.sl<1){L.sl=0;addEvent('🎓 Student loans fully repaid!');}}}
+ /* bonds */
+ if(L.bonds>0)L.bonds=Math.round(L.bonds*1.04);
+ /* pawn */
+ L.pawn=L.pawn.filter(p=>{if(S.age>p.due){addEvent(`🏪 The pawn shop kept your ${p.n}.`);return false;}return true;});
+ /* allowance */
+ if(S.age>=6&&S.age<=17){const p=(S.parents||[]).filter(x=>x.alive!==false&&x.relationship>=40);if(p.length){const a=Math.round(r(100,600)*p[0].relationship/100);S.money+=a;addEvent(`💵 ${playerName()} received ${money(a)} allowance.`);}}
+ /* prom & graduation */
+ if(S.age===17&&!L.promDone){L.promDone=true;later(()=>decision('🎉 Prom night','Prom is tonight. How do you spend it?',[
+  {title:'🌹 Ask your crush ($150)',description:'Risky but sweet.',class:'good',action:()=>{S.money=Math.max(0,S.money-150);if(chance(60)){fx({happiness:10,charisma:2});addEvent('🌹 Your crush said yes. Prom was magical!');}else{fx({happiness:-4});addEvent('🌹 Your crush said no.');}render();}},
+  {title:'👯 Go with friends ($60)',description:'Safe fun.',action:()=>{S.money=Math.max(0,S.money-60);fx({happiness:6});(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+3,0,100));addEvent('👯 Prom with friends was a blast.');render();}},
+  {title:'🛋️ Skip it',description:'Stay home.',action:()=>{fx({happiness:-1});render();}}]));}
+ if(S.age===18&&!L.gradDone){L.gradDone=true;later(()=>decision('🎓 Graduation','School is over. How do you celebrate?',[
+  {title:'🎊 Big party ($1,500)',class:'good',action:()=>{S.money=Math.max(0,S.money-1500);fx({happiness:8});(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+4,0,100));addEvent('🎊 A huge graduation party!');render();}},
+  {title:'🍽️ Quiet family dinner',action:()=>{fx({happiness:4});(S.parents||[]).forEach(p=>{if(p.alive!==false)p.relationship=clamp(p.relationship+4,0,100);});render();}},
+  {title:'🎒 Gap trip abroad ($3,000)',class:'gold',action:()=>{S.money=Math.max(0,S.money-3000);fx({happiness:10});S.countries++;addEvent('🎒 A gap trip abroad.');render();}}]));}
+ /* country club */
+ if(L.club){if(S.money>=3000){S.money-=3000;fx({reputation:2,happiness:1});}else{L.club=false;addEvent('🏌️ You could not pay your club dues and left.');}}
+ /* roommate */
+ if(L.room){const m=r(3000,9000);S.money+=m;S.stats.moneyEarned+=m;if(chance(10)){S.money=Math.max(0,S.money-2000);addEvent('🛋️ Your roommate damaged the place (-$2,000).');}else addEvent(`🛋️ Roommate rent: ${money(m)}.`);}
+ /* enemies */
+ if(S.age>=10&&L.enemies.length<3&&chance(8)){const e=pick(NM)+' '+pick(SN);L.enemies.push(e);addEvent(`😠 ${e} became your enemy.`);}
+ L.enemies.forEach(e=>{if(chance(25)){if(chance(50)){const m=Math.min(S.money,r(300,2000));S.money-=m;addEvent(`😠 ${e} cost you ${money(m)}.`);}else{fx({reputation:-2});addEvent(`😠 ${e} spread rumors about you.`);}}});
+ /* scams */
+ if(S.age>=18&&chance(7)){const p=S.lifePlus&&S.lifePlus.identityProtection;if(p&&chance(70))addEvent('🔐 Identity protection blocked a scam attempt.');else{const m=Math.min(S.money,r(500,8000));S.money-=m;fx({happiness:-5});L.scams++;addEvent(`🕵️ ${playerName()} fell for a scam and lost ${money(m)}.`);}}
+ /* pandemic */
+ if(chance(2)){L.pandemics++;const h=S.health>85?r(1,4):r(4,14);fx({health:-h,happiness:-4});const m=Math.min(S.money,r(500,3000));S.money-=m;addEvent(`🦠 A pandemic swept the world: -${h} health, -${money(m)}.`);later(()=>popup('🦠 Pandemic','A new disease is spreading. Your health and finances took a hit.'));}
+}
+const _age=window.ageUp;
+window.ageUp=function(){init();if(S.dead)return _age.apply(this,arguments);const b=S.age,s0=S;_age.apply(this,arguments);if(!S.dead&&s0===S&&S.age>b){init();year();render();}};
+
+/* ---------- UI ---------- */
+const TABS=[['fin','💰 Finance'],['youth','🎒 Youth'],['soc','🤝 Social'],['car','🌟 Career & Fame'],['ev','⚠️ Events']];
+const grid=a=>`<div class="grid">${a.join('')}</div>`;
+const cd=(t,p,b)=>`<div class="card"><h3>${t}</h3><p class="muted">${p}</p>${b}</div>`;
+function body(){const L=S.lv13,g=L.goal,cl=careList();
+ if(tab==='fin')return grid([
+  cd('💳 Credit card',`Balance ${money(L.cc)} / limit ${money(ccLimit())}. 22% interest, 10% auto-paid yearly.`,btn('Advance $1,000','LV13.charge(1000)')+btn('Advance $5,000','LV13.charge(5000)')+btn('Pay $1,000','LV13.ccpay(1000)','good',L.cc<=0)+btn('Pay all','LV13.ccpay("all")','good',L.cc<=0)),
+  cd('📺 Subscriptions','Each costs a yearly fee and gives a yearly perk.',SUBS.map((s,i)=>btn(`${s[0]} ${s[1]} ($${s[2]}) ${L.subs.includes(i)?'✅':''}`,'LV13.sub('+i+')',L.subs.includes(i)?'good':'')).join('')),
+  cd('🎓 Student loans',`Owed ${money(L.sl)} (cap $80,000). 5% interest; 10% auto-paid once you have a job.`,btn('Borrow $10,000','LV13.sloan(10000)')+btn('Borrow $30,000','LV13.sloan(30000)')+btn('Repay','LV13.srepay()','good',L.sl<=0)),
+  cd('📜 Bonds',`Held ${money(L.bonds)}. Safe 4% a year.`,btn('Buy $5,000','LV13.bbuy(5000)')+btn('Buy $50,000','LV13.bbuy(50000)')+btn('Sell all','LV13.bsell()','good',L.bonds<=0)),
+  cd('🏪 Pawn shop','Pawn a car for 40% of its value. Buy it back for 115% within 2 years.',S.cars.map((c,i)=>btn('Pawn '+E(c),'LV13.pawn('+i+')','danger')).join('')+L.pawn.map((p,i)=>`<br>${E(p.n)} (due age ${p.due}) ${btn('Redeem '+money(Math.round(p.loan*1.15)),'LV13.redeem('+i+')','good')}`).join('')),
+  cd('🎯 Savings goal',g?`${money(g.s)} of ${money(g.t)}. Reach it for a 5% bonus.`:'Set a target and fill it. Money is locked until you reach it.',g?btn('Add $1,000','LV13.gadd(1000)')+btn('Add $10,000','LV13.gadd(10000)')+btn('Add all cash','LV13.gadd("all")','gold'):btn('Set a goal','LV13.goal()','gold'))]);
+ if(tab==='youth')return grid([
+  cd('🍋 Lemonade stand','Ages 6-15. Earn a little pocket money. 2 per year.',btn('Open the stand '+U('lemon')+'/2','LV13.lemon()','gold',U('lemon')>=2)),
+  cd('💵 Allowance','Ages 6-17: parents who like you pay an allowance every year automatically.',`<span class="badge">${S.age>=6&&S.age<=17?'Active':'Not in this age range'}</span>`),
+  cd('🎉 Prom & graduation','Prom at 17 and graduation at 18 now give you real choices.',`<span class="badge">${L.promDone?'Prom done':'Prom: age 17'}</span><span class="badge">${L.gradDone?'Graduated':'Graduation: age 18'}</span>`)]);
+ if(tab==='soc')return grid([
+  cd('🏌️ Country club',L.club?'Member. $3,000/yr. +2 reputation yearly.':'$5,000 to join, $3,000/yr. Reputation, friends and career contacts.',btn(L.club?'Leave the club':'Join','LV13.club()',L.club?'danger':'gold')+(L.club?btn('🤝 Network '+U('netw')+'/2','LV13.netw()','good',U('netw')>=2):'')),
+  cd('🧬 DNA test','$100, once per life. Reveals a half-sibling, ancestry or a health risk.',btn(L.dna?'✅ Done':'Take the test','LV13.dna()','',L.dna)),
+  cd('🏖️ Family vacation','$3,000. Boosts happiness and relationships with partner, kids and parents.',btn('Go '+U('vac')+'/1','LV13.vac()','good',U('vac')>=1)),
+  cd('🩺 Elder care',cl.length?`${cl.length} relative(s) are sick. Treatment costs $2,000 (${U('care')}/2).`:'Nobody in your family is sick right now.',cl.slice(0,5).map((o,i)=>btn(E(o.name)+' • '+E(o.illness.n),'LV13.care('+i+')','good',U('care')>=2)).join('<br>')),
+  cd('😠 Enemies',L.enemies.length?'People who dislike you can cost you money or reputation.':'You have no enemies. Some may appear over the years.',L.enemies.map((e,i)=>`<p><b>${E(e)}</b> ${btn('🕊️ Make peace','LV13.peace('+i+')','good',U('peace')>=2)}${btn('😈 Sabotage','LV13.sab('+i+')','danger',U('sab')>=1)}</p>`).join('')),
+  cd('🛋️ Roommate','Rent a room for $3k-$9k a year. 10% yearly risk of damage.',btn(L.room?'✅ Renting (stop)':'Find a roommate','LV13.room()',L.room?'good':''))]);
+ if(tab==='car')return grid([
+  cd('🏝️ Sabbatical','Costs half a year of salary. Big happiness, health and energy; small performance dip.',btn('Take a sabbatical '+U('sabb')+'/1','LV13.sab2()','gold',U('sabb')>=1)),
+  cd('🎤 Talent competition',`Wins: ${L.wins}. Based on creativity, charisma, looks and luck. Winner gets cash and fame.`,['Singing','Dancing','Cooking'].map(k=>btn('Enter '+k,`LV13.talent('${k}')`,'',U('talent')>=1)).join('')),
+  cd('🏅 Youth coaching',`Seasons coached: ${L.coach}. Gain reputation and a chance of a star player.`,btn('Coach '+U('coach')+'/1','LV13.coach()','',U('coach')>=1))]);
+ return grid([cd('🕵️ Scams',`Times scammed: ${L.scams}. Life+ identity protection can block most attempts.`,''),cd('🦠 Pandemics',`Survived: ${L.pandemics}. They are rare (2% a year) and hit health and money.`,''),cd('😠 Feuds',`Active enemies: ${L.enemies.length}.`,'')]);}
+function page(){const el=q('lv13_c');if(!el)return;el.innerHTML=`<div>${TABS.map(t=>btn(t[1],`LV13.tab('${t[0]}')`,tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;}
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('lv13'))return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ const s=document.createElement('section');s.id='lv13';s.className='page';s.innerHTML='<h1>🧭 Life Plus Two</h1><div id="lv13_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.textContent='🧭 Life Plus Two';b.setAttribute('onclick',"showPage('lv13',this)");side.insertBefore(b,anc);})();
+[['Debt Free','Clear your student loans.',()=>S.lv13&&S.lv13.sl===0&&S.lv13.promDone&&S.age>=25],['Bondholder','Hold $100,000 in bonds.',()=>S.lv13&&S.lv13.bonds>=1e5],['Club Member','Join the country club.',()=>S.lv13&&S.lv13.club],['Talent Star','Win a talent competition.',()=>S.lv13&&S.lv13.wins>=1],['Pandemic Survivor','Live through a pandemic.',()=>S.lv13&&S.lv13.pandemics>=1],['Coach','Coach 10 youth seasons.',()=>S.lv13&&S.lv13.coach>=10]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+const _render=window.render;
+window.render=function(){init();_render();const p=q('lv13');if(p&&p.classList.contains('active'))page();};
+init();render();
+})();
+</script>
+
+<!-- =====================================================================
+  LIFEVERSE V14 ADD-ON — paste RIGHT BEFORE </body>, AFTER every other
+  script (must be LAST). Everything lives in S.lv14.
+
+  ⏪ INFINITE TIME MACHINE with a CONSISTENT timeline:
+     - unlimited rewinds, 1 year or 5 years at a time (also a floating ⏪ button)
+     - every year uses a fixed "seed", so rewinding and aging up again gives
+       the SAME result (stocks -15% then +35% stay -15% then +35%)
+     - the stock market, economy and crypto price of every year are also
+       locked in memory the first time they happen
+     - "Alter fate" re-rolls the future if you WANT different results
+  🎲 20 NEW RANDOM FEATURES (17 activities + 3 random yearly events)
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV14)return;window.__LV14=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const NM=['Alex','Sam','Riley','Jordan','Casey','Morgan','Taylor','Drew','Robin','Quinn'],SN=['Reed','Park','Silva','Nair','Cole','Moreau','Tan','Ortiz','Khan','Berg'];
+let tab='time';
+const stack=[];            /* in-memory snapshots, one per age-up */
+const TM={};               /* per life: {salt, rec:{age:{st,econ,cr}}} */
+
+function init(){
+ if(!S.lv14||typeof S.lv14!=='object')S.lv14={};
+ const d={id:Math.random().toString(36).slice(2,9),used:{},lang:0,smart:false,travels:0,found:0};
+ for(const k in d)if(S.lv14[k]===undefined||S.lv14[k]===null)S.lv14[k]=d[k];
+ if(!TM[S.lv14.id])TM[S.lv14.id]={salt:0,rec:{}};
+}
+const tm=()=>TM[S.lv14.id];
+function fx(o){for(const k in o)S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}
+function toast(m){let t=q('lv14t');if(!t){t=document.createElement('div');t.id='lv14t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #a78bfa;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+const U=id=>S.lv14.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${label}</b> ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${label} costs <b>${money(cost)}</b>.`);return false;}S.money-=cost;S.lv14.used[id]=U(id)+1;S.stats.activities++;return true;}
+const Q=[];let dr=0;
+function later(f){Q.push(f);if(dr)return;dr=1;(function t(){if(!Q.length){dr=0;return;}const bg=q('popupBg');if(bg.style.display==='flex'||q('startMenu').style.display==='flex'){setTimeout(t,700);return;}Q.shift()();setTimeout(t,700);})();}
+
+/* ---------- seeded random so the same year always gives the same result ---------- */
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mul(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ---------- lock the market the first time a year happens ---------- */
+function lock(){
+ if(!S.v6||!S.v6.stocks)return;const T=tm(),a=S.age,rec=T.rec[a];
+ if(rec){
+  for(const k in rec.st){const s=S.v6.stocks[k];if(s){s.p=rec.st[k][0];s.o=rec.st[k][1];if(s.h.length)s.h[s.h.length-1]=s.p;}}
+  if(S.v6.econ&&rec.econ)S.v6.econ.state=rec.econ;
+  if(S.lv12&&S.lv12.crypto&&rec.cr!=null){S.lv12.crypto.p=rec.cr;const h=S.lv12.crypto.h;if(h.length)h[h.length-1]=rec.cr;}
+ }else{
+  const st={};for(const k in S.v6.stocks)st[k]=[S.v6.stocks[k].p,S.v6.stocks[k].o];
+  T.rec[a]={st,econ:S.v6.econ&&S.v6.econ.state,cr:S.lv12&&S.lv12.crypto?S.lv12.crypto.p:null};
+ }
+}
+
+/* ---------- age up: save a snapshot, seed the dice, lock the market ---------- */
+const _age=window.ageUp;
+window.ageUp=function(){
+ init();
+ if(S.dead||q('popupBg').style.display==='flex')return _age.apply(this,arguments);
+ const b=S.age,s0=S,id=S.lv14.id;
+ if(stack.length&&stack[stack.length-1].id!==id)stack.length=0;
+ stack.push({id,s:JSON.stringify(S)});if(stack.length>30)stack.shift();
+ const real=Math.random;Math.random=mul(hash(id+'|'+tm().salt+'|'+b));
+ try{_age.apply(this,arguments);}finally{Math.random=real;}
+ if(S===s0&&S.age>b){init();lock();render();}
+ else if(S.age===b)stack.pop();
+};
+
+/* ---------- time machine ---------- */
+function rewind(n){
+ init();
+ if(!stack.length||stack[stack.length-1].id!==S.lv14.id)return popup('⏪ Nothing to rewind','Age up at least once first. (Rewind history lives in memory and clears if you refresh the page.)');
+ n=Math.min(n,stack.length);let snap;for(let i=0;i<n;i++)snap=stack.pop();
+ const tr=(S.lv14.travels||0)+1;
+ try{S=normalizeLoadedState(JSON.parse(snap.s));}catch(e){return popup('❌ Error','Could not restore that year.');}
+ init();S.lv14.travels=tr;if(S.v6)S.v6.rewinds=99;S.dead=false;Q.length=0;closePopup();
+ toast(`⏪ Back to age ${S.age}. The next years will play out the same way.`);render();
+}
+function fate(){
+ init();const T=tm();T.salt++;Object.keys(T.rec).forEach(a=>{if(+a>S.age)delete T.rec[a];});
+ toast('🎲 Fate altered. The coming years will be different.');render();
+}
+const _rw=window.render;
+
+/* ---------- 17 NEW ACTIVITIES ---------- */
+const X=[
+['fort','🔮','Fortune teller','$50. A random prophecy that nudges your luck.',10,50,1,()=>{const g=chance(60);fx({luck:g?3:-2,happiness:g?3:-2});return g?'The cards promise good fortune.':'The cards warn of rough times.';}],
+['dig','🧭','Treasure hunt','$200 metal-detector trip. A big find is rare.',10,200,2,()=>{if(chance(4)){const m=r(10000,40000);S.money+=m;S.lv14.found++;return 'You dug up a buried chest worth '+money(m)+'!';}if(chance(35)){const m=r(100,1500);S.money+=m;return 'You found valuables worth '+money(m)+'.';}fx({happiness:1});return 'You found only bottle caps.';}],
+['esc','🗝️','Escape room','$60 with friends. Happiness and smarts.',8,60,2,()=>{fx({happiness:r(3,7),smarts:2});(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+2,0,100));return 'You escaped with seconds to spare.';}],
+['park','🎢','Amusement park','$150 day of fun.',3,150,1,()=>{fx({happiness:r(5,10)});return 'You rode every coaster twice.';}],
+['vip','🎫','VIP concert','$800. You might meet a star.',16,800,1,()=>{fx({happiness:r(8,14)});if(chance(20)){fx({fame:2});return 'You met the star backstage!';}return 'An unforgettable show.';}],
+['blood','🩸','Donate blood','Free. Reputation and a kind heart.',17,0,2,()=>{fx({reputation:2,happiness:2,energy:-4});return 'You donated blood and saved lives.';}],
+['camp','⛺','Camping trip','$200. Health and calm. 8% chance of injury.',8,200,1,()=>{if(chance(8)){fx({health:-r(3,9),happiness:2});return 'You sprained an ankle.';}fx({health:r(2,5),happiness:r(5,9)});if(S.lifePlus)S.lifePlus.stress=clamp(S.lifePlus.stress-8,0,100);return 'Stars and campfire stories.';}],
+['lang','🗣️','Language lessons','$300. Level up a language (10 = fluent).',8,300,1,()=>{S.lv14.lang++;fx({smarts:2});return 'Language level '+S.lv14.lang+(S.lv14.lang>=10?' (fluent!)':'.');}],
+['box','🎁','Mystery box','$100. Could be worth far more or far less.',10,100,2,()=>{const x=r(1,100);if(x<=3){const m=r(5000,20000);S.money+=m;return 'JACKPOT box: '+money(m)+'!';}if(x<=40){const m=r(120,600);S.money+=m;return 'Inside: items worth '+money(m)+'.';}fx({happiness:-1});return 'Just junk.';}],
+['mara','🏃','Run a marathon','Needs athleticism 50+. Health and a chance of fame.',16,0,1,()=>{fx({health:r(3,7),athleticSkill:r(2,5),energy:-15,happiness:r(4,9)});if(chance(15)){fx({fame:1});return 'You finished and made the local news!';}return 'You crossed the finish line.';},()=>S.athleticSkill<50?'You need athleticism 50+.':''],
+['sky','🪂','Skydiving','$400. Huge thrill with about a 1% risk.',18,400,1,()=>{if(chance(1)){setTimeout(()=>window.endCurrentLife('skydiving accident'),50);return 'Your chute failed...';}fx({happiness:r(10,18)});return 'Pure adrenaline!';}],
+['pool','🎟️','Lottery pool','Needs a job. $20. A tiny shot at a shared win.',18,20,1,()=>{if(chance(1.5)){const m=r(20000,120000);S.money+=m;return 'Your office pool WON '+money(m)+'!';}return 'No luck this time.';},()=>S.career==='None'?'You need a job.':''],
+['smart','🏠','Smart home upgrade','$8,000 once. +1 happiness each year and a better home condition.',18,8000,1,()=>{S.lv14.smart=true;return 'Your home is now smart.';},()=>!S.houses.length?'You need a property.':S.lv14.smart?'You already have one.':''],
+['diary','📓','Write in your diary','Free. Calm and a record of the year.',8,0,2,()=>{fx({happiness:r(1,4)});if(S.lifePlus)S.lifePlus.stress=clamp(S.lifePlus.stress-4,0,100);return pick(['You reflected on the year.','You wrote about your hopes.','You wrote down a happy memory.']);}],
+['chess','♟️','Chess tournament','$40. Your smarts decide.',8,40,1,()=>{if(chance(clamp(S.smarts*.6+r(-10,10),10,85))){const m=r(100,1000);S.money+=m;fx({reputation:2,smarts:1});return 'You won the tournament and '+money(m)+'!';}fx({smarts:1});return 'You lost in the semifinals.';}],
+['ret','🧘','Meditation retreat','$500. Big stress relief.',16,500,1,()=>{if(S.lifePlus)S.lifePlus.stress=clamp(S.lifePlus.stress-25,0,100);fx({happiness:8,health:3});return 'You came back calm and focused.';}],
+['food','🍜','Street food tour','$80. Happiness, with a small stomach risk.',8,80,1,()=>{if(chance(10)){fx({health:-2});return 'Delicious, but you got an upset stomach.';}fx({happiness:5});return 'You tried amazing food.';}]
+];
+
+window.LV14={
+ tab(t){tab=t;render();},
+ rewind,fate,
+ run(i){const x=X[i];if(!x)return;if(S.age<x[4])return popup('🔒 Too young',`Needs age ${x[4]}.`);const e=x[8]&&x[8]();if(e)return popup('🚫 Not available',e);
+  if(!use(x[0],x[6],x[2],x[5]))return;const m=x[7]();addEvent(`${x[1]} ${playerName()}: ${m}`);toast(x[1]+' '+m);render();}
+};
+if(window.V6)window.V6.rewind=()=>rewind(1);
+
+/* ---------- 3 RANDOM YEARLY EVENTS + smart home ---------- */
+const _y=window.ageUp;
+window.ageUp=function(){
+ init();if(S.dead)return _y.apply(this,arguments);
+ const b=S.age,s0=S;_y.apply(this,arguments);
+ if(S!==s0||S.dead||S.age<=b)return;
+ init();S.lv14.used={};
+ if(S.lv14.smart){fx({happiness:1});if(S.lifePlus)S.lifePlus.homeCondition=clamp(S.lifePlus.homeCondition+2,0,100);}
+ /* 18: school superlative */
+ if(S.age>=14&&S.age<=18&&chance(15)){const t=pick(['Most Likely to Succeed','Best Smile','Class Clown','Most Creative']);fx({fame:2,reputation:2,happiness:5});addEvent(`🏅 ${playerName()} was voted "${t}".`);}
+ /* 19: found wallet */
+ if(S.age>=12&&chance(5)){const m=r(100,900);later(()=>decision('👛 Found wallet',`You found a wallet with ${money(m)} inside.`,[
+  {title:'😇 Return it',description:'Do the right thing.',class:'good',action:()=>{fx({reputation:4,happiness:3});addEvent('👛 You returned a lost wallet.');render();}},
+  {title:'🤑 Keep the money',description:'Nobody will know...',action:()=>{S.money+=m;fx({reputation:-3,happiness:-1});addEvent(`👛 You kept the money from a found wallet (${money(m)}).`);render();}}]));}
+ /* 20: secret admirer */
+ if(S.age>=16&&!(S.partner&&S.partner.alive!==false)&&chance(5)){
+  if(S.lv12&&Array.isArray(S.lv12.dating)){const n=pick(NM)+' '+pick(SN);if(S.lv12.dating.length>=4)S.lv12.dating.shift();S.lv12.dating.push({n,g:chance(50)?'Male':'Female',age:Math.max(18,S.age+r(-4,5)),rel:r(40,60),w:r(1000,100000)});addEvent(`💌 A secret admirer revealed themselves: ${n}. Find them on the Dating app.`);}
+  else{fx({happiness:3});addEvent('💌 You got an anonymous love letter.');}}
+ render();
+};
+
+/* ---------- UI ---------- */
+function mkt(){const T=tm(),ages=Object.keys(T.rec).map(Number).sort((a,b)=>b-a).slice(0,12);
+ return ages.map(a=>{const x=T.rec[a],ks=Object.keys(x.st),avg=ks.length?ks.reduce((s,k)=>s+(x.st[k][1]?x.st[k][0]/x.st[k][1]-1:0),0)/ks.length*100:0;return `<p>Age <b>${a}</b> • ${E(x.econ||'—')} • stocks <b class="${avg>=0?'green':'red'}">${avg>=0?'+':''}${avg.toFixed(1)}%</b></p>`;}).join('')||'<p class="muted">No market years recorded yet. Age up to start the timeline.</p>';}
+function body(){
+ if(tab==='time'){const d=stack.filter(x=>x.id===S.lv14.id).length;return `<div class="card"><h2>⏪ Time machine (unlimited)</h2>
+  <p class="muted">Go back as often as you like. The timeline is <b>consistent</b>: if the market fell 15% in a year and rose 35% the next, rewinding and aging up again shows the very same -15% and +35%. Years you can rewind: <b>${d}</b> • Trips so far: <b>${S.lv14.travels||0}</b></p>
+  ${btn('⏪ Back 1 year','LV14.rewind(1)','purple',!d)}${btn('⏪⏪ Back 5 years','LV14.rewind(5)','purple',!d)}${btn('🎲 Alter fate (new future)','LV14.fate()','gold')}
+  <p class="muted">Alter fate re-rolls every year from now on, including the market. Your rewind history is kept in memory and clears if you refresh the page.</p></div>
+  <div class="card"><h2>📈 Locked market history</h2>${mkt()}</div>`;}
+ return `<div class="grid">${X.map((x,i)=>`<div class="card"><h3>${x[1]} ${x[2]}</h3><p class="muted">${x[3]}</p>${btn('Do it '+U(x[0])+'/'+x[6],'LV14.run('+i+')','',U(x[0])>=x[6])}</div>`).join('')}<div class="card"><h3>🎲 Random events</h3><p class="muted">Each year may bring a school superlative, a found wallet or a secret admirer. Smart homes add yearly happiness.</p><span class="badge">🗣️ Language ${S.lv14.lang}/10</span><span class="badge">🧭 Treasures ${S.lv14.found}</span></div></div>`;}
+function page(){const el=q('lv14_c');if(!el)return;el.innerHTML=`<div>${btn('⏪ Time Machine','LV14.tab("time")',tab==='time'?'gold':'')}${btn('🎲 Random Extras','LV14.tab("x")',tab==='x'?'gold':'')}</div><br>${body()}`;}
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('lv14'))return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ const s=document.createElement('section');s.id='lv14';s.className='page';s.innerHTML='<h1>⏪ Time Machine & Extras</h1><div id="lv14_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.textContent='⏪ Time Machine';b.setAttribute('onclick',"showPage('lv14',this)");side.insertBefore(b,anc);
+ const f=document.createElement('button');f.className='action purple';f.textContent='⏪ Rewind';f.style.cssText='position:fixed;left:12px;bottom:12px;z-index:350;margin:0';f.setAttribute('onclick','LV14.rewind(1)');document.body.appendChild(f);})();
+[['Time Traveler','Use the time machine.',()=>S.lv14&&S.lv14.travels>=1],['Paradox','Use the time machine 10 times.',()=>S.lv14&&S.lv14.travels>=10],['Fluent','Reach language level 10.',()=>S.lv14&&S.lv14.lang>=10],['Treasure Hunter','Dig up a buried chest.',()=>S.lv14&&S.lv14.found>=1]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+window.render=function(){init();_rw();if(S.v6)S.v6.rewinds=99;const p=q('lv14');if(p&&p.classList.contains('active'))page();};
+init();render();
+})();
+</script>
+
 </body>
 </html>
