@@ -2936,6 +2936,28 @@ checkAchievements();
 render();
 }
 
+function processPropertyRentalIncome(){
+
+let monthlyIncome=0;
+
+S.houses.forEach(name=>{
+const property=houses.find(h=>h[0]===name);
+if(property)monthlyIncome+=property[1]*0.005;
+});
+
+if(monthlyIncome<=0)return;
+
+const yearlyIncome=monthlyIncome*12;
+
+S.money+=yearlyIncome;
+S.stats.moneyEarned+=yearlyIncome;
+
+addEvent(
+`🏠 Property rental income: ${money(yearlyIncome)} earned this year!`
+);
+
+}
+
 function rentHome(name,monthly){
 
 if(S.money<monthly*3){
@@ -4160,6 +4182,8 @@ return;
 
 if(S.prisonYears>0){
 
+processPropertyRentalIncome();
+
 S.prisonYears--;
 
 addEvent(
@@ -4193,6 +4217,7 @@ if(S.career!=="None"){
 S.money+=S.salary;
 
 S.stats.moneyEarned+=S.salary;
+
 S.yearsWorked++;
 
 S.performance=
@@ -4204,6 +4229,10 @@ S.performance+rand(-8,5),
 
 tryCareerPromotion();
 }
+
+/* PROPERTY RENTAL INCOME */
+
+processPropertyRentalIncome();
 
 /* SPORTS */
 
