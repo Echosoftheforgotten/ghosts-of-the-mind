@@ -9518,5 +9518,348 @@ mount();init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V9 ADD-ON — paste RIGHT BEFORE </body>, AFTER every other script (must be LAST).
+  - Fight/wrestling betting moved into the Casino
+  - Government page: Prime Minister (and every other office) now has things to do + yearly crises
+  - Royalty overhaul: 30+ titles (Emperor, Sultan, Pharaoh, Tsar, Khan...), realm, treasury, wars,
+    revolts, succession, ways to become a ruler (coup, royal marriage, micronation, buy a title)
+  - Real estate: rent out / sell any property, vehicle or business; Assets Owned button FIXED
+  - Space Program: buy rocketships (huge maintenance), fly to other planets (chance of death)
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV9)return;window.__LV9=1;
+const q=id=>document.getElementById(id),E=escapeHTML,pick=a=>a[rand(0,a.length-1)],r=rand;
+const OFFN=['Student Council','Town Councillor','Mayor','State Representative','Governor','Prime Minister'];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const bar=(l,v)=>`<div>${l} <b>${Math.round(v)}%</b><div class="progress"><div style="width:${clamp(v,0,100)}%"></div></div></div>`;
+function toast(m){let t=q('lv9t');if(!t){t=document.createElement('div');t.id='lv9t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #f59e0b;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3600);}
+function init(){
+ if(!S.lv9||typeof S.lv9!=='object')S.lv9={};
+ const d={used:{},gov:{ap:55,st:55,ec:50,co:50,laws:0,off:-2},realm:null,rent:[],rockets:[],visited:{},trips:0};
+ for(const k in d)if(S.lv9[k]===undefined||S.lv9[k]===null)S.lv9[k]=d[k];
+ while(S.lv9.rent.length<S.houses.length)S.lv9.rent.push(false);
+ S.lv9.rent.length=S.houses.length;
+}
+const U=id=>S.lv9.used[id]||0;
+function use(id,max,label){if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${label}</b> ${max} time(s) this year. Age up to reset.`);return false;}S.lv9.used[id]=U(id)+1;S.stats.activities++;return true;}
+function pl(o){for(const k in o){const v=o[k];if(k==='money')S.money=Math.max(0,S.money+v);else if(['happiness','health','energy','looks','smarts','fame','reputation','charisma','luck','discipline','creativity'].includes(k))S[k]=clamp(Math.round(safeNumber(S[k],50)+v),0,100);}}
+/* popup queue */
+const Q=[];let dr=0;
+function later(f){Q.push(f);drain();}
+function drain(){if(dr)return;dr=1;(function t(){if(!Q.length){dr=0;return;}const bg=q('popupBg');if(bg.style.display==='flex'||q('startMenu').style.display==='flex'){setTimeout(t,700);return;}Q.shift()();setTimeout(t,700);})();}
+function resolve(o,apply){let eff=o[2],msg=o[3];if(o[4]&&chance(o[4][0])){eff=o[4][1];msg=o[4][2];}apply(eff);addEvent('📬 '+msg);toast(msg);render();}
+function evDecision(e,apply){decision('📬 '+e[1],e[2],e[3].map(o=>({title:o[0],description:o[1],action:()=>resolve(o,apply)})));}
+
+/* =========================================================
+   1. FIGHT / WRESTLING BETTING → CASINO
+   ========================================================= */
+function casinoFight(){
+ const el=q('casino_c');if(!el||!S.lv8)return;
+ if(q('lv9Fight')){return;}
+ const L=S.lv8,f=L.fight||['Fighter A','Fighter B'],used=(L.used&&L.used.fight)||0;
+ const d=document.createElement('div');d.id='lv9Fight';d.className='card';
+ d.innerHTML=`<h2>🥊 Fight & Wrestling Betting</h2><p class="muted">${E(f[0])} <b>vs</b> ${E(f[1])} • pure 50/50 • win = double, lose = lose the bet • ${used}/3 bets this year</p>
+ <input id="lv9FBet" type="number" min="1" value="${L.bet||500}" oninput="LV8.setBet(this.value)">
+ <div>${btn('½ cash',"LV9.fb('half')")}${btn('All in',"LV9.fb('all')",'danger')}</div>
+ ${btn('Bet on '+E(f[0]),'LV8.bet(0)','gold',used>=3)}${btn('Bet on '+E(f[1]),'LV8.bet(1)','gold',used>=3)}`;
+ el.appendChild(d);
+}
+function hideOldFight(){const a=q('lv8Act');if(a)[...a.querySelectorAll('.card')].forEach(c=>{const h=c.querySelector('h3');if(h&&/Fight Betting/.test(h.textContent))c.remove();});}
+
+/* =========================================================
+   2. GOVERNMENT / POLITICAL LEADERSHIP
+   ========================================================= */
+const off=()=>(S.v6&&S.v6.pol)?S.v6.pol.office:-1;
+function gx(o){const g=S.lv9.gov,m={ap:'ap',st:'st',ec:'ec',co:'co'};for(const k in o){if(m[k])g[k]=clamp(Math.round(g[k]+o[k]),0,100);}pl(o);}
+const G=[
+['speech',0,'🎤 Give a speech','Rally your supporters.',2,()=>{gx({ap:r(2,5),charisma:1});return 'Your speech landed well.';}],
+['hall',1,'🏘️ Town hall','Listen to voters.',1,()=>{gx({ap:r(3,7),reputation:1});return 'Voters felt heard.';}],
+['fund',1,'💼 Fundraiser','Raise money (small scandal risk).',1,()=>{if(chance(12)){gx({ap:-8,reputation:-6});return 'A fundraising scandal hit the news.';}const m=r(3000,20000)*(off()+1);gx({money:m});return 'Raised '+money(m)+'.';}],
+['works',2,'🏗️ Public works','Build roads and schools.',1,()=>{if(chance(15)){gx({ap:-4,ec:2});return 'Cost overruns angered voters.';}gx({ec:r(3,7),ap:r(2,5)});return 'The project opened to applause.';}],
+['police',2,'🚓 Police reform','Improve public safety.',1,()=>{gx({st:r(3,7),ap:r(-3,5)});return 'Public safety improved.';}],
+['anti',2,'🧹 Anti-corruption drive','Clean up government.',1,()=>{gx({ap:5,st:3,co:-4,reputation:2});return 'The drive won public praise.';}],
+['health',3,'🏥 Health & education push','Fund schools and hospitals.',1,()=>{gx({ap:r(4,8),ec:-2});return 'Families welcomed the investment.';}],
+['tax',3,'💰 Tax policy','Cut or raise taxes.',1,'tax'],
+['disaster',4,'🌪️ Disaster readiness','Prepare for emergencies.',1,()=>{gx({st:r(3,6),ap:3,ec:-2});return 'Your region is better prepared.';}],
+['summit',4,'🤝 Regional summit','Meet other leaders.',1,()=>{gx({ec:r(2,5),fame:r(1,3)});return 'The summit boosted cooperation.';}],
+['reshuffle',5,'🔄 Cabinet reshuffle','Replace weak ministers.',1,()=>{gx({co:r(-4,8),ap:r(-3,5),st:2});return 'The new cabinet took shape.';}],
+['coal',5,'🤝 Coalition talks','Keep your partners onside.',1,()=>{gx({co:r(6,12),ap:-2});return 'Coalition partners were reassured.';}],
+['nation',5,'📺 Address the nation','Speak directly to the public.',2,()=>{gx({ap:r(3,8),fame:1});return 'Your address was widely watched.';}],
+['trade',5,'🚢 Trade deal','Negotiate with another country.',1,()=>{if(chance(30)){gx({ap:-4,ec:-2});return 'Talks collapsed.';}gx({ec:r(5,10),ap:r(2,5)});return 'A trade deal was signed.';}],
+['mil',5,'🪖 Military deployment','Send forces abroad.',1,()=>{if(chance(50)){gx({ap:r(4,9),st:-2,fame:2});return 'The mission succeeded.';}gx({ap:-r(6,12),st:-3});return 'The mission went badly.';}],
+['treaty',5,'🕊️ Sign a peace treaty','Pursue lasting peace.',1,()=>{gx({st:r(5,9),ap:r(2,6),fame:r(2,4),reputation:2});return 'A historic treaty was signed.';}],
+['judge',5,'⚖️ Appoint a judge','Shape the courts.',1,()=>{gx({co:r(-3,3),ap:r(-2,3),st:2});return 'Your nominee was confirmed.';}],
+['bill',5,'📜 Major bill','Push a new law.',2,'bill'],
+['budget',5,'🏦 National budget','Set the fiscal stance.',1,'budget'],
+['emerg',5,'🚨 Emergency powers','Order stability. Voters dislike it.',1,()=>{gx({st:10,ap:-10,co:-5,reputation:-3});return 'Emergency powers restored order, at a cost.';}],
+['intel',5,'🕵️ Intelligence briefing','Find hidden threats.',1,()=>{if(chance(25)){gx({ap:6,st:5});return 'You foiled a plot.';}gx({st:2});return 'Nothing unusual.';}],
+['visit',5,'✈️ State visit','Visit a foreign leader.',1,()=>{gx({fame:r(2,5),ap:r(1,5),reputation:2});return 'The state visit went smoothly.';}],
+['reform',5,'🏛️ Constitutional reform','Bold, risky change.',1,()=>{if(chance(45)){gx({ap:r(8,15),st:5,fame:4});return 'The reform passed to wide acclaim.';}gx({ap:-r(8,14),co:-8,st:-5});return 'The reform failed and split your party.';}],
+['snap',5,'🗳️ Call snap election','Gamble on voters. Win = fresh 4-year term.',1,'snap']];
+function doGov(id){
+ const a=G.find(x=>x[0]===id);if(!a||off()<a[1])return;
+ if(!use('g'+id,a[4],a[2]))return;
+ if(a[5]==='tax'){decision('💰 Tax policy','What will you do with taxes?',[{title:'Cut taxes',description:'Popular now, weaker economy.',action:()=>{gx({ap:8,ec:-4});addEvent('💰 You cut taxes.');render();}},{title:'Raise taxes',description:'Stronger economy, unpopular.',action:()=>{gx({ec:6,ap:-7});addEvent('💰 You raised taxes.');render();}},{title:'Hold steady',action:()=>render()}]);return;}
+ if(a[5]==='bill'){const b=[['Healthcare Act',{ap:7,ec:-4},{ap:-4,co:-4}],['Green Energy Law',{ec:3,ap:4,st:2},{ap:-5,ec:-4}],['Security Powers Bill',{st:8,ap:-4},{ap:-8,st:2}],['Education Overhaul',{ap:6,ec:3},{ap:-3}]];
+  decision('📜 Major bill','Which bill do you push?',b.map(x=>({title:x[0],description:'Could pass or backfire.',action:()=>{const win=chance(55+S.lv9.gov.co*.3);gx(win?x[1]:x[2]);if(win)S.lv9.gov.laws++;addEvent(`📜 ${x[0]} ${win?'passed':'failed'}.`);toast(`${x[0]} ${win?'passed!':'failed.'}`);render();}})));return;}
+ if(a[5]==='budget'){decision('🏦 National budget','Choose your fiscal stance.',[{title:'Spending budget',description:'Popular; hurts the economy.',action:()=>{gx({ap:8,ec:-5});render();}},{title:'Balanced budget',description:'Safe and steady.',action:()=>{gx({ec:3,ap:2,st:2});render();}},{title:'Austerity',description:'Economy up, voters angry.',action:()=>{gx({ec:8,ap:-9});render();}}]);return;}
+ if(a[5]==='snap'){const p=clamp(S.lv9.gov.ap*.9+S.reputation*.2,5,90);if(!confirm(`Call a snap election? Estimated win chance ${Math.round(p)}%.`)){S.lv9.used['g'+id]--;return;}
+  if(chance(p)){S.v6.pol.term=4;S.v6.pol.wins++;gx({ap:6,fame:3});addEvent('🗳️ You won the snap election!');popup('🗳️ Landslide','You won the snap election and a fresh 4-year term.');}else{S.v6.pol.office=-1;addEvent('🗳️ You lost the snap election.');popup('🗳️ Defeat','You lost power.');}render();return;}
+ const m=a[5]();addEvent('🏛️ '+m);toast(m);render();
+}
+const EVG=[
+[3,'Cabinet scandal','A minister is caught in a scandal.',[['Fire them','Decisive.',{ap:3,co:-5,reputation:2},'You fired the minister.'],['Defend them','Loyal but risky.',{ap:-6,reputation:-2},'You stood by your minister.',[40,{ap:-15,reputation:-5},'The defence backfired badly.']],['Open an inquiry','Slow, safe.',{ap:1,st:2},'An inquiry was opened.']]],
+[4,'Nationwide strike','Workers walk out.',[['Negotiate','',{ap:4,ec:-2},'A deal ended the strike.'],['Break the strike','',{ap:-8,ec:3,st:-4},'The strike was broken.'],['Wait','',{ap:-3,ec:-3},'The strike dragged on.']]],
+[2,'Natural disaster','A disaster strikes your community.',[['Lead relief in person','',{ap:8,health:-3,energy:-10},'You led relief efforts.'],['Send aid','',{ap:3,ec:-3},'Aid was dispatched.'],['Blame others','',{ap:-6},'Your deflection drew anger.']]],
+[5,'Vote of no confidence','The opposition files a motion.',[['Rally your coalition','',{co:-5,ap:3},'You survived the vote.',[35,{ap:-12,co:-10},'You barely scraped through.']],['Concede policies','',{ap:-3,co:8},'You bought peace with concessions.']]],
+[4,'Economic downturn','The economy is wobbling.',[['Stimulus package','',{ec:6,ap:2},'The stimulus helped.'],['Austerity','',{ec:3,ap:-7},'Austerity stung voters.']]],
+[5,'Foreign crisis','A tense standoff with a neighbour.',[['Hardline response','',{ap:4,st:-4},'You looked strong.',[30,{ap:-6,ec:-5},'It escalated costly.']],['Quiet diplomacy','',{ap:-2,st:3},'Talks eased tensions.'],['Call a summit','',{fame:3,st:2},'A summit calmed things.']]],
+[2,'A bribe offer','A businessman slips you an envelope.',[['Accept','',{money:50000,ap:0},'You pocketed it.',[40,{ap:-20,reputation:-15,fame:-5},'You were caught taking a bribe!']],['Refuse and report','',{reputation:3,ap:2},'Your honesty was noted.']]],
+[4,'Outbreak','A disease outbreak spreads.',[['Lockdown','',{ap:-4,st:5,ec:-6},'The lockdown contained it.'],['Stay open','',{ap:2,ec:2},'Life went on.',[40,{ap:-10,health:-5},'Cases surged.']]]],
+[1,'Youth protests','Young people are marching.',[['Meet them','',{ap:5},'The meeting calmed things.'],['Ignore them','',{ap:-5},'Anger grew.']]],
+[5,'Whistleblower','A leaker exposes secret files.',[['Be transparent','',{ap:3,st:-2,reputation:3},'Honesty earned respect.'],['Prosecute the leaker','',{ap:-6,st:2,reputation:-3},'It looked heavy-handed.']]]];
+function govYear(){
+ const po=S.v6&&S.v6.pol;if(!po||po.office<0)return;const g=S.lv9.gov,o=po.office;
+ if(g.off!==o){Object.assign(g,{ap:55,st:55,ec:50,co:50,off:o});}
+ const econ=S.v6.econ&&S.v6.econ.state;
+ g.ec=clamp(Math.round(g.ec+(50-g.ec)/10+r(-3,3)+(econ==='Boom'?3:econ==='Recession'?-4:0)),0,100);
+ g.st=clamp(Math.round(g.st+(50-g.st)/10+r(-3,3)),0,100);
+ g.ap=clamp(Math.round(g.ap+(g.ec-50)/15+(g.st-50)/15+r(-4,3)),0,100);
+ S.reputation=clamp(S.reputation+Math.round((g.ap-50)/12),0,100);
+ if(o===5){g.co=clamp(g.co-r(0,4),0,100);
+  if((g.co<15&&chance(40))||(g.ap<20&&chance(35))){po.office=-1;g.off=-2;addEvent('🏛️ Your government fell in a no-confidence vote.');later(()=>popup('🏛️ Government collapsed','Your coalition and public support collapsed. You are no longer Prime Minister.'));return;}}
+ const pool=EVG.filter(e=>o>=e[0]);
+ if(pool.length&&chance(o>=4?75:45)){const e=pick(pool);later(()=>evDecision(e,gx));}
+}
+function pGov(){
+ const el=q('lv9_gov_c');if(!el)return;const o=off(),g=S.lv9.gov;
+ if(o<0){el.innerHTML='<div class="card muted">You hold no political office. Run for office on the 🏛️ Politics page, then come back here to govern.</div>';return;}
+ const po=S.v6.pol;
+ el.innerHTML=`<div class="card"><h2>🏛️ ${OFFN[o]}</h2><p class="muted">${po.term} year(s) left in term • Laws passed: ${g.laws}</p>
+ <div class="grid"><div>${bar('📣 Approval',g.ap)}</div><div>${bar('🛡️ Stability',g.st)}</div><div>${bar('📈 Economy',g.ec)}</div>${o===5?`<div>${bar('🤝 Coalition',g.co)}</div>`:''}</div>
+ <p class="muted">Approval moves with the economy and stability. Low approval risks re-election${o===5?' and a no-confidence vote':''}. A crisis decision may appear each year.</p></div>
+ <div class="grid">${G.filter(a=>o>=a[1]).map(a=>{const lim=a[4],u=U('g'+a[0]);return `<div class="card"><h3>${a[2]}</h3><p class="muted">${a[3]}</p>${btn(`Do it ${u}/${lim}`,`LV9.gov('${a[0]}')`,'',u>=lim)}</div>`;}).join('')}</div>`;
+}
+
+/* =========================================================
+   3. ROYALTY OVERHAUL
+   ========================================================= */
+const H='Your Royal Highness',M='Your Majesty',IM='Your Imperial Majesty';
+const RANKS=[['prince','Prince','Male',0,H],['prince','Princess','Female',0,H],['crown','Crown Prince','Male',0,H],['crown','Crown Princess','Female',0,H],
+['duke','Duke','Male',1,'Your Grace'],['duke','Duchess','Female',1,'Your Grace'],['gduke','Grand Duke','Male',2,'Your Grand Ducal Highness'],['gduke','Grand Duchess','Female',2,'Your Grand Ducal Highness'],
+['king','King','Male',3,M],['king','Queen','Female',3,M],['sultan','Sultan','Male',3,M],['sultan','Sultana','Female',3,M],['emir','Emir','Male',3,'Your Highness'],['emir','Emira','Female',3,'Your Highness'],
+['shah','Shah','Male',3,IM],['shah','Shahbanu','Female',3,IM],['maha','Maharaja','Male',3,'Your Highness'],['maha','Maharani','Female',3,'Your Highness'],
+['pharaoh','Pharaoh','Male',3,'O Great Pharaoh'],['pharaoh','Female Pharaoh','Female',3,'O Great Pharaoh'],['tsar','Tsar','Male',3,IM],['tsar','Tsarina','Female',3,IM],
+['khan','Khan','Male',3,'Great Khan'],['khan','Khatun','Female',3,'Great Khatun'],['emperor','Emperor','Male',4,IM],['emperor','Empress','Female',4,IM],['kaiser','Kaiser','Male',4,IM],['kaiser','Kaiserin','Female',4,IM]];
+const STIP=[0,250000,600000,1500000,4000000],START=[2000000,3000000,8000000,20000000,60000000];
+const R=()=>S.lv8&&S.lv8.royal,act=()=>!!(R()&&R().active);
+const rank=()=>RANKS.find(x=>x[1]===R().title),tier=()=>{const k=rank();return k?k[3]:3;};
+const ruling=()=>act()&&tier()>=1;
+function mkRealm(t){return{pop:60,mil:40,nob:50,stab:60,treas:t*2000000,lands:Math.max(1,t-1),tax:'Normal',years:0};}
+function rx(o){const rm=S.lv9.realm;if(!rm)return;const T=tier()*1000000;for(const k in o){if(k==='tm')rm.treas+=o[k]*T;else if(k==='treas')rm.treas+=o[k];else if(k==='lands')rm.lands=Math.max(1,rm.lands+o[k]);else if(['pop','mil','nob','stab'].includes(k))rm[k]=clamp(Math.round(rm[k]+o[k]),0,100);}pl(o);}
+function setRank(rk,country,hon){S.gender=rk[2];S.lv8.royal={title:rk[1],country:country||S.country,honorific:hon||rk[4],active:true,abdicated:false};S.lv9.realm=rk[3]>=1?mkRealm(rk[3]):null;}
+function becomeRuler(rk,country,pop){setRank(rk,country);if(S.lv9.realm&&pop){Object.assign(S.lv9.realm,pop);}S.money+=START[rk[3]]/4;pl({fame:15,reputation:5});}
+const EVR=[
+[1,'Peasant revolt','Farmers rise against your rule.',[['Crush it','',{pop:-10,mil:-4,stab:6},'The revolt was crushed.'],['Concede','',{pop:8,tm:-1,nob:-4},'You made concessions.'],['Negotiate','',{pop:3,stab:2},'Talks ended the unrest.',[30,{pop:-6,stab:-4},'Talks failed and unrest grew.']]]],
+[1,'Plague','A plague spreads through your lands.',[['Quarantine cities','',{pop:2,tm:-1,stab:3},'Quarantine slowed the plague.'],['Ignore it','',{pop:-8},'The plague took thousands.',[40,{pop:-14,stab:-6},'The plague devastated the realm.']]]],
+[1,'Noble conspiracy','Nobles are plotting against you.',[['Arrest the ringleaders','',{nob:-8,stab:5},'The plot was crushed.'],['Buy their loyalty','',{tm:-1,nob:8},'Gold bought loyalty.'],['Ignore it','',{nob:-3},'Nothing happened... yet.',[25,{stab:-10,pop:-3},'The nobles staged a palace coup attempt.']]]],
+[2,'Foreign alliance offer','A neighbouring power offers an alliance.',[['Accept','',{stab:6,mil:4,nob:-2},'The alliance strengthened you.'],['Decline','',{nob:2},'You kept your independence.']]],
+[1,'Assassination attempt','An assassin strikes!',[['Ride out openly','',{pop:4,fame:3},'You faced it bravely.',[10,{die:1},'The assassin succeeded.']],['Fortify the palace','',{tm:-1,stab:3},'Your guards foiled the plot.']]],
+[1,'Harvest festival','The people want a celebration.',[['Lavish feast','',{pop:8,tm:-1,happiness:4},'The feast was legendary.'],['Modest feast','',{pop:3},'A modest celebration.']]],
+[1,'Rival claimant','Someone claims your throne.',[['Negotiate','',{stab:3,nob:2},'The claimant stood down.',[30,{stab:-6},'The claimant refused and rallied support.']],['Exile them','',{pop:-3,stab:5},'The claimant was exiled.'],['Raise the army','',{mil:5,tm:-1,stab:3},'Your army deterred them.']]],
+[1,'Famine','Crops have failed.',[['Open the granaries','',{tm:-1,pop:6},'Granaries saved the people.'],['Raise taxes','',{treas:0,tm:1,pop:-9},'Taxes rose during hunger.',[30,{pop:-12,stab:-8},'Riots broke out.']]]],
+[2,'Border raid','Raiders hit your border.',[['Send the army','',{mil:-3,pop:4},'The raiders were driven off.'],['Pay tribute','',{tm:-1,pop:-2,mil:-1},'You paid them to leave.']]]];
+function royalApply(e){if(e.die){render();window.endCurrentLife('royal tragedy');return;}rx(e);}
+const RA=[
+['court','👑 Hold royal court','Hear your subjects.',2,0,()=>{rx({pop:r(2,5),nob:r(2,5)});return 'Your court was well attended.';}],
+['banq','🍷 Royal banquet','Win over the nobles.',1,.3,()=>{rx({nob:r(6,10),happiness:5,pop:1});return 'The banquet pleased the nobles.';}],
+['tour','🚗 Royal tour','Visit your lands.',2,0,()=>{rx({pop:r(4,8),fame:r(1,3)});return 'Crowds greeted you everywhere.';}],
+['mon','🏛️ Build a monument','A lasting legacy.',1,2,()=>{rx({pop:r(5,10),fame:r(2,5),nob:3,stab:2});return 'Your monument was unveiled.';}],
+['army','🪖 Raise an army','Stronger military.',1,1,()=>{rx({mil:r(8,14),pop:-2});return 'New regiments were raised.';}],
+['dip','🕊️ Diplomacy','Strengthen foreign ties.',1,0,()=>{if(chance(20)){rx({stab:-3});return 'An envoy was insulted.';}rx({stab:r(4,8),nob:2});return 'Diplomacy went well.';}],
+['par','🔓 Pardon prisoners','Show mercy.',1,0,()=>{rx({pop:r(3,6),stab:-2});return 'The people praised your mercy.';}],
+['take','💰 Take from treasury','Move 15% of the treasury to your cash.',1,0,()=>{const rm=S.lv9.realm,m=Math.round(rm.treas*.15);rm.treas-=m;S.money+=m;rx({pop:-5,nob:-3});return 'You took '+money(m)+'. The court noticed.';}],
+['war','⚔️ Declare war','Win land, or lose badly.',1,0,'war'],
+['up','⬆️ Elevate your realm','Rise to the next rank (needs lands and treasury).',1,0,'up']];
+function doRoyal(id){
+ if(!ruling())return;const a=RA.find(x=>x[0]===id),rm=S.lv9.realm,T=tier()*1000000,c=Math.round(a[4]*T);
+ if(rm.treas<c)return popup('💸 Treasury low',`This needs ${money(c)} in the treasury.`);
+ if(id==='war'){if(rm.mil<25)return popup('⚔️ Too weak','You need military strength 25+ to wage war.');if(!use('r'+id,1,a[1]))return;
+  const p=clamp(25+rm.mil*.6+safeNumber(S.luck,50)*.1,10,85);
+  if(chance(p)){const loot=T*r(1,3);rx({lands:1,tm:0,pop:5,mil:-r(3,8),fame:4});rm.treas+=loot;addEvent(`⚔️ Victory! Your realm gained land and ${money(loot)}.`);popup('⚔️ VICTORY',`Your army won. +1 land, +${money(loot)} spoils.`);}
+  else{rx({mil:-r(12,25),pop:-r(5,10)});rm.treas=Math.round(rm.treas*.75);addEvent('⚔️ Your army was defeated.');popup('⚔️ DEFEAT','Your army was beaten and the treasury suffered.');if(chance(3)){render();window.endCurrentLife('killed in battle');return;}}
+  render();return;}
+ if(id==='up'){const t=tier(),nxt=RANKS.find(x=>x[3]===t+1&&x[2]===S.gender);if(!nxt)return popup('👑 Highest rank','You already hold the highest rank.');
+  const need=[0,2,4,8][t-1]||8,cost=nxt[3]*5000000;if(rm.lands<need||rm.treas<cost)return popup('⬆️ Not ready',`To become <b>${nxt[1]}</b> you need <b>${need}</b> lands and ${money(cost)} in the treasury. You have ${rm.lands} lands and ${money(rm.treas)}.`);
+  rm.treas-=cost;R().title=nxt[1];R().honorific=nxt[4];pl({fame:10,reputation:5});addEvent(`👑 ${playerName()} was elevated to ${nxt[1]}!`);popup('👑 ELEVATED',`You are now <b>${nxt[1]}</b> of ${E(R().country)}.`);render();return;}
+ if(!use('r'+id,a[3],a[1]))return;rm.treas-=c;const m=a[5]();addEvent('👑 '+m);toast(m);render();
+}
+function royalYear(){
+ if(!act())return;const t=tier(),R0=R();
+ if(t===0){ /* heir succession */
+  const par=S.parents||[],dead=par.some(p=>p.alive===false),old=Math.max(0,...par.map(p=>safeNumber(p.age,50)));
+  if(S.age>=16&&(dead||chance(clamp((old-62)*1.8,0.5,45)))){const rk=RANKS.find(x=>x[0]==='king'&&x[2]===S.gender)||RANKS[8];
+   setRank(rk,R0.country);S.money+=START[3]/4;pl({fame:10,reputation:5});addEvent(`👑 ${playerName()} ascended the throne as ${rk[1]}!`);
+   later(()=>popup('👑 THE THRONE IS YOURS',`The monarch is gone. You are now <b>${rk[1]}</b> of ${E(R0.country)}. Open the Royal Court page to rule.`));}
+  return;}
+ if(!S.lv9.realm)S.lv9.realm=mkRealm(t);const rm=S.lv9.realm;rm.years++;
+ const tm=rm.tax==='High'?1.5:rm.tax==='Low'?.6:1,inc=Math.round(rm.lands*t*400000*tm*(.5+rm.stab/100)),exp=Math.round(rm.mil*t*6000+rm.lands*t*100000);
+ rm.treas+=inc-exp;
+ if(rm.treas<0){rm.treas=0;rm.stab=clamp(rm.stab-6,0,100);rm.mil=clamp(rm.mil-5,0,100);addEvent('🏰 The treasury ran dry: soldiers went unpaid.');}
+ rm.pop=clamp(Math.round(rm.pop+(rm.tax==='High'?-4:rm.tax==='Low'?3:0)+(rm.stab-50)/20+r(-3,3)),0,100);
+ rm.nob=clamp(Math.round(rm.nob+r(-4,3)),0,100);rm.stab=clamp(Math.round(rm.stab+(rm.pop-50)/25+(rm.mil-40)/40+r(-3,3)),0,100);rm.mil=clamp(rm.mil-r(0,2),0,100);
+ const extra=Math.max(0,STIP[t]-(/King|Queen/.test(R0.title)?400000:100000));if(extra){S.money+=extra;S.stats.moneyEarned+=extra;}
+ addEvent(`🏰 Realm report: income ${money(inc)}, costs ${money(exp)}.`);
+ if(rm.pop<8||rm.stab<8||(rm.nob<5&&chance(50))){const t0=R0.title;R0.active=false;R0.abdicated=true;S.money=Math.round(S.money*.7);pl({reputation:-20,fame:-10,happiness:-20});addEvent(`🔥 ${playerName()} was overthrown and lost the throne.`);later(()=>popup('🔥 OVERTHROWN',`Revolution! You lost your title as <b>${E(t0)}</b> and 30% of your fortune.`));return;}
+ if(chance(65)){const e=pick(EVR.filter(x=>t>=x[0]));later(()=>evDecision(e,royalApply));}
+}
+function pRoy(){
+ const el=q('lv8_royal_c');if(!el)return;if(!act())el.innerHTML='';
+ const old=q('lv9Roy');if(old)old.remove();
+ const d=document.createElement('div');d.id='lv9Roy';let h='';
+ if(!act()){
+  h=`<div class="card"><h2>👑 Paths to the Throne</h2><p class="muted">${R()&&R().abdicated?'You lost or gave up your title, but you can rise again.':'You are a commoner. Pick a path to power.'}</p><div class="grid">
+  <div class="card"><h3>⚔️ Coup d'état</h3><p class="muted">$3M, age 21+. Chance from fame, reputation and military rank. Failure = prison.</p>${btn('Attempt a coup',"LV9.path('coup')",'danger')}</div>
+  <div class="card"><h3>💍 Royal marriage</h3><p class="muted">Age 18+, fame 25+, unmarried. Become a Prince/Princess consort.</p>${btn('Seek a royal match',"LV9.path('wed')",'good')}</div>
+  <div class="card"><h3>🏝️ Found a micronation</h3><p class="muted">Needs a Private Island. $5M. Rule it as Duke/Duchess.</p>${btn('Declare sovereignty',"LV9.path('micro')",'gold')}</div>
+  <div class="card"><h3>📜 Buy a title</h3><p class="muted">$10M. Become a Duke/Duchess of a small estate.</p>${btn('Buy a title',"LV9.path('buy')")}</div></div></div>`;}
+ else if(tier()===0){const par=S.parents||[];h=`<div class="card"><h2>👑 Heir to the Throne</h2><p class="muted">You will ascend when the ruling monarch dies (parents' ages: ${par.map(p=>p.alive===false?'deceased':p.age).join(', ')}). From age 16 the chance rises each year.</p></div>`;}
+ else{const rm=S.lv9.realm||(S.lv9.realm=mkRealm(tier())),T=tier()*1000000;
+  h=`<div class="card"><h2>🏰 Realm of ${E(R().country)}</h2><p class="muted">Rank tier ${tier()} • Lands ${rm.lands} • Years ruling ${rm.years}</p>
+  <div class="grid"><div>${bar('🙂 Popularity',rm.pop)}</div><div>${bar('🪖 Military',rm.mil)}</div><div>${bar('🎩 Noble loyalty',rm.nob)}</div><div>${bar('🛡️ Stability',rm.stab)}</div></div>
+  <p>💰 Treasury: <b>${money(rm.treas)}</b></p><p>Tax: ${['Low','Normal','High'].map(x=>btn(x,`LV9.tax('${x}')`,rm.tax===x?'gold':'')).join('')}</p><p class="muted">Low: loved but poor. High: rich but hated. Low popularity or stability means revolution.</p></div>
+  <div class="grid">${RA.map(a=>{const c=Math.round(a[4]*T),u=U('r'+a[0]);return `<div class="card"><h3>${a[1]}</h3><p class="muted">${a[2]}${c?'<br>Treasury cost '+money(c):''}</p>${btn(`Do it ${u}/${a[3]}`,`LV9.royal('${a[0]}')`,'',u>=a[3])}</div>`;}).join('')}</div>`;}
+ d.innerHTML=h;el.appendChild(d);
+}
+const PATH={
+ coup(){if(S.age<21)return popup('🔒 Too young','Coups need age 21+.');if(S.prisonYears>0)return;if(S.money<3000000)return popup('💸 Not enough money','A coup costs $3M.');if(!confirm('Attempt a coup? Failure means prison.'))return;
+  S.money-=3000000;const mil=S.careerTrack==='Military'?S.careerLevel*4:0,p=clamp(10+S.fame*.2+S.reputation*.15+mil,5,60);
+  if(chance(p)){const rk=RANKS.find(x=>x[0]==='king'&&x[2]===S.gender)||RANKS[8];becomeRuler(rk,S.country,{pop:35,stab:30,mil:60});addEvent(`⚔️ ${playerName()} seized power as ${rk[1]}.`);popup('⚔️ COUP SUCCEEDED',`You are now <b>${rk[1]}</b> of ${E(S.country)}. The people are wary.`);}
+  else{S.criminalRecord=true;S.prisonYears=r(3,8);S.wanted=5;pl({reputation:-25,fame:-10});addEvent('⚔️ The coup failed. You were imprisoned.');popup('⚔️ COUP FAILED',`You were arrested. Sentence: ${S.prisonYears} years. Odds were ${Math.round(p)}%.`);}render();},
+ wed(){if(S.age<18)return popup('🔒 Too young','Age 18+.');if(S.fame<25)return popup('⭐ Not famous enough','You need fame 25+.');if(S.married&&S.partner&&S.partner.alive!==false)return popup('💍 Already married','Marry again after your spouse passes.');
+  decision('💍 Royal match','Whom will you marry?',[['Male','👑 A prince/king'],['Female','👑 A princess/queen']].map(x=>({title:x[1],action:()=>{const nm=pick(x[0]==='Male'?['Alexander','Frederick','Henrik','Louis']:['Victoria','Isabelle','Margarethe','Sophia'])+' '+pick(['of Windsor','of Orange','of Savoy','of Bourbon']);
+   S.partner={name:nm,gender:x[0],age:Math.max(18,S.age+r(-3,5)),relationship:r(60,85),wealth:r(5e6,5e7),alive:true};S.married=true;
+   const rk=RANKS.find(k=>k[0]==='prince'&&k[2]===S.gender);setRank(rk,S.country);pl({fame:15,reputation:8});addEvent(`💍 ${playerName()} married royalty: ${nm}.`);popup('💍 ROYAL WEDDING',`You married <b>${E(nm)}</b> and became <b>${rk[1]}</b>. Await succession to rule.`);render();}})));},
+ micro(){if(!(S.houses.includes('Private Island')||(S.v5&&S.v5.assets&&Object.values(S.v5.assets).flat().some(s=>/Island Resort/.test(s)))))return popup('🏝️ No island','You need to own a Private Island.');if(S.money<5000000)return popup('💸 Not enough money','Founding a micronation costs $5M.');
+  S.money-=5000000;const rk=RANKS.find(x=>x[0]==='duke'&&x[2]===S.gender)||RANKS[4];becomeRuler(rk,(S.name.split(' ').pop()||'Free')+' Isles',{pop:70,stab:70,mil:20});addEvent(`🏝️ ${playerName()} founded the micronation of ${R().country}.`);popup('🏝️ SOVEREIGN',`You are <b>${rk[1]}</b> of ${E(R().country)}. Expand with war and elevation!`);render();},
+ buy(){if(S.money<10000000)return popup('💸 Not enough money','A title costs $10M.');S.money-=10000000;const rk=RANKS.find(x=>x[0]==='duke'&&x[2]===S.gender)||RANKS[4];becomeRuler(rk,'The '+(S.name.split(' ').pop()||'')+' Estate',{});addEvent(`📜 ${playerName()} bought the title ${rk[1]}.`);popup('📜 TITLED',`You are now <b>${rk[1]}</b>.`);render();}
+};
+
+/* =========================================================
+   4. REAL ESTATE: RENT / SELL + ASSETS OWNED
+   ========================================================= */
+function hv(n){const f=houses.find(h=>h[0]===n);return f?f[1]:0;}
+window.processPropertyRentalIncome=function(){
+ init();let tot=0;const cond=(S.lifePlus&&S.lifePlus.homeCondition!==undefined?S.lifePlus.homeCondition:100)/100;
+ S.houses.forEach((n,i)=>{if(S.lv9.rent[i])tot+=hv(n)*.06*(.6+.4*cond);});
+ if(tot<=0)return;tot=Math.round(tot*.9);S.money+=tot;S.stats.moneyEarned+=tot;addEvent(`🏘️ Tenants paid ${money(tot)} in rent.`);
+ if(chance(8)&&S.lifePlus){S.lifePlus.homeCondition=clamp(S.lifePlus.homeCondition-5,0,100);S.money=Math.max(0,S.money-5000);addEvent('🛠️ Tenants damaged a property (-$5,000).');}
+};
+function ownedList(){const L=[],ap=S.assetPortfolio||{};
+ S.houses.forEach((n,i)=>L.push({k:'h'+i,i:'🏠',t:'Property',n,v:hv(n),f:1,rent:i,rm:()=>{S.houses.splice(i,1);S.lv9.rent.splice(i,1);}}));
+ (S.rentals||[]).forEach((n,i)=>L.push({k:'r'+i,i:'🔑',t:'Rental (you rent it)',n,v:0,f:0,rm:()=>S.rentals.splice(i,1)}));
+ S.cars.forEach((n,i)=>{const f=cars.find(c=>c[0]===n);L.push({k:'c'+i,i:'🚗',t:'Vehicle',n,v:f?f[1]:0,f:.6,rm:()=>S.cars.splice(i,1)});});
+ Object.keys(ap).forEach(t=>{if(!Array.isArray(ap[t]))return;ap[t].forEach((n,i)=>{const f=((typeof megaAssets!=='undefined'&&megaAssets[t])||[]).find(x=>x[0]===n);L.push({k:'m'+t+i,i:'💎',t:'Asset',n,v:f?f[1]:0,f:.85,rm:()=>ap[t].splice(i,1)});});});
+ const v5=(S.v5&&S.v5.assets)||{};Object.values(v5).flat().forEach((s,i)=>{const f=(typeof v5Assets!=='undefined'?v5Assets:[]).find(a=>String(s).includes(a[1]));
+  L.push({k:'v'+i,i:'🏢',t:'Asset',n:String(s).replace(/^[^:]*:\s*/,''),v:f?f[3]:0,f:.85,rm:()=>{let pos=i;for(const key of Object.keys(v5)){if(pos<v5[key].length){v5[key].splice(pos,1);return;}pos-=v5[key].length;}}});});
+ return L;}
+function pOwned(){
+ const el=q('lv8_owned_c');if(!el)return;init();const L=ownedList(),sel=L.find(x=>x.k===S.lv8.sel);
+ if(!sel){S.lv8.sel=null;el.innerHTML=`<div class="lv8bar">You own <b>${L.length}</b> asset(s) worth about <b>${money(L.reduce((a,x)=>a+x.v,0))}</b>. Open one to rent it out, sell it or host a party.</div><div class="grid">${L.map(x=>`<div class="card"><h3>${x.i} ${E(x.n)}</h3><p class="muted">${x.t}${x.v?' • '+money(x.v):''}${x.rent!==undefined&&S.lv9.rent[x.rent]?' • 🏘️ rented out':''}</p>${btn('Open',`LV9.open('${x.k}')`)}</div>`).join('')||'<div class="card muted">You own nothing yet. Buy something on the Assets page.</div>'}</div>`;return;}
+ const price=Math.round(sel.v*sel.f),cost=clamp(Math.round(sel.v*.004),300,30000),rented=sel.rent!==undefined&&S.lv9.rent[sel.rent];
+ el.innerHTML=`${btn('← Back','LV9.back()')}<div class="card"><h2>${sel.i} ${E(sel.n)}</h2><p>${sel.t}${sel.v?' • Value '+money(sel.v):''}</p>
+ ${sel.rent!==undefined?`<p class="muted">Renting out earns about ${money(Math.round(sel.v*.06*.9))}/year (less if the home is in poor condition).</p>${btn(rented?'🏘️ Stop renting out':'🏘️ Rent it out',`LV9.rentTog(${sel.rent})`,rented?'':'good')}`:''}
+ ${sel.f?btn('💰 Sell (about '+money(price)+')',`LV9.sell('${sel.k}')`,'danger'):btn('🔑 End rental',`LV9.sell('${sel.k}')`,'danger')}
+ ${sel.f?btn('🎉 Party ('+money(cost)+')',`LV9.party('${sel.k}')`,'gold'):''}</div>`;
+}
+function assetBtn(){const b=q('lv8AssetBtn');if(b)b.innerHTML=`<h2>📦 Assets Owned</h2><p class="muted">See everything you own. Rent out or sell any property, vehicle or business, or host a party.</p>${btn('📦 Open Assets Owned',"LV9.goto('lv8_owned')",'gold')}`;
+ const s=q('houses');if(s&&!q('lv9RentNote')){const p=document.createElement('p');p.id='lv9RentNote';p.className='muted';p.textContent='Tip: open Assets Owned to rent out or sell any building.';s.parentNode.insertBefore(p,s);}}
+function fixDep(){const b=q('lv8Dep');if(!b||!S.lv8)return;const d=S.lv8.dep,us=S.lv8.used||{};
+ b.innerHTML=`<h2>🧠 Depression</h2>`+(d.active?`<p class="red"><b>Active</b> • severity ${d.sev}/3</p>${btn('🗣️ Therapy ($400)',"LV8.dep('t')",'good',(us.dept||0)>=1)}${btn('💊 Medication ($600)',"LV8.dep('m')",'',(us.depm||0)>=1)}`:`<p class="green">No depression.</p>`);}
+
+/* =========================================================
+   5. SPACE PROGRAM
+   ========================================================= */
+const RK=[['🚀','Suborbital Hopper',2e6,150000,1],['🛰️','Orbital Shuttle',15e6,900000,2],['🌙','Lunar Lander',60e6,3e6,3],['🔴','Mars Cruiser',250e6,12e6,4],['🌌','Deep Space Explorer',1e9,40e6,5]];
+const DS=[['Edge of Space',1,2,100000,'🌍'],['Space Station',2,3,400000,'🛰️'],['The Moon',3,5,1e6,'🌙'],['Venus',4,9,3e6,'🟡'],['Mars',4,8,4e6,'🔴'],['Asteroid Belt',4,10,5e6,'☄️'],['Europa (Jupiter)',5,12,20e6,'🧊'],['Titan (Saturn)',5,13,25e6,'🪐'],['Neptune',5,16,40e6,'🔵']];
+function rv(k){return Math.round(RK[k][2]*.7);}
+function buyRocket(i){init();const m=RK[i];if(S.age<18)return popup('🔒 Too young','You must be 18+ to own a spacecraft.');if(S.money<m[2])return popup('💸 Not enough money',`${m[1]} costs ${money(m[2])}.`);if(S.lv9.rockets.length>=4)return popup('🚀 Hangar full','Maximum 4 spacecraft.');
+ S.money-=m[2];S.lv9.rockets.push({m:i,cond:100,flights:0});addEvent(`🚀 ${playerName()} bought a ${m[1]} (maintenance ${money(m[3])}/year).`);render();}
+function overhaul(i){const k=S.lv9.rockets[i];if(!k)return;const c=RK[k.m][3];if(!use('oh'+i,1,'An overhaul'))return;if(S.money<c){S.lv9.used['oh'+i]--;return popup('💸 Not enough money',`An overhaul costs ${money(c)}.`);}S.money-=c;k.cond=clamp(k.cond+40,0,100);toast('Overhaul complete.');render();}
+function sellRocket(i){const k=S.lv9.rockets[i];if(!k)return;const v=Math.round(RK[k.m][2]*.55*(k.cond/100+.3));if(!confirm(`Sell for ${money(v)}?`))return;S.money+=v;S.lv9.rockets.splice(i,1);render();}
+function fly(i){
+ const k=S.lv9.rockets[i];if(!k)return;const m=RK[k.m],d=DS[Number(q('rkd'+i).value)];if(!d)return;
+ if(S.age<18)return popup('🔒 Too young','Spaceflight requires age 18+.');if(S.age>80)return popup('🔒 Too old','Spaceflight is not allowed past age 80.');
+ if(d[1]>m[4])return popup('🚀 Wrong ship',`${d[0]} needs a tier ${d[1]} ship. Your ${m[1]} is tier ${m[4]}.`);
+ if(k.cond<20)return popup('🛠️ Grounded','This ship is too damaged to launch. Overhaul it first.');
+ if(S.prisonYears>0)return;if(S.money<d[3])return popup('💸 Fuel & crew',`This trip costs ${money(d[3])}.`);if(!use('fly',1,'A space flight'))return;
+ S.money-=d[3];
+ const ageRisk=S.age<21?8:S.age>75?30:S.age>60?(S.age-60)*1.2:0,p=clamp(d[2]+ageRisk+(100-k.cond)*.12+(100-S.health)*.06-safeNumber(S.luck,50)*.03-safeNumber(S.discipline,50)*.02,1,80);
+ k.flights++;k.cond=clamp(k.cond-r(5,15),0,100);S.lv9.trips++;
+ if(chance(p)){addEvent(`💀 ${playerName()} died on a mission to ${d[0]}.`);popup('💀 MISSION LOST',`Your ${m[1]} was lost on the way to <b>${d[0]}</b> (death chance was ${Math.round(p)}%).`);render();window.endCurrentLife('space accident');return;}
+ const first=!S.lv9.visited[d[0]];S.lv9.visited[d[0]]=1;const rw=r(10000,200000)*d[1]*(first?3:1),fame=r(2,8)+(first?6:0);
+ S.money+=rw;pl({happiness:r(8,18),fame});let hurt='';if(chance(20)){const h=r(5,25);pl({health:-h});hurt=` You were injured (-${h} health).`;}
+ addEvent(`${d[4]} ${playerName()} traveled to ${d[0]}.`);popup(`${d[4]} ${d[0]}!`,`You made it. Documentary and sponsorship earnings: <b>${money(rw)}</b>, +${fame} fame${first?' (first visit bonus!)':''}.${hurt}<br><span class="muted">Death chance was ${Math.round(p)}%.</span>`);render();
+}
+function pSpace(){
+ const el=q('lv9_space_c');if(!el)return;init();const rk=S.lv9.rockets;
+ el.innerHTML=`<div class="card"><p class="muted">Spacecraft have huge yearly maintenance. If you cannot pay, the ship decays and may be grounded. <b>Safe flying age: 21 to 60.</b> Younger or older pilots face extra risk (18+ only, 80 max). One flight per year. Cash: ${money(S.money)}</p></div>
+ <h2>🛒 Buy a spacecraft</h2><div class="grid">${RK.map((m,i)=>`<div class="card"><h3>${m[0]} ${m[1]}</h3><p>${money(m[2])}<br><span class="muted">Tier ${m[4]} • Maintenance ${money(m[3])}/yr</span></p>${btn('Buy',`LV9.rocket(${i})`)}</div>`).join('')}</div>
+ <h2>🏗️ Your hangar</h2><div class="grid">${rk.map((k,i)=>{const m=RK[k.m];return `<div class="card"><h3>${m[0]} ${m[1]}</h3>${bar('Condition',k.cond)}<p class="muted">Flights ${k.flights} • Maintenance ${money(m[3])}/yr • Value ${money(rv(k.m))}</p>
+ <select id="rkd${i}">${DS.map((d,j)=>d[1]<=m[4]?`<option value="${j}">${d[4]} ${d[0]} (${d[2]}% base risk, ${money(d[3])})</option>`:'').join('')}</select>
+ ${btn('🚀 Launch',`LV9.fly(${i})`,'gold')}${btn('🛠️ Overhaul',`LV9.over(${i})`,'good')}${btn('💰 Sell',`LV9.rsell(${i})`,'danger')}</div>`;}).join('')||'<div class="card muted">No spacecraft yet.</div>'}</div>
+ <p class="muted">Places visited: ${Object.keys(S.lv9.visited).join(', ')||'none'} • Flights: ${S.lv9.trips}</p>`;
+}
+function rocketYear(){
+ S.lv9.rockets.forEach(k=>{const m=RK[k.m];if(S.money>=m[3]){S.money-=m[3];k.cond=clamp(k.cond+r(0,8),0,100);}else{k.cond=clamp(k.cond-r(15,30),0,100);addEvent(`🛠️ You could not afford maintenance on your ${m[1]}. It is decaying.`);}});
+ if(S.lv9.rockets.length)addEvent(`🚀 Spacecraft maintenance paid for ${S.lv9.rockets.length} ship(s).`);
+}
+const _nw=window.netWorth;
+window.netWorth=function(){const v=(S.lv9&&S.lv9.rockets||[]).reduce((a,k)=>a+Math.round(RK[k.m][2]*.7),0);return _nw()+v;};
+[['Astronaut','Fly into space.',()=>S.lv9&&S.lv9.trips>=1],['Moon Walker','Visit the Moon.',()=>S.lv9&&S.lv9.visited['The Moon']],['Martian','Visit Mars.',()=>S.lv9&&S.lv9.visited['Mars']],['Deep Space Pioneer','Visit 5 destinations.',()=>S.lv9&&Object.keys(S.lv9.visited).length>=5],
+['Ruler','Hold a ruling title.',()=>S.lv8&&S.lv8.royal&&S.lv8.royal.active&&S.lv9&&S.lv9.realm],['Emperor of All','Become an Emperor/Empress/Kaiser.',()=>S.lv8&&S.lv8.royal&&S.lv8.royal.active&&/Emperor|Empress|Kaiser/.test(S.lv8.royal.title)],['Landlord of Many','Rent out 3 properties.',()=>S.lv9&&S.lv9.rent.filter(Boolean).length>=3]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+
+/* =========================================================
+   WIRING
+   ========================================================= */
+window.LV9={
+ fb(v){init();const n=v==='all'?Math.floor(S.money):Math.floor(S.money/2);S.lv8.bet=n;const i=q('lv9FBet');if(i)i.value=n;},
+ gov:doGov,royal:doRoyal,tax(t){if(!ruling())return;S.lv9.realm.tax=t;render();},path(p){PATH[p]();},
+ open(k){S.lv8.sel=k;render();},back(){S.lv8.sel=null;render();},goto(id){showPage(id,q('nav_'+id));},
+ rentTog(i){init();S.lv9.rent[i]=!S.lv9.rent[i];render();},
+ sell(k){const e=ownedList().find(x=>x.k===k);if(!e)return;const p=Math.round(e.v*e.f*r(92,103)/100);if(!confirm(e.f?`Sell ${e.n} for ${money(p)}?`:`End the rental of ${e.n}?`))return;S.money+=p;e.rm();S.lv8.sel=null;addEvent(e.f?`💰 ${playerName()} sold ${e.n} for ${money(p)}.`:`🔑 ${playerName()} ended the rental of ${e.n}.`);render();},
+ party(k){S.lv8.sel=k;LV8.party();},
+ rocket:buyRocket,fly,over:overhaul,rsell:sellRocket
+};
+/* start menu: more titles */
+const sel=q('lv8Royal');if(sel)RANKS.forEach(x=>{if(![...sel.options].some(o=>(o.value||o.text)===x[1])){const o=document.createElement('option');o.value=x[1];o.textContent=x[1];sel.appendChild(o);}});
+const _bnl=window.beginNewLife;
+window.beginNewLife=function(){const rs=q('lv8Royal'),role=rs?rs.value:'None',h=String(q('lv8Hon')&&q('lv8Hon').value||'').replace(/[<>&"'`]/g,'').trim().slice(0,40);
+ _bnl.apply(this,arguments);init();const rk=RANKS.find(x=>x[1]===role);
+ if(rk){const had=S.lv8.royal&&S.lv8.royal.active;if(!had){setRank(rk,S.country,h);S.money+=START[rk[3]];pl({fame:30,reputation:10});addEvent(`👑 ${playerName()} was born ${rk[1]} of ${S.country}.`);}else if(rk[3]>=1)S.lv9.realm=mkRealm(rk[3]);}
+ render();};
+const _ch=window.chooseHeir;
+window.chooseHeir=function(i){const o=R(),realm=S.lv9&&S.lv9.realm,key=o&&o.active&&rank()?rank()[0]:null;_ch.apply(this,arguments);init();
+ if(o&&o.active&&key){const rk=RANKS.find(x=>x[0]===key&&x[2]===S.gender)||rank();S.lv8.royal={title:rk[1],country:o.country,honorific:rk[4],active:true,abdicated:false};S.lv9.realm=realm||null;addEvent(`👑 ${playerName()} inherited the title ${rk[1]} of ${o.country}.`);render();}};
+const _age=window.ageUp;
+window.ageUp=function(){init();if(S.dead)return _age.apply(this,arguments);if(S.v6)S.v6.rentOut=false;const b=S.age,s0=S;_age.apply(this,arguments);
+ if(!S.dead&&s0===S&&S.age>b){init();S.lv9.used={};govYear();royalYear();rocketYear();render();drain();}};
+const PG=[['lv9_gov','🏛️ Government'],['lv9_space','🚀 Space Program']];
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side)return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ PG.forEach(([id,l])=>{if(q(id))return;const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=`<h1>${l}</h1><div id="${id}_c"></div>`;main.appendChild(s);const b=document.createElement('button');b.className='nav';b.id='nav_'+id;b.textContent=l;b.setAttribute('onclick',`showPage('${id}',this)`);side.insertBefore(b,anc);});})();
+const on=id=>q(id)&&q(id).classList.contains('active');
+const _render=window.render;
+window.render=function(){init();_render();hideOldFight();assetBtn();fixDep();
+ const nr=q('nav_lv8_royal');if(nr)nr.style.display='';
+ if(on('casino'))casinoFight();if(on('lv8_owned'))pOwned();if(on('lv8_royal'))pRoy();if(on('lv9_gov'))pGov();if(on('lv9_space'))pSpace();
+ if(act()&&q('nameTitle')){const t=q('nameTitle');if(!t.textContent.startsWith(R().title))t.textContent=R().title+' '+S.name;}};
+init();render();
+})();
+</script>
+
 </body>
 </html>
