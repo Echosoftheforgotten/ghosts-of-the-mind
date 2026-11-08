@@ -9213,5 +9213,281 @@ render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V8 MAJOR UPDATE ADD-ON
+  PASTE RIGHT BEFORE </body>, AFTER ALL OTHER SCRIPTS (must be LAST).
+  Spa, Mother Nature, Fight Betting, Black Market (reduces crime catch
+  chance), Siblings, Funerals, Inheritance overhaul, Assets Owned + Party,
+  Royalty (+ Royal Court), Friends leaving, Depression, Family illnesses.
+  Old saves are preserved (everything lives in S.lv8).
+  ===================================================================== -->
+<style>
+.lv8bar{padding:12px 14px;border-radius:10px;margin-bottom:14px;border:1px solid #334155;background:#0c121b}
+.lv8row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lv8ill{background:#401b23;color:#fca5a5}
+#lv8toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);max-width:92vw;background:#12091f;border:1px solid #c084fc;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;opacity:0;pointer-events:none;transition:.2s}
+#lv8toast.show{opacity:1}
+</style>
+<script>
+(function(){
+'use strict';
+if(window.__LV8)return;window.__LV8=1;
+const q=id=>document.getElementById(id),E=escapeHTML,pick=a=>a[rand(0,a.length-1)];
+const shuf=a=>a.map(x=>[Math.random(),x]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+const clean=s=>String(s||'').replace(/[<>&"'`]/g,'').trim().slice(0,40);
+const MALE=['James','John','Robert','Michael','William','David','Daniel','Lucas','Leo','Max','Ethan','Noah','Raj','Hiro','Omar'];
+const FEMALE=['Mary','Emma','Olivia','Sophia','Ava','Mia','Chloe','Lily','Grace','Maya','Priya','Mei','Yuki','Sofia','Aisha'];
+function init(){
+ if(!S.lv8||typeof S.lv8!=='object')S.lv8={};
+ const d={used:{},royal:null,inv:[],bm:{stock:[]},funerals:{},fight:null,bet:500,sel:null,parties:{},dep:{active:false,sev:0,years:0}};
+ for(const k in d)if(S.lv8[k]===undefined||S.lv8[k]===null)S.lv8[k]=d[k];
+}
+function fx(o){for(const k in o){if(k==='money')S.money=Math.max(0,S.money+o[k]);else S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}}
+function toast(m){let t=q('lv8toast');if(!t){t=document.createElement('div');t.id='lv8toast';document.body.appendChild(t);}t.textContent=m;t.className='show';clearTimeout(t._h);t._h=setTimeout(()=>t.className='',3500);}
+const u=id=>S.lv8.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;
+ if(u(id)>=max){popup('⏳ Limit reached',`You've used <b>${label}</b> the maximum ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${label} costs <b>${money(cost)}</b>.`);return false;}
+ S.money-=cost;S.lv8.used[id]=u(id)+1;S.stats.activities++;return true;}
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+/* popup queue (shows after the age-up popup is closed) */
+const Q=[];let dr=0;
+function drain(){if(dr)return;dr=1;(function t(){if(!Q.length){dr=0;return;}const bg=q('popupBg');
+ if(bg.style.display==='flex'||q('startMenu').style.display==='flex'){setTimeout(t,700);return;}Q.shift()();setTimeout(t,700);})();}
+
+/* ================= MEMBERS / ILLNESS ================= */
+const GR=['grandparents','greatGrandparents','aunts','uncles','cousins','nieces','nephews','grandSiblings'];
+function members(){const m=[];(S.parents||[]).forEach(o=>{if(o.alive!==false)m.push([o,'parent']);});
+ (S.siblings||[]).forEach(o=>{if(o.alive!==false)m.push([o,'sibling']);});
+ const ef=S.extendedFamily||{};GR.forEach(k=>(ef[k]||[]).forEach(o=>{if(o.alive!==false)m.push([o,k]);}));return m;}
+const ILL=[['Flu',0,0],['Pneumonia',30,0],['High Blood Pressure',40,1],['Type 2 Diabetes',40,1],['Arthritis',55,1],['Heart Disease',55,1],['Dementia',70,1],['Depression',14,1]];
+function illYear(){members().forEach(([o,g])=>{const age=safeNumber(o.age,30);
+ if(o.illness){const il=o.illness;
+  if(!il.chronic&&chance(75)){addEvent(`💚 ${o.name} recovered from ${il.n}.`);o.illness=null;return;}
+  if(il.chronic&&age>=55&&chance(clamp((age-55)*.5+1,1,25))){o.alive=false;o.illness=null;
+   if(g==='parent'||g==='grandparents')fx({happiness:-rand(5,12)});addEvent(`🕊️ ${o.name} passed away after a long illness at age ${age}.`);}
+ }else if(chance(2+Math.max(0,age-35)*.3)){const x=pick(ILL.filter(i=>age>=i[1]));o.illness={n:x[0],chronic:!!x[2],since:age};
+  addEvent(`🤒 ${o.name} was diagnosed with ${x[0]}.`);if(g==='parent'||g==='grandparents'||g==='sibling')fx({happiness:-rand(1,4)});}});}
+function badges(){const map=new Map();members().forEach(([o])=>{if(o.illness)map.set(o.name,o.illness.n);});if(!map.size)return;
+ ['familyList','v5FullFamily','dynasty'].forEach(id=>{const c=q(id);if(!c)return;c.querySelectorAll('b').forEach(b=>{
+  for(const [n,i] of map)if(b.textContent.includes(n)){if(!(b.nextElementSibling&&b.nextElementSibling.classList.contains('lv8ill')))b.insertAdjacentHTML('afterend',` <span class="badge lv8ill">🤒 ${E(i)}</span>`);break;}});});}
+
+/* ================= DEPRESSION ================= */
+function depYear(){const d=S.lv8.dep;
+ if(!d.active){if(S.age>=10&&S.happiness<35&&chance((35-S.happiness)*1.8+4)){d.active=true;d.sev=rand(1,2);d.years=0;
+  addEvent(`🧠 ${playerName()} was diagnosed with Depression.`);Q.push(()=>popup('🧠 Diagnosis','Your low happiness has developed into <b>Depression</b>. Visit the Doctor page for therapy or medication.'));}}
+ else{d.years++;fx({happiness:-rand(1,4),energy:-rand(0,4),health:-rand(0,2)});
+  if(S.happiness>65&&chance(40))d.sev--;else if(d.sev<3&&chance(10))d.sev++;
+  if(d.sev<=0){d.active=false;d.sev=0;addEvent(`💚 ${playerName()} recovered from Depression.`);}}}
+function pDoc(){const s=q('doctor');if(!s)return;let b=q('lv8Dep');if(!b){b=document.createElement('div');b.id='lv8Dep';b.className='card';s.appendChild(b);}
+ const d=S.lv8.dep;
+ b.innerHTML=`<h2>🧠 Depression</h2>`+(d.active?`<p class="red"><b>Active</b> • severity ${d.sev}/3 • ${d.years} yr</p><p class="muted">Costs happiness and energy every year.</p>${btn('🗣️ Therapy ($400)','LV8.dep("t")','good',u('dept')>=1)}${btn('💊 Medication ($600)','LV8.dep("m")','',u('depm')>=1)}`:`<p class="green">No depression.</p><p class="muted">Happiness below 35 raises the risk. Current: ${S.happiness}%.</p>`);}
+
+/* ================= ESTATES ================= */
+function toKids(amt,from){amt=Math.max(0,Math.round(amt));if(!amt)return;
+ const k=[{p:1}].concat((S.siblings||[]).filter(s=>s.alive!==false).map(o=>({o}))),sh=Math.floor(amt/k.length),rem=amt-sh*k.length;
+ k.forEach(x=>{if(x.p)S.money+=sh+rem;else x.o.wealth=safeNumber(x.o.wealth,0)+sh;});S.stats.inheritances++;
+ addEvent(`💰 ${from}'s estate of ${money(amt)} passed to their children: you received ${money(sh+rem)}${k.length>1?` (${k.length} heirs)`:''}.`);}
+function distribute(est,rec,from){if(!rec.length)return toKids(est,from);
+ const sh=Math.floor(est/rec.length),rem=est-sh*rec.length;
+ rec.forEach((o,i)=>{const a=sh+(i?0:rem);if(o.alive===false)toKids(a,o.name);else o.wealth=safeNumber(o.wealth,0)+a;});
+ addEvent(`💰 ${from}'s estate of ${money(est)} passed to their children (${rec.length} heir${rec.length>1?'s':''}, about ${money(sh)} each).`);}
+const sideOf=(g,i)=>/paternal/i.test(g.role||'')&&!/maternal/i.test(g.role||'')?'p':/maternal/i.test(g.role||'')?'m':(i<2?'m':'p');
+function settleAll(){const ef=S.extendedFamily;if(!ef)return;
+ ['aunts','uncles'].forEach(k=>(ef[k]||[]).forEach((p,i)=>{if(!p.side)p.side=i%2?'p':'m';}));
+ (ef.grandparents||[]).forEach((g,i)=>{if(g.alive!==false||g.settled)return;g.settled=true;const est=Math.round(safeNumber(g.wealth,0));g.wealth=0;if(est<=0)return;
+  const sd=sideOf(g,i),par=(S.parents||[]).find(p=>p.role===(sd==='m'?'Mother':'Father')),rec=[];if(par)rec.push(par);
+  ['aunts','uncles'].forEach(k=>(ef[k]||[]).forEach(p=>{if(p.alive!==false&&p.side===sd)rec.push(p);}));distribute(est,rec,g.name);});
+ (ef.greatGrandparents||[]).forEach(g=>{if(g.alive!==false||g.settled)return;g.settled=true;const est=Math.round(safeNumber(g.wealth,0));g.wealth=0;if(est<=0)return;
+  let rec=(ef.grandparents||[]).filter(p=>p.alive!==false);if(!rec.length)rec=(S.parents||[]).filter(p=>p.alive!==false);distribute(est,rec,g.name);});
+ (S.parents||[]).forEach(p=>{if(p.alive===false&&!p.settled&&/^(Mother|Father)$/.test(p.role||'')){p.settled=true;const est=Math.round(safeNumber(p.wealth,0));p.wealth=0;if(est>0)toKids(est,p.name);}});}
+/* the older family add-on settles grandparent estates inside ageUp; undo that and redo it correctly */
+function snap(){const ef=S.extendedFamily||{},l=[];[S.parents,ef.grandparents,ef.greatGrandparents,ef.aunts,ef.uncles].forEach(a=>(a||[]).forEach(o=>l.push([o,o.alive!==false,safeNumber(o.wealth,0)])));
+ return{S,l,inh:S.stats.inheritances,gp:[].concat(ef.grandparents||[],ef.greatGrandparents||[])};}
+function fixEstates(sn){if(sn.S!==S)return;const died=sn.l.filter(x=>x[1]&&x[0].alive===false&&sn.gp.includes(x[0]));if(!died.length)return;
+ let tot=0;sn.l.forEach(x=>{x[0].wealth=x[2];});died.forEach(x=>{x[0].settled=false;tot+=x[2];});
+ if(S.stats.inheritances>sn.inh){S.money=Math.max(0,S.money-tot);S.stats.inheritances=sn.inh;}
+ const yr=S.birthYear+S.age,bad=e=>e.year===yr&&/estate of .*(split equally|no other heirs)/.test(e.text);
+ S.events=(S.events||[]).filter(e=>!bad(e));S.news=(S.news||[]).filter(e=>!bad(e));}
+
+/* ================= BLACK MARKET ================= */
+const BM=[['Compact Pistol','Gun',4500,12,3],['Silenced Pistol','Gun',9500,18,3],['Hunting Rifle','Gun',7000,14,4],['Revolver','Gun',3800,10,3],
+['Combat Knife','Weapon',600,6,4],['Brass Knuckles','Weapon',350,4,4],['Stun Baton','Weapon',1200,7,4],['Crossbow','Weapon',2500,10,3],
+['Lockpick Set','Contraband',800,8,5],['Burner Phones','Contraband',300,5,3],['Fake ID','Contraband',2500,9,2],['Signal Jammer','Contraband',5500,13,3],
+['Disguise Kit','Contraband',1500,8,3],['Forged Documents','Contraband',4000,11,2],['Night-Vision Goggles','Contraband',3000,7,5]];
+function genStock(){return shuf(BM).slice(0,rand(5,7)).map(it=>({id:Math.random().toString(36).slice(2,8),n:it[0],c:it[1],p:Math.round(it[2]*rand(80,125)/100),b:it[3],u:it[4]}));}
+function crimeBonus(){const l=S.lv8.inv.filter(i=>i.u>0).sort((a,b)=>b.b-a.b).slice(0,2);return Math.min(30,l.reduce((a,i)=>a+i.b,0));}
+function consume(bonus){const l=S.lv8.inv.filter(i=>i.u>0).sort((a,b)=>b.b-a.b).slice(0,2);l.forEach(i=>i.u--);S.lv8.inv=S.lv8.inv.filter(i=>i.u>0);
+ addEvent(`🕶️ Black-market gear lowered the chance of being caught by ${bonus}%.`);toast(`🕶️ Gear used: -${bonus}% catch chance`);}
+function wrapCrime(o,name){const f=o[name];if(typeof f!=='function')return;
+ o[name]=function(){init();const bonus=crimeBonus(),c0=S.stats.crimes,orig=window.chance;
+  if(bonus>0)window.chance=function(p){window.chance=orig;return orig(Math.max(1,p-bonus));};
+  try{return f.apply(this,arguments);}finally{window.chance=orig;if(bonus>0&&S.stats.crimes>c0)consume(bonus);}};}
+wrapCrime(window,'commitCrime');if(window.KILL)wrapCrime(window.KILL,'go');
+function pBM(){const L=S.lv8;if(!L.bm.stock.length)L.bm.stock=genStock();const b=crimeBonus();
+ const el=q('lv8_bm_c');if(!el)return;
+ el.innerHTML=`<div class="lv8bar">🕶️ Shady dealers. Stock changes each visit. Weapons and contraband <b>lower your chance of being caught</b> in any crime (including homicide); each crime uses up one charge of your best two items.<br><b>Current catch-chance reduction: -${b}%</b> (max 30%) • Cash: ${money(S.money)}<br>${btn('🔄 Find a new dealer ($250) '+u('bm')+'/3','LV8.newDealer()','gold',u('bm')>=3)}</div>
+ <h2>For sale</h2><div class="grid">${L.bm.stock.map(i=>`<div class="card"><h3>${E(i.n)}</h3><span class="badge">${i.c}</span><p>${money(i.p)}<br><small class="muted">-${i.b}% catch chance • ${i.u} use(s)</small></p>${btn('Buy',`LV8.buy('${i.id}')`)}</div>`).join('')||'<div class="card muted">Sold out. Find a new dealer.</div>'}</div>
+ <h2>Your inventory</h2><div class="grid">${L.inv.map((i,x)=>`<div class="card"><h3>${E(i.n)}</h3><span class="badge">${i.c}</span><p><small class="muted">-${i.b}% catch chance • ${i.u} use(s) left</small></p>${btn('Sell back ('+money(Math.round(i.p*.4))+')',`LV8.sell(${x})`,'danger')}</div>`).join('')||'<div class="card muted">Empty.</div>'}</div>`;}
+
+/* ================= ASSETS OWNED ================= */
+function owned(){const L=[],ap=S.assetPortfolio||{};
+ (S.houses||[]).forEach((n,i)=>{const f=houses.find(h=>h[0]===n);L.push({k:'h'+i,i:'🏠',t:'Property',n,v:f?f[1]:0});});
+ (S.rentals||[]).forEach((n,i)=>L.push({k:'r'+i,i:'🔑',t:'Rental',n,v:0}));
+ (S.cars||[]).forEach((n,i)=>{const f=cars.find(c=>c[0]===n);L.push({k:'c'+i,i:'🚗',t:'Vehicle',n,v:f?f[1]:0});});
+ Object.keys(ap).forEach(t=>{if(!Array.isArray(ap[t]))return;ap[t].forEach((n,i)=>{const f=((typeof megaAssets!=='undefined'&&megaAssets[t])||[]).find(x=>x[0]===n);L.push({k:'m'+t+i,i:'💎',t:'Asset',n,v:f?f[1]:0});});});
+ Object.values((S.v5&&S.v5.assets)||{}).flat().forEach((s,i)=>{const f=(typeof v5Assets!=='undefined'?v5Assets:[]).find(a=>String(s).includes(a[1]));L.push({k:'v'+i,i:'🏢',t:'Asset',n:String(s).replace(/^[^:]*:\s*/,''),v:f?f[3]:0});});return L;}
+function pOwned(){const el=q('lv8_owned_c');if(!el)return;const L=owned(),sel=L.find(x=>x.k===S.lv8.sel);
+ if(!sel){S.lv8.sel=null;el.innerHTML=`<div class="lv8bar">You own <b>${L.length}</b> asset(s). Select one to open it.</div><div class="grid">${L.map(x=>`<div class="card"><h3>${x.i} ${E(x.n)}</h3><p class="muted">${x.t}${x.v?' • '+money(x.v):''}</p>${btn('Open',`LV8.open('${x.k}')`)}</div>`).join('')||'<div class="card muted">You own nothing yet. Buy something on the Assets page.</div>'}</div>`;return;}
+ const cost=clamp(Math.round(sel.v*.004),300,30000),n=S.lv8.parties[sel.k]||0;
+ el.innerHTML=`${btn('← Back to Assets Owned','LV8.back()')}<div class="card"><h2>${sel.i} ${E(sel.n)}</h2><p>${sel.t}${sel.v?' • Value '+money(sel.v):''}</p><p class="muted">Parties hosted here: ${n}</p>
+ ${btn('🎉 Party ('+money(cost)+') '+u('pt'+sel.k)+'/2','LV8.party()','gold',u('pt'+sel.k)>=2)}<p class="muted">Hosting a party raises Happiness and strengthens friendships.</p></div>`;}
+function assetBtn(){const s=q('assets');if(!s)return;let b=q('lv8AssetBtn');if(!b){b=document.createElement('div');b.id='lv8AssetBtn';b.className='card';s.insertBefore(b,s.children[1]||null);}
+ b.innerHTML=`<h2>📦 Assets Owned</h2><p class="muted">See everything you own, open any asset and host a party there.</p>${btn('📦 Open Assets Owned','LV8.go("lv8_owned")','gold')}`;}
+
+/* ================= ROYALTY ================= */
+const TITLES={Prince:['Male','Your Royal Highness'],Princess:['Female','Your Royal Highness'],King:['Male','Your Majesty'],Queen:['Female','Your Majesty']};
+const R=()=>S.lv8&&S.lv8.royal,act=()=>!!(R()&&R().active);
+function needRoyal(){if(!act()){popup('👑 Royals only','This is only available to players who began life as royalty and still hold their title.');return false;}return true;}
+const hon=()=>R().honorific||'Your Majesty';
+function exTargets(){const t=[['A convicted traitor',()=>{}],['A rival noble',()=>{}]];
+ (S.friends||[]).forEach(f=>t.push([f.name+' (friend)',()=>{const i=S.friends.indexOf(f);if(i>=0)S.friends.splice(i,1);}]));
+ members().forEach(([o,g])=>{if(safeNumber(o.age,30)>=18)t.push([o.name+' ('+g+')',()=>{o.alive=false;o.illness=null;}]);});return t;}
+function pRoyal(){const el=q('lv8_royal_c');if(!el)return;const r=R();
+ if(!act()){el.innerHTML=`<div class="card muted">${r&&r.abdicated?'You abdicated. Royal actions are no longer available.':'Only players who chose royalty when creating their life can use the Royal Court.'}</div>`;return;}
+ const a=document.activeElement;if(a&&el.contains(a)&&(a.tagName==='INPUT'||a.tagName==='SELECT'))return;
+ const ex=exTargets();
+ el.innerHTML=`<div class="lv8bar">👑 <b>${E(r.title)}</b> of <b>${E(r.country)}</b><br>Addressed as: <b>${E(hon())}</b></div>
+ <div class="card"><h3>📜 Honorific</h3><input id="lv8Hon2" value="${E(r.honorific)}" maxlength="40" placeholder="e.g. Your Majesty"><button class="action" onclick="LV8.hon()">Save</button></div>
+ <div class="grid">
+ <div class="card"><h3>🤝 Public Service</h3><p class="muted">Serve the public.</p>${btn('Do it '+u('ps')+'/2','LV8.ps()','good',u('ps')>=2)}</div>
+ <div class="card"><h3>⭐ Celebrity</h3><p class="muted">Mingle with stars.</p>${btn('Mingle '+u('cel')+'/2','LV8.cel()','',u('cel')>=2)}</div>
+ <div class="card"><h3>⚖️ Support a New Law</h3><p class="muted">Back a new law.</p>${btn('Choose '+u('law')+'/1','LV8.law()','',u('law')>=1)}</div>
+ <div class="card"><h3>🌪️ Public Disservice</h3><p class="muted">Cause some chaos.</p>${btn('Cause chaos '+u('chaos')+'/1','LV8.chaos()','danger',u('chaos')>=1)}</div>
+ <div class="card"><h3>📜 Execute</h3><p class="muted">Royal decree (abstract, non-graphic). Uses your one decree this year.</p><select id="lv8Ex">${ex.map((x,i)=>`<option value="${i}">${E(x[0])}</option>`).join('')}</select>${btn('Issue decree '+u('exec')+'/1','LV8.exec()','danger',u('exec')>=1)}</div>
+ <div class="card"><h3>🚪 Abdicate</h3><p class="muted">Relinquish your title.</p>${btn('Abdicate','LV8.abdicate()','danger')}</div></div>`;}
+
+/* ================= FAMILY CARD (friends, health, funerals) ================= */
+function dead(){const d=[];(S.parents||[]).forEach(o=>{if(o.alive===false)d.push([o,o.role||'Parent']);});if(S.partner&&S.partner.alive===false)d.push([S.partner,'Partner']);
+ (S.siblings||[]).forEach(o=>{if(o.alive===false)d.push([o,'Sibling']);});const ef=S.extendedFamily||{};
+ GR.forEach(k=>(ef[k]||[]).forEach(o=>{if(o.alive===false)d.push([o,o.role||k]);}));(S.childProfiles||[]).forEach(c=>{if(c.alive===false)d.push([c,'Child']);});return d;}
+const fk=x=>x[1]+'|'+x[0].name;
+function pFam(){const s=q('family');if(!s)return;let b=q('lv8Fam');if(!b){b=document.createElement('div');b.id='lv8Fam';b.className='card';s.appendChild(b);}
+ const sib=S.siblings||[],dd=dead();
+ b.innerHTML=`<h2>🧑‍🤝‍🧑 Friends: Spend Time</h2><p class="muted">Friends you ignore drift away and may leave.</p>${(S.friends||[]).slice(0,30).map((f,i)=>`<span class="badge">${E(f.name)} ${f.relationship}% ${btn('Spend time',`LV8.fr(${i})`,'',f.hung===S.age)}</span>`).join('')||'<p class="muted">No friends yet.</p>'}
+ <h2>👫 Siblings & Family Health</h2>${sib.length?sib.map(x=>`<p><b>${E(x.name)}</b> • ${E(x.gender||'')} • Age ${x.age} • ❤️ ${x.relationship}% • 💰 ${money(safeNumber(x.wealth,0))} ${x.alive===false?'• 🕊️ Deceased':''}${x.illness?` <span class="badge lv8ill">🤒 ${E(x.illness.n)}</span>`:''}</p>`).join(''):'<p class="muted">You have no siblings.</p>'}
+ ${members().filter(m=>m[0].illness).map(m=>`<p>🤒 <b>${E(m[0].name)}</b> (${E(m[0].role||m[1])}): ${E(m[0].illness.n)}</p>`).join('')}
+ <h2>⚰️ Funerals</h2>${dd.map((x,i)=>{const done=S.lv8.funerals[fk(x)];return `<p>🕊️ <b>${E(x[0].name)}</b> (${E(x[1])}) ${btn(done?'Attended':'Attend funeral',`LV8.funeral(${i})`,'',!!done)}</p>`;}).join('')||'<p class="muted">Nobody to mourn.</p>'}`;}
+const FUN=[
+ ['A distant relative approached you and shared a warm memory.',{happiness:4}],['Someone ignored you for the entire service.',{happiness:-3}],
+ ['An old friend of the deceased talked with you and stayed in touch.',{happiness:2},'friend'],['A relative argued with you about the will.',{happiness:-6,reputation:-1}],
+ ['You gave a moving eulogy.',{reputation:4,fame:1}],['A stranger offered condolences and a business card.',{happiness:1,reputation:1}],
+ ['A cousin hugged you and stayed by your side.',{happiness:5}],['The family gathered for dinner afterwards.',{happiness:3},'family'],
+ ['You cried through most of the service.',{happiness:-2}],['A journalist asked awkward questions.',{reputation:-2}],
+ ['Nobody spoke to you, and you left early.',{happiness:-4}],['A childhood neighbour introduced themselves and shared stories.',{happiness:3}]];
+
+/* ================= ACTIVITIES CARD ================= */
+const FN=['Iron Mike Daro','The Viper','Big Tomás','Lightning Lee','Crusher Kane','Sakura Voss','Hammer Hale','Ghost Reyes'];
+const newFight=()=>shuf(FN).slice(0,2);
+function pAct(){const s=q('activities');if(!s)return;let b=q('lv8Act');if(!b){b=document.createElement('div');b.id='lv8Act';b.className='card';s.appendChild(b);}
+ if(b.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+ const L=S.lv8;if(!L.fight)L.fight=newFight();const f=L.fight;
+ b.innerHTML=`<h2>💆 Lifestyle, Outdoors & Fights</h2><div class="grid">
+ <div class="card"><h3>💆 Spa</h3><p class="muted">$300 • +Looks, +Happiness, +Health</p>${btn('Go to Spa '+u('spa')+'/2','LV8.spa()','',u('spa')>=2)}</div>
+ <div class="card"><h3>🌳 Spend Time with Mother Nature</h3><p class="muted">Free • +Happiness, +Health</p>${btn('Go outdoors '+u('nat')+'/3','LV8.nat()','good',u('nat')>=3)}</div>
+ <div class="card"><h3>🥊 Fight Betting</h3><p>${E(f[0])} <b>vs</b> ${E(f[1])}</p><p class="muted">Pure 50/50. Win = double, lose = lose the bet.</p><input type="number" min="1" value="${L.bet}" oninput="LV8.setBet(this.value)">${btn('Bet on '+E(f[0]),'LV8.bet(0)','gold',u('fight')>=3)}${btn('Bet on '+E(f[1]),'LV8.bet(1)','gold',u('fight')>=3)}<p class="muted">${u('fight')}/3 this year</p></div></div>`;}
+
+/* ================= ACTIONS ================= */
+const LV8=window.LV8={
+ go(id){showPage(id,[...document.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'"+id+"'")));},
+ spa(){if(S.age<10)return popup('💆 Too young','The spa is for ages 10+.');if(!use('spa',2,'The spa',300))return;const l=rand(2,5),h=rand(5,10),hp=rand(2,4);fx({looks:l,happiness:h,health:hp});addEvent(`💆 ${playerName()} enjoyed a spa day.`);toast(`💆 +${l} looks, +${h} happiness, +${hp} health`);render();},
+ nat(){if(S.age<3)return popup('🌳 Too young','Ask again when you are older.');if(!use('nat',3,'Mother Nature'))return;const h=rand(4,9),hp=rand(2,5);fx({happiness:h,health:hp,energy:3});addEvent(`🌳 ${playerName()} spent time with Mother Nature.`);toast(`🌳 +${h} happiness, +${hp} health`);render();},
+ setBet(v){S.lv8.bet=Math.max(0,Math.floor(Number(v)||0));},
+ bet(i){if(S.age<18)return popup('🥊 Too young','Fight betting is for ages 18+.');const b=Math.floor(S.lv8.bet);if(!(b>=1))return popup('🥊 Invalid bet','Enter at least $1.');if(S.money<b)return popup('💸 Not enough cash',`You have ${money(S.money)}.`);
+  if(!use('fight',3,'Fight Betting'))return;const f=S.lv8.fight,win=Math.random()<.5,w=f[win?i:1-i],l=f[win?1-i:i];
+  S.money+=win?b:-b;S.lv8.fight=newFight();addEvent(`🥊 ${playerName()} bet ${money(b)} on ${f[i]} and ${win?'won':'lost'}.`);
+  popup(win?'🥊 YOU WON!':'🥊 You lost',`${E(w)} beat ${E(l)} by decision.<br><br>${win?'Winnings':'Lost'}: <b>${money(b)}</b>`);render();},
+ newDealer(){if(!use('bm',3,'Finding a dealer',250))return;S.lv8.bm.stock=genStock();render();},
+ buy(id){if(S.age<18)return popup('🕶️ Too young','You must be 18+.');const L=S.lv8,i=L.bm.stock.findIndex(x=>x.id===id);if(i<0)return;const it=L.bm.stock[i];
+  if(S.money<it.p)return popup('💸 Not enough money',`${E(it.n)} costs ${money(it.p)}.`);S.money-=it.p;L.bm.stock.splice(i,1);L.inv.push({n:it.n,c:it.c,p:it.p,b:it.b,u:it.u});addEvent(`🕶️ ${playerName()} bought ${it.n} on the black market.`);render();},
+ sell(i){const it=S.lv8.inv[i];if(!it)return;S.money+=Math.round(it.p*.4);S.lv8.inv.splice(i,1);render();},
+ open(k){S.lv8.sel=k;render();},back(){S.lv8.sel=null;render();},
+ party(){const sel=owned().find(x=>x.k===S.lv8.sel);if(!sel)return;const cost=clamp(Math.round(sel.v*.004),300,30000);if(!use('pt'+sel.k,2,'A party',cost))return;
+  const h=rand(6,14);fx({happiness:h,reputation:1});(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+rand(2,6),0,100));if(chance(20))fx({fame:1});
+  S.lv8.parties[sel.k]=(S.lv8.parties[sel.k]||0)+1;addEvent(`🎉 ${playerName()} hosted a party at ${sel.n}.`);toast(`🎉 +${h} happiness`);render();},
+ dep(k){const d=S.lv8.dep;if(!d.active)return;if(!use('dep'+k,1,k==='t'?'Therapy':'Medication',k==='t'?400:600))return;if(chance(k==='t'?60:45))d.sev--;fx({happiness:rand(4,8)});
+  if(d.sev<=0){d.active=false;addEvent(`💚 ${playerName()} recovered from Depression.`);popup('💚 Recovered','Your depression has lifted.');}render();},
+ fr(i){const f=S.friends[i];if(!f||f.hung===S.age)return;f.hung=S.age;f.seen=true;f.neg=0;f.relationship=clamp(f.relationship+rand(6,12),0,100);fx({happiness:2});render();},
+ funeral(i){const x=dead()[i];if(!x||S.lv8.funerals[fk(x)])return;S.lv8.funerals[fk(x)]=1;const o=shuf(FUN).slice(0,2),txt=[];
+  fx({happiness:-rand(2,6)});o.forEach(e=>{fx(e[1]);if(e[2]==='friend')S.friends.push({name:pick(MALE.concat(FEMALE))+' '+rand(1,999),relationship:rand(45,70)});
+   if(e[2]==='family')(S.parents||[]).forEach(p=>{if(p.alive!==false)p.relationship=clamp(p.relationship+3,0,100);});txt.push(e[0]);});
+  addEvent(`⚰️ ${playerName()} attended the funeral of ${x[0].name}.`);popup('⚰️ Funeral',`You attended the funeral of <b>${E(x[0].name)}</b>.<br><br>• ${txt.map(E).join('<br>• ')}`);render();},
+ hon(){if(!needRoyal())return;const v=clean(q('lv8Hon2').value);R().honorific=v||'Your Majesty';toast('Honorific saved');render();},
+ ps(){if(!needRoyal())return;if(!use('ps',2,'Public Service'))return;const h=rand(4,9);fx({happiness:h,reputation:rand(2,6),fame:rand(0,2)});addEvent(`🤝 ${hon()}, ${playerName()} served the public.`);toast(`🤝 +${h} happiness`);render();},
+ cel(){if(!needRoyal())return;if(!use('cel',2,'Celebrity'))return;const n=pick(['Aria Vale (pop star)','Marcus Reed (actor)','Lena Okoro (athlete)','Kenji Mori (director)','Sasha Bloom (singer)']);fx({fame:rand(2,6),happiness:rand(3,8)});
+  if(chance(30))S.friends.push({name:n,relationship:rand(40,65)});if(chance(15))fx({reputation:-2});addEvent(`⭐ ${hon()}, ${playerName()} mingled with ${n}.`);popup('⭐ Celebrity',`You mingled with <b>${E(n)}</b> at a gala.`);render();},
+ law(){if(!needRoyal())return;if(u('law')>=1)return popup('⏳ Limit reached','One law per year.');
+  const laws=shuf(['Universal Healthcare Act','Education Reform Bill','Green Energy Law','Tax Relief Act','Press Freedom Law','Public Holiday Act','Heritage Protection Law']).slice(0,3);
+  decision('⚖️ Support a New Law','Which proposal will you publicly support?',laws.map(l=>({title:l,description:'Public opinion may go either way.',class:'good',action:()=>{
+   if(!use('law',1,'A law'))return;if(chance(65)){fx({reputation:rand(3,8),fame:rand(1,4)});popup('⚖️ Popular',`${E(l)} was welcomed by the public.`);}else{fx({reputation:-rand(2,6)});popup('⚖️ Backlash',`${E(l)} was controversial. Support dipped.`);}
+   addEvent(`⚖️ ${hon()}, ${playerName()} supported the ${l}.`);render();}})));},
+ chaos(){if(!needRoyal())return;if(!use('chaos',1,'Public Disservice'))return;const s=pick(['skipped a state ceremony','crashed a royal parade','leaked a palace secret','threw a wild midnight party']);
+  fx({reputation:-rand(4,10),happiness:rand(3,8),fame:rand(-2,5)});if(chance(25))fx({reputation:-6,fame:-3});addEvent(`🌪️ ${playerName()} ${s}. The press went wild.`);popup('🌪️ Chaos!',`You ${s}. Headlines everywhere.`);render();},
+ exec(){if(!needRoyal())return;const t=exTargets()[Number(q('lv8Ex').value)];if(!t)return;if(u('exec')>=1)return popup('⏳ Limit reached','One decree per year.');
+  if(!confirm(`Issue a royal decree against: ${t[0]}?`))return;if(!use('exec',1,'A royal decree'))return;t[1]();const kin=/\((parent|sibling|grandparents|aunts|uncles|cousins|friend)/.test(t[0]);
+  fx({reputation:-rand(8,18),fame:rand(-4,3),happiness:-rand(3,10)-(kin?rand(5,12):0)});if(chance(30))fx({reputation:-5});
+  addEvent(`📜 By royal decree, the matter of ${t[0]} was closed.`);popup('📜 Decree carried out',`By royal decree, the matter of <b>${E(t[0])}</b> was closed. The court has moved on.`);render();},
+ abdicate(){if(!needRoyal())return;if(!confirm('Abdicate? You permanently lose your title and all royal actions.'))return;const r=R();r.active=false;r.abdicated=true;
+  fx({reputation:-rand(2,8),fame:-rand(2,8)});addEvent(`🚪 ${playerName()} abdicated as ${r.title} of ${r.country}.`);popup('🚪 Abdicated','You have relinquished your title.');LV8.go('dashboard');render();}
+};
+
+/* ================= HOOKS ================= */
+function genSibs(){const r=Math.random()*100,n=r<30?0:r<65?1:r<90?2:3,sur=(S.name.split(/\s+/).pop())||'Family';S.siblings=[];
+ for(let i=0;i<n;i++){const g=chance(50)?'Female':'Male';S.siblings.push({name:pick(g==='Male'?MALE:FEMALE)+' '+sur,gender:g,age:rand(0,10),relationship:rand(55,90),wealth:0,alive:true,illness:null});}
+ addEvent(n?`👨‍👩‍👧 ${playerName()} was born with ${n} sibling${n>1?'s':''}.`:`👶 ${playerName()} was born an only child.`);}
+const _bnl=window.beginNewLife;
+window.beginNewLife=function(){const rs=q('lv8Royal'),role=rs?rs.value:'None',h=clean(q('lv8Hon')&&q('lv8Hon').value);
+ _bnl.apply(this,arguments);init();genSibs();
+ if(TITLES[role]){S.gender=TITLES[role][0];S.lv8.royal={title:role,country:S.country,honorific:h||TITLES[role][1],active:true,abdicated:false};
+  S.money+=/King|Queen/.test(role)?5000000:2000000;fx({fame:30,reputation:10});addEvent(`👑 ${playerName()} was born ${role} of ${S.country}.`);}
+ render();};
+function yearly(){const r=R();if(act()&&S.age>=1){const st=/King|Queen/.test(r.title)?400000:100000;S.money+=st;S.stats.moneyEarned+=st;addEvent(`👑 ${hon()}, your royal stipend of ${money(st)} arrived.`);}
+ (S.friends||[]).forEach(f=>{if(f.seen){f.seen=false;f.neg=0;}else{f.neg=(f.neg||0)+1;f.relationship=clamp(f.relationship-rand(3,9),0,100);}});
+ const c=(S.friends||[]).find(f=>f.neg>=2&&f.relationship<45&&chance(35+f.neg*5));if(c)Q.push(()=>leave(c));
+ depYear();illYear();}
+function dropFriend(f){const i=S.friends.indexOf(f);if(i>=0)S.friends.splice(i,1);if(S.v6&&Array.isArray(S.v6.best))S.v6.best=S.v6.best.filter(n=>n!==f.name);}
+function leave(f){if(!S.friends.includes(f))return;
+ decision('💔 '+f.name+' wants to leave',`${E(f.name)} says you never make time for them anymore.`,[
+ {title:'🙏 Ask Them Not to Go',description:'Try to convince them to stay.',class:'good',action:()=>{
+  if(chance(clamp(30+safeNumber(S.charisma,50)*.4+f.relationship*.3,10,85))){f.relationship=clamp(f.relationship+rand(10,20),0,100);f.neg=0;f.seen=true;popup('💛 They stayed',`${E(f.name)} agreed to give the friendship another chance.`);}
+  else{dropFriend(f);fx({happiness:-3});popup('💔 They left',`${E(f.name)} would not be convinced.`);}render();}},
+ {title:'👋 Let Them Go',description:'Accept the end of the friendship.',action:()=>{dropFriend(f);fx({happiness:-rand(2,5)});addEvent(`💔 ${f.name} drifted out of your life.`);render();}},
+ {title:'👋💥 Slap Them in the Face',description:'Not your finest moment.',class:'danger',action:()=>{dropFriend(f);fx({reputation:-rand(3,8),happiness:-rand(0,4)});
+  (S.friends||[]).forEach(x=>x.relationship=clamp(x.relationship-rand(2,6),0,100));addEvent(`💥 ${playerName()} slapped ${f.name}. The friendship is over.`);popup('💥 Ouch',`${E(f.name)} stormed off. Mutual friends are unimpressed.`);render();}}]);}
+if(window.V6&&window.V6.friend){const o=window.V6.friend;window.V6.friend=function(i,a){const f=S.friends[i];const r=o.apply(this,arguments);if(f&&a==='hang'){f.seen=true;f.neg=0;}return r;};}
+if(window.V7&&window.V7.move){const o=window.V7.move;window.V7.move=function(n){init();if(act()&&n!=='Home')return popup('👑 Royal restriction',`${E(hon())}, a ${E(R().title)} of ${E(R().country)} cannot immigrate while holding the royal title. Abdicate first.`);return o.apply(this,arguments);};}
+const _age=window.ageUp;
+window.ageUp=function(){init();if(S.dead)return _age.apply(this,arguments);const b=S.age,sn=snap();_age.apply(this,arguments);
+ if(!S.dead&&sn.S===S&&S.age>b){init();fixEstates(sn);S.lv8.used={};yearly();settleAll();render();drain();}};
+
+/* ================= PAGES + RENDER ================= */
+const PG=[['lv8_bm','🕶️ Black Market'],['lv8_owned','📦 Assets Owned'],['lv8_royal','👑 Royal Court']];
+function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side)return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ PG.forEach(([id,l])=>{if(q(id))return;const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=`<h1>${l}</h1><div id="${id}_c"></div>`;main.appendChild(s);
+  const b=document.createElement('button');b.className='nav';b.id='nav_'+id;b.textContent=l;b.setAttribute('onclick',`showPage('${id}',this)`);side.insertBefore(b,anc);});
+ const two=document.querySelector('#startMenu .two');
+ if(two&&!q('lv8Royal'))two.insertAdjacentHTML('beforeend','<div><label>Royalty (rules the Country above)</label><select id="lv8Royal"><option value="None">Commoner</option><option>Prince</option><option>Princess</option><option>King</option><option>Queen</option></select></div><div><label>Honorific (royals only)</label><input id="lv8Hon" maxlength="40" placeholder="e.g. Your Majesty"></div>');}
+const act2=id=>q(id)&&q(id).classList.contains('active');
+const _render=render;
+render=function(){init();settleAll();_render();
+ pAct();pFam();pDoc();badges();assetBtn();
+ const nr=q('nav_lv8_royal');if(nr)nr.style.display=act()?'':'none';
+ if(act2('lv8_bm'))pBM();if(act2('lv8_owned'))pOwned();if(act2('lv8_royal'))pRoyal();
+ if(act()){const r=R(),t=q('nameTitle'),p=q('profileLine');if(t)t.textContent=r.title+' '+S.name;if(p)p.textContent+=` • ${r.title} of ${r.country} • ${r.honorific}`;}};
+mount();init();render();
+})();
+</script>
+
 </body>
 </html>
