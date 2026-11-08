@@ -9862,7 +9862,7 @@ init();render();
 </script>
 
 <!-- =====================================================================
-  LIFEVERSE LIFEVERSE+ ADD-ON — paste RIGHT BEFORE </body>, AFTER every
+  LIFEVERSE 🌎 LIFEVERSE+ ADD-ON — paste RIGHT BEFORE </body>, AFTER every
   other script (must be LAST). Everything lives in S.lv10.
   Zodiac, Driver's License, Odd Jobs, Loans & Credit, Plastic Surgery,
   Lottery, Adoption, Lawsuits, Challenges, Life Ribbons.
@@ -9898,7 +9898,7 @@ window.endCurrentLife=function(rs){init();const x=giveRibbon();_end.apply(this,a
 
 /* ---------- LICENSE: block car buying ---------- */
 const _buyCar=window.buyCar;
-window.buyCar=function(n,c){init();if(!S.lv10.license){popup('🚗 License required','You need a <b>driver\'s license</b> to buy a car. Take the test on the LIFEVERSE+ page (age 16+).');return;}return _buyCar.apply(this,arguments);};
+window.buyCar=function(n,c){init();if(!S.lv10.license){popup('🚗 License required','You need a <b>driver\'s license</b> to buy a car. Take the test on the 🌎 LIFEVERSE+ page (age 16+).');return;}return _buyCar.apply(this,arguments);};
 
 /* ---------- DATA ---------- */
 const JOBS=[['📰','Paper Route',14,[200,700],{discipline:2},0],['🍼','Babysitting',14,[300,900],{happiness:1,charisma:1},0],['🐕','Dog Walking',14,[200,600],{health:2},0],['🛒','Cashier',15,[800,2500],{discipline:2},0],['🍽️','Waiter',16,[1000,3500],{charisma:2},0],['🏊','Lifeguard',16,[900,2800],{health:2,athleticSkill:2},0],['🛵','Delivery Driver',18,[1500,4500],{energy:-4},1]];
@@ -9965,8 +9965,8 @@ function body(){const L=S.lv10;
 function page(){const el=q('lv10_c');if(!el)return;el.innerHTML=`<div>${TABS.map(t=>btn(t[1],`LV10.tab('${t[0]}')`,tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;}
 (function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('lv10'))return;
  const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
- const s=document.createElement('section');s.id='lv10';s.className='page';s.innerHTML='<h1>LIFEVERSE+</h1><div id="lv10_c"></div>';main.appendChild(s);
- const b=document.createElement('button');b.className='nav';b.textContent='LIFEVERSE+';b.setAttribute('onclick',"showPage('lv10',this)");side.insertBefore(b,anc);})();
+ const s=document.createElement('section');s.id='lv10';s.className='page';s.innerHTML='<h1>🌎 LIFEVERSE+</h1><div id="lv10_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.textContent='🌎 LIFEVERSE+';b.setAttribute('onclick',"showPage('lv10',this)");side.insertBefore(b,anc);})();
 [['Licensed','Get your driver\'s license.',()=>S.lv10&&S.lv10.license],['Lucky Winner','Win $1,000+ from the lottery.',()=>S.lv10&&S.lv10.lotWon>=1000],['Adoptive Parent','Adopt a child.',()=>S.lv10&&S.lv10.adopted>=1],['Litigious','Win or file 3 lawsuits.',()=>S.lv10&&S.lv10.sued>=3]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
 const _render=window.render;
 window.render=function(){init();_render();const p=q('lv10');if(p&&p.classList.contains('active'))page();};
