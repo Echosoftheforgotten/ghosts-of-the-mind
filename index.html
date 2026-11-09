@@ -10580,67 +10580,60 @@ init();render();
 </script>
 
 <!-- =====================================================================
-  LIFEVERSE V15 ADD-ON: REWIND LIGHT EFFECT
+  LIFEVERSE V15 ADD-ON (v2, SMOOTH): REWIND LIGHT EFFECT
+  REPLACES the earlier rewind-fx add-on. Delete the old one first.
   PASTE RIGHT BEFORE </body>, AFTER the V14 (Time Machine) script.
-  It must come after V14. Nothing in your old code is changed.
 
-  When you rewind (Time Machine page, the floating ⏪ button, or the
-  "go back 1 year" revive button) you get:
-   - a collapsing purple/cyan light vortex with contracting rings
-   - a counter-clockwise light sweep and upward-rushing scan lines
-   - a white-hot flash at the moment time flips (the rewind happens here)
-   - the whole game warps with a hue shift and blur
-   - a big ⏪ age counter that runs backwards, then lands on the new age
+  What changed to remove the lag:
+   - Only transform and opacity are animated (these run on the GPU)
+   - No more blur / hue-rotate filter on the whole game page (this was
+     the main cause: it forced the browser to repaint the entire page)
+   - No mix-blend-mode, no huge 170vmax layers, no scan-line layer
+   - The heavy rewind work now runs while the white flash is fully
+     covering the screen, so any short stall is invisible
+   - Shorter overall (1.3s)
   ===================================================================== -->
 <style>
-#lv15fx{position:fixed;inset:0;z-index:700;pointer-events:none;opacity:0;overflow:hidden;display:none}
-#lv15fx.on{display:block;animation:lv15fade 1.7s ease forwards}
-@keyframes lv15fade{0%{opacity:0}12%{opacity:1}72%{opacity:1}100%{opacity:0}}
+#lv15fx{position:fixed;inset:0;z-index:700;pointer-events:none;opacity:0;display:none;overflow:hidden;contain:strict}
+#lv15fx.on{display:block;animation:lv15fade 1.3s linear forwards}
+#lv15fx *{will-change:transform,opacity;backface-visibility:hidden}
+@keyframes lv15fade{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
 
-#lv15fx .vig{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(8,11,16,0) 15%,rgba(40,10,90,.55) 60%,rgba(5,5,20,.92) 100%)}
-#lv15fx .core{position:absolute;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;border-radius:50%;
- background:radial-gradient(circle,rgba(255,255,255,.95) 0%,rgba(196,181,253,.8) 8%,rgba(96,165,250,.45) 22%,rgba(167,139,250,.0) 55%);
- transform:scale(1.2);animation:lv15core 1.7s cubic-bezier(.6,0,.3,1) forwards}
-@keyframes lv15core{0%{transform:scale(1.4);opacity:.2}35%{transform:scale(.18);opacity:1}42%{transform:scale(.08);opacity:1}100%{transform:scale(.9);opacity:0}}
+/* dark purple tint (static, only fades with the parent) */
+#lv15fx .vig{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(20,8,60,.15) 10%,rgba(30,10,80,.6) 60%,rgba(5,5,20,.9) 100%)}
 
-#lv15fx .sweep{position:absolute;left:50%;top:50%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;border-radius:50%;
- background:conic-gradient(from 0deg,transparent 0deg,rgba(167,139,250,.6) 40deg,rgba(103,232,249,.35) 70deg,transparent 110deg,transparent 360deg);
- mix-blend-mode:screen;animation:lv15spin 1.7s cubic-bezier(.5,0,.4,1) forwards}
-@keyframes lv15spin{0%{transform:rotate(0)}100%{transform:rotate(-900deg)}}
+/* light that collapses to the center */
+#lv15fx .core{position:absolute;left:50%;top:50%;width:120vmin;height:120vmin;margin:-60vmin 0 0 -60vmin;border-radius:50%;
+ background:radial-gradient(circle,#fff 0%,rgba(196,181,253,.85) 12%,rgba(96,165,250,.4) 35%,rgba(167,139,250,0) 65%);
+ transform:scale(2.2);opacity:.3;animation:lv15core 1.3s cubic-bezier(.6,0,.3,1) forwards}
+@keyframes lv15core{0%{transform:scale(2.2);opacity:.3}42%{transform:scale(.25);opacity:1}100%{transform:scale(1.6);opacity:0}}
 
-#lv15fx .ring{position:absolute;left:50%;top:50%;width:90vmin;height:90vmin;margin:-45vmin 0 0 -45vmin;border-radius:50%;
- border:3px solid rgba(196,181,253,.9);box-shadow:0 0 30px rgba(167,139,250,.9),inset 0 0 30px rgba(103,232,249,.7);
- transform:scale(3.2);opacity:0;animation:lv15ring 1.05s cubic-bezier(.5,0,.8,.5) forwards}
-#lv15fx .ring:nth-child(5){animation-delay:.12s;border-color:rgba(103,232,249,.9)}
-#lv15fx .ring:nth-child(6){animation-delay:.24s}
-#lv15fx .ring:nth-child(7){animation-delay:.36s;border-color:rgba(103,232,249,.9)}
-@keyframes lv15ring{0%{transform:scale(3.2);opacity:0}20%{opacity:1}100%{transform:scale(.02);opacity:0}}
+/* spinning light sweep (smaller layer, no blend mode) */
+#lv15fx .sweep{position:absolute;left:50%;top:50%;width:110vmin;height:110vmin;margin:-55vmin 0 0 -55vmin;border-radius:50%;
+ background:conic-gradient(from 0deg,transparent 0deg,rgba(167,139,250,.55) 45deg,rgba(103,232,249,.35) 80deg,transparent 120deg,transparent 360deg);
+ animation:lv15spin 1.3s cubic-bezier(.5,0,.4,1) forwards}
+@keyframes lv15spin{from{transform:rotate(0) scale(1.6)}to{transform:rotate(-540deg) scale(.7)}}
 
-#lv15fx .scan{position:absolute;inset:-100% 0 0 0;height:300%;
- background:repeating-linear-gradient(to top,rgba(196,181,253,0) 0 14px,rgba(196,181,253,.18) 14px 16px);
- animation:lv15scan .5s linear infinite}
-@keyframes lv15scan{from{transform:translateY(0)}to{transform:translateY(-33%)}}
+/* contracting rings (flat borders, no shadows) */
+#lv15fx .ring{position:absolute;left:50%;top:50%;width:80vmin;height:80vmin;margin:-40vmin 0 0 -40vmin;border-radius:50%;
+ border:3px solid rgba(196,181,253,.9);transform:scale(3);opacity:0;animation:lv15ring .85s cubic-bezier(.5,0,.8,.5) forwards}
+#lv15fx .ring:nth-of-type(4){animation-delay:.1s;border-color:rgba(103,232,249,.9)}
+#lv15fx .ring:nth-of-type(5){animation-delay:.2s}
+@keyframes lv15ring{0%{transform:scale(3);opacity:0}25%{opacity:1}100%{transform:scale(.03);opacity:0}}
 
-#lv15fx .flash{position:absolute;inset:0;background:#fff;opacity:0;animation:lv15flash 1.7s ease-out forwards}
-@keyframes lv15flash{0%,30%{opacity:0}37%{opacity:1}52%{opacity:.55;background:#e9d5ff}100%{opacity:0}}
+/* white-hot flash. Fully opaque from 40% to 54% (about 520ms to 700ms). The rewind runs here. */
+#lv15fx .flash{position:absolute;inset:0;background:#fff;opacity:0;animation:lv15flash 1.3s linear forwards}
+@keyframes lv15flash{0%,30%{opacity:0}40%{opacity:1}54%{opacity:1}75%{opacity:.35}100%{opacity:0}}
 
-#lv15fx .clock{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font-weight:900;color:#fff;
- text-shadow:0 0 12px #a78bfa,0 0 30px #a78bfa,0 0 60px #60a5fa;animation:lv15clock 1.7s ease forwards}
-#lv15fx .clock .big{font-size:clamp(46px,12vw,110px);line-height:1;letter-spacing:.04em}
-#lv15fx .clock .sub{font-size:clamp(13px,2.6vw,20px);letter-spacing:.35em;text-transform:uppercase;margin-top:8px;color:#c4b5fd}
-@keyframes lv15clock{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.15)}}
-
-body.lv15-warp .app,body.lv15-warp .header{animation:lv15warp 1.5s ease-in-out}
-@keyframes lv15warp{
- 0%{filter:none;transform:none}
- 20%{filter:hue-rotate(40deg) saturate(1.6) blur(1px);transform:scale(.995)}
- 38%{filter:hue-rotate(-90deg) saturate(2.2) brightness(1.8) blur(3px);transform:scale(.97) rotate(-.4deg)}
- 55%{filter:hue-rotate(60deg) saturate(1.8) brightness(1.4) blur(2px);transform:scale(1.015) rotate(.3deg)}
- 100%{filter:none;transform:none}}
+/* age counter */
+#lv15fx .clock{position:absolute;left:50%;top:50%;text-align:center;font-weight:900;color:#fff;
+ text-shadow:0 0 14px #a78bfa,0 0 36px #60a5fa;transform:translate(-50%,-50%);opacity:0;animation:lv15clock 1.3s linear forwards}
+#lv15fx .clock .big{font-size:clamp(46px,12vw,100px);line-height:1;letter-spacing:.04em}
+#lv15fx .clock .sub{font-size:clamp(13px,2.6vw,20px);letter-spacing:.3em;text-transform:uppercase;margin-top:8px;color:#c4b5fd}
+@keyframes lv15clock{0%,5%{opacity:0}15%{opacity:1}32%{opacity:1}40%{opacity:0}58%{opacity:0}66%{opacity:1}88%{opacity:1}100%{opacity:0}}
 
 @media (prefers-reduced-motion:reduce){
- #lv15fx .sweep,#lv15fx .scan,#lv15fx .ring{animation-duration:.01s}
- body.lv15-warp .app,body.lv15-warp .header{animation:none}}
+ #lv15fx .sweep,#lv15fx .ring{display:none}}
 </style>
 
 <script>
@@ -10658,8 +10651,8 @@ function build(){
  fx=document.createElement('div');
  fx.id='lv15fx';
  fx.innerHTML='<div class="vig"></div><div class="core"></div><div class="sweep"></div>'
-  +'<div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div>'
-  +'<div class="scan"></div><div class="clock"><div class="big" id="lv15age">⏪</div><div class="sub" id="lv15sub">Rewinding time</div></div>'
+  +'<div class="ring"></div><div class="ring"></div><div class="ring"></div>'
+  +'<div class="clock"><div class="big" id="lv15age"></div><div class="sub" id="lv15sub"></div></div>'
   +'<div class="flash"></div>';
  document.body.appendChild(fx);
  return fx;
@@ -10668,32 +10661,29 @@ function build(){
 function play(n,run){
  const fx=build(),age=q('lv15age'),sub=q('lv15sub');
  busy=true;
- const start=S.age,reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+ const start=S.age,steps=Math.max(1,Math.min(n,start));
+ age.textContent='⏪ '+start;sub.textContent='Rewinding time';
  fx.classList.remove('on');void fx.offsetWidth;fx.classList.add('on');
- if(!reduce){document.body.classList.remove('lv15-warp');void document.body.offsetWidth;document.body.classList.add('lv15-warp');}
- sub.textContent='Rewinding time';
- age.textContent='⏪ '+start;
 
- /* the counter runs backwards before the flash */
- const steps=Math.max(1,Math.min(n,start)),t0=performance.now(),dur=600;
- const tick=setInterval(()=>{
-  const p=Math.min(1,(performance.now()-t0)/dur);
-  age.textContent='⏪ '+Math.max(0,Math.round(start-steps*p*1.6));
- },40);
+ /* counter runs backwards before the flash: light work, roughly 12 updates a second */
+ const t0=performance.now();let last=0,raf;
+ (function tick(now){
+  const p=Math.min(1,(now-t0)/500);
+  if(now-last>80){last=now;age.textContent='⏪ '+Math.max(0,Math.round(start-steps*p));}
+  if(p<1)raf=requestAnimationFrame(tick);
+ })(t0);
 
- /* the real rewind happens at the white-hot flash, hidden by the light */
+ /* real rewind at ~590ms, while the flash is fully opaque (waits for that frame to be painted) */
  setTimeout(()=>{
-  clearInterval(tick);
-  try{run();}catch(e){console.warn('Rewind failed',e);}
-  age.textContent='⏪ '+S.age;
-  sub.textContent=S.age<start?'Back to age '+S.age:'Time restored';
- },640);
+  cancelAnimationFrame(raf);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   try{run();}catch(e){console.warn('Rewind failed',e);}
+   age.textContent='⏪ '+S.age;
+   sub.textContent=S.age<start?'Back to age '+S.age:'Time restored';
+  }));
+ },560);
 
- setTimeout(()=>{
-  fx.classList.remove('on');
-  document.body.classList.remove('lv15-warp');
-  busy=false;
- },1800);
+ setTimeout(()=>{fx.classList.remove('on');busy=false;},1400);
 }
 
 const orig=LV14.rewind;
@@ -10701,13 +10691,11 @@ LV14.rewind=function(n){
  if(busy)return;
  let can=false;
  try{can=LV14.can();}catch(e){}
- /* nothing to rewind: let the original show its normal message, no effect */
- if(!can)return orig.apply(this,arguments);
- const args=arguments;
- play(Number(n)||1,()=>orig.apply(this,args));
+ if(!can)return orig.apply(this,arguments);    /* nothing to rewind: normal message, no effect */
+ const self=this,args=arguments;
+ play(Number(n)||1,()=>orig.apply(self,args));
 };
 
-/* the old V6 rewind button should also use the effect */
 if(window.V6)window.V6.rewind=()=>LV14.rewind(1);
 })();
 </script>
