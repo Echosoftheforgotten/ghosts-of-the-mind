@@ -10577,125 +10577,56 @@ function page(){const el=q('lv14_c');if(!el)return;el.innerHTML=`<div>${btn('⏪
 window.render=function(){init();_rw();if(S.v6)S.v6.rewinds=99;const p=q('lv14');if(p&&p.classList.contains('active'))page();};
 init();render();
 })();
-</script>
-
 <!-- =====================================================================
-  LIFEVERSE V15 ADD-ON (v2, SMOOTH): REWIND LIGHT EFFECT
-  REPLACES the earlier rewind-fx add-on. Delete the old one first.
+  LIFEVERSE REWIND LIGHT (v3, minimal)
+  REPLACES the earlier rewind-fx add-ons. Delete the old ones first.
   PASTE RIGHT BEFORE </body>, AFTER the V14 (Time Machine) script.
 
-  What changed to remove the lag:
-   - Only transform and opacity are animated (these run on the GPU)
-   - No more blur / hue-rotate filter on the whole game page (this was
-     the main cause: it forced the browser to repaint the entire page)
-   - No mix-blend-mode, no huge 170vmax layers, no scan-line layer
-   - The heavy rewind work now runs while the white flash is fully
-     covering the screen, so any short stall is invisible
-   - Shorter overall (1.3s)
+  One single light layer, nothing else. It fades in, the rewind happens
+  while the screen is fully lit, then the light fades out. The fade-out
+  only starts AFTER the rewind has finished, so the heavy redraw can
+  never make the animation stutter.
   ===================================================================== -->
 <style>
-#lv15fx{position:fixed;inset:0;z-index:700;pointer-events:none;opacity:0;display:none;overflow:hidden;contain:strict}
-#lv15fx.on{display:block;animation:lv15fade 1.3s linear forwards}
-#lv15fx *{will-change:transform,opacity;backface-visibility:hidden}
-@keyframes lv15fade{0%{opacity:0}10%{opacity:1}75%{opacity:1}100%{opacity:0}}
-
-/* dark purple tint (static, only fades with the parent) */
-#lv15fx .vig{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(20,8,60,.15) 10%,rgba(30,10,80,.6) 60%,rgba(5,5,20,.9) 100%)}
-
-/* light that collapses to the center */
-#lv15fx .core{position:absolute;left:50%;top:50%;width:120vmin;height:120vmin;margin:-60vmin 0 0 -60vmin;border-radius:50%;
- background:radial-gradient(circle,#fff 0%,rgba(196,181,253,.85) 12%,rgba(96,165,250,.4) 35%,rgba(167,139,250,0) 65%);
- transform:scale(2.2);opacity:.3;animation:lv15core 1.3s cubic-bezier(.6,0,.3,1) forwards}
-@keyframes lv15core{0%{transform:scale(2.2);opacity:.3}42%{transform:scale(.25);opacity:1}100%{transform:scale(1.6);opacity:0}}
-
-/* spinning light sweep (smaller layer, no blend mode) */
-#lv15fx .sweep{position:absolute;left:50%;top:50%;width:110vmin;height:110vmin;margin:-55vmin 0 0 -55vmin;border-radius:50%;
- background:conic-gradient(from 0deg,transparent 0deg,rgba(167,139,250,.55) 45deg,rgba(103,232,249,.35) 80deg,transparent 120deg,transparent 360deg);
- animation:lv15spin 1.3s cubic-bezier(.5,0,.4,1) forwards}
-@keyframes lv15spin{from{transform:rotate(0) scale(1.6)}to{transform:rotate(-540deg) scale(.7)}}
-
-/* contracting rings (flat borders, no shadows) */
-#lv15fx .ring{position:absolute;left:50%;top:50%;width:80vmin;height:80vmin;margin:-40vmin 0 0 -40vmin;border-radius:50%;
- border:3px solid rgba(196,181,253,.9);transform:scale(3);opacity:0;animation:lv15ring .85s cubic-bezier(.5,0,.8,.5) forwards}
-#lv15fx .ring:nth-of-type(4){animation-delay:.1s;border-color:rgba(103,232,249,.9)}
-#lv15fx .ring:nth-of-type(5){animation-delay:.2s}
-@keyframes lv15ring{0%{transform:scale(3);opacity:0}25%{opacity:1}100%{transform:scale(.03);opacity:0}}
-
-/* white-hot flash. Fully opaque from 40% to 54% (about 520ms to 700ms). The rewind runs here. */
-#lv15fx .flash{position:absolute;inset:0;background:#fff;opacity:0;animation:lv15flash 1.3s linear forwards}
-@keyframes lv15flash{0%,30%{opacity:0}40%{opacity:1}54%{opacity:1}75%{opacity:.35}100%{opacity:0}}
-
-/* age counter */
-#lv15fx .clock{position:absolute;left:50%;top:50%;text-align:center;font-weight:900;color:#fff;
- text-shadow:0 0 14px #a78bfa,0 0 36px #60a5fa;transform:translate(-50%,-50%);opacity:0;animation:lv15clock 1.3s linear forwards}
-#lv15fx .clock .big{font-size:clamp(46px,12vw,100px);line-height:1;letter-spacing:.04em}
-#lv15fx .clock .sub{font-size:clamp(13px,2.6vw,20px);letter-spacing:.3em;text-transform:uppercase;margin-top:8px;color:#c4b5fd}
-@keyframes lv15clock{0%,5%{opacity:0}15%{opacity:1}32%{opacity:1}40%{opacity:0}58%{opacity:0}66%{opacity:1}88%{opacity:1}100%{opacity:0}}
-
-@media (prefers-reduced-motion:reduce){
- #lv15fx .sweep,#lv15fx .ring{display:none}}
+#lv15light{
+ position:fixed;inset:0;z-index:700;pointer-events:none;
+ background:radial-gradient(circle at center,#ffffff 0%,#e9d5ff 25%,#a78bfa 60%,#4c1d95 100%);
+ opacity:0;display:none;will-change:opacity}
+#lv15light.show{display:block}
+#lv15light.in{opacity:1;transition:opacity .18s ease-out}
+#lv15light.out{opacity:0;transition:opacity .7s ease-in}
 </style>
-
 <script>
 (function(){
 'use strict';
 if(window.__LV15)return;window.__LV15=1;
-if(!window.LV14||typeof LV14.rewind!=='function')return;     /* needs the V14 add-on */
+if(!window.LV14||typeof LV14.rewind!=='function')return;
 
-const q=id=>document.getElementById(id);
-let busy=false;
-
-function build(){
- let fx=q('lv15fx');
- if(fx)return fx;
- fx=document.createElement('div');
- fx.id='lv15fx';
- fx.innerHTML='<div class="vig"></div><div class="core"></div><div class="sweep"></div>'
-  +'<div class="ring"></div><div class="ring"></div><div class="ring"></div>'
-  +'<div class="clock"><div class="big" id="lv15age"></div><div class="sub" id="lv15sub"></div></div>'
-  +'<div class="flash"></div>';
- document.body.appendChild(fx);
- return fx;
+let busy=false,el=null;
+function light(){
+ if(el)return el;
+ el=document.createElement('div');el.id='lv15light';document.body.appendChild(el);
+ return el;
 }
-
-function play(n,run){
- const fx=build(),age=q('lv15age'),sub=q('lv15sub');
- busy=true;
- const start=S.age,steps=Math.max(1,Math.min(n,start));
- age.textContent='⏪ '+start;sub.textContent='Rewinding time';
- fx.classList.remove('on');void fx.offsetWidth;fx.classList.add('on');
-
- /* counter runs backwards before the flash: light work, roughly 12 updates a second */
- const t0=performance.now();let last=0,raf;
- (function tick(now){
-  const p=Math.min(1,(now-t0)/500);
-  if(now-last>80){last=now;age.textContent='⏪ '+Math.max(0,Math.round(start-steps*p));}
-  if(p<1)raf=requestAnimationFrame(tick);
- })(t0);
-
- /* real rewind at ~590ms, while the flash is fully opaque (waits for that frame to be painted) */
- setTimeout(()=>{
-  cancelAnimationFrame(raf);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-   try{run();}catch(e){console.warn('Rewind failed',e);}
-   age.textContent='⏪ '+S.age;
-   sub.textContent=S.age<start?'Back to age '+S.age:'Time restored';
-  }));
- },560);
-
- setTimeout(()=>{fx.classList.remove('on');busy=false;},1400);
-}
-
 const orig=LV14.rewind;
-LV14.rewind=function(n){
+LV14.rewind=function(){
  if(busy)return;
- let can=false;
- try{can=LV14.can();}catch(e){}
- if(!can)return orig.apply(this,arguments);    /* nothing to rewind: normal message, no effect */
- const self=this,args=arguments;
- play(Number(n)||1,()=>orig.apply(self,args));
+ let can=false;try{can=LV14.can();}catch(e){}
+ if(!can)return orig.apply(this,arguments);          /* nothing to rewind: no effect */
+ const self=this,args=arguments,L=light();
+ busy=true;
+ L.className='show';void L.offsetWidth;
+ L.className='show in';                               /* light up */
+ setTimeout(()=>{
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+   try{orig.apply(self,args);}catch(e){console.warn('Rewind failed',e);}   /* rewind while fully lit */
+   requestAnimationFrame(()=>{
+    L.className='show out';                           /* fade out after the heavy work is done */
+    setTimeout(()=>{L.className='';busy=false;},750);
+   });
+  }));
+ },200);
 };
-
 if(window.V6)window.V6.rewind=()=>LV14.rewind(1);
 })();
 </script>
