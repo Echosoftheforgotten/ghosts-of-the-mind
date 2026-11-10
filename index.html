@@ -11191,5 +11191,223 @@ init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V19 ADD-ON — STOCK MARKET OVERHAUL
+  Paste RIGHT BEFORE </body>, AFTER every other script (must be LAST).
+  Needs the V6 add-on (it uses S.v6.stocks / S.v6.hold). Lives in S.lv19.
+  Replaces the 📈 Stocks page with 📊 Exchange:
+   - 36 stocks in 10 sectors + 4 funds (Index, Tech ETF, Dividend ETF, Bonds)
+   - cost basis, unrealized/realized P/L, capital gains tax (if V11 tax is on)
+   - sector shocks, company events (earnings, scandals, buyouts, bankruptcies),
+     stock splits, market crashes and rallies, yearly headlines
+   - analyst ratings (a high Finance skill makes them more accurate)
+   - dividend reinvestment (DRIP), take-profit / stop-loss auto-sell rules
+   - search, sector filter, sorting, sparklines, portfolio chart, allocation
+   - works with the Time Machine (same year = same result; Alter Fate re-rolls)
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV19)return;window.__LV19=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const f=x=>(x>=0?'+':'')+(x*100).toFixed(1)+'%',sm=n=>(n<0?'−':'+')+money(Math.abs(n));
+const cc=x=>x>=0?'green':'red';
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mul(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function toast(m){let t=q('lv19t');if(!t){t=document.createElement('div');t.id='lv19t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #22c55e;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+
+/* ---------------- data ---------------- */
+const SEC=['Technology','Energy','Healthcare','Financials','Consumer','Industrials','Real Estate','Materials','Entertainment','Utilities'];
+const TPL={Technology:['an AI boom lifts the sector','a regulation scare hits the sector'],Energy:['oil and power prices spike','an energy glut crushes prices'],Healthcare:['a breakthrough drug wave excites investors','a pricing crackdown worries investors'],Financials:['rising rates boost bank profits','loan losses spook lenders'],Consumer:['shoppers are spending freely','consumers tighten their belts'],Industrials:['factory orders surge','supply chain troubles bite'],'Real Estate':['rents and property values climb','vacancies rise and values slip'],Materials:['commodity demand soars','commodity prices slump'],Entertainment:['record box office and viewership','subscribers cancel in droves'],Utilities:['steady demand and rate cuts help','a heatwave and costs squeeze margins']};
+/* sym,name,sector,price,vol,drift,yield,isOriginal */
+const META=[['NOVA','Nova Tech','Technology',0,.30,.07,0,1],['GRNX','Greenex Energy','Energy',0,.22,.05,.02,1],['MEDI','MediCore','Healthcare',0,.16,.06,.01,1],['BANK','Union Bank','Financials',0,.14,.05,.03,1],['FOOD','FreshMart','Consumer',0,.10,.04,.025,1],['AERO','AeroDyne','Industrials',0,.24,.06,.005,1],['GAME','PixelForge','Entertainment',0,.34,.08,0,1],['AUTO','Voltra Motors','Industrials',0,.32,.07,0,1],['HOME','Hearth REIT','Real Estate',0,.12,.045,.04,1],['SPCE','Orbitline','Industrials',0,.55,.10,0,1],['GOLD','Aurum Trust','Materials',0,.12,.03,0,1],['CHIP','Quantum Chips','Technology',0,.28,.09,0,1],
+['QBIT','Qubit Labs','Technology',85,.38,.08,0],['CLDX','CloudNine','Technology',140,.26,.07,0],['CYBR','Sentinel Security','Technology',110,.24,.07,0],['SOLR','SunGrid Solar','Energy',38,.40,.07,0],['OILX','PetroMax','Energy',62,.22,.04,.04],['BIOG','BioGenix','Healthcare',55,.45,.08,0],['PHAR','Apex Pharma','Healthcare',95,.15,.05,.02],['INSU','Shield Insurance','Financials',70,.12,.05,.03],['PAYX','PayFlow','Financials',90,.27,.07,0],['LUXE','Maison Luxe','Consumer',210,.20,.06,.01],['BREW','Hop & Barrel','Consumer',40,.11,.04,.035],['SHOP','MegaMart','Consumer',130,.18,.06,.01],['AGRI','Harvest Agri','Consumer',30,.16,.045,.02],['RAIL','Continental Rail','Industrials',75,.13,.05,.025],['ROBO','RoboWorks','Industrials',65,.35,.08,0],['SHIP','BlueWave Shipping','Industrials',28,.30,.05,.03],['TOWR','SkyTower REIT','Real Estate',85,.13,.045,.045],['LITH','Lithium One','Materials',48,.42,.07,0],['STEL','IronForge Steel','Materials',33,.26,.04,.03],['STRM','StreamHub','Entertainment',100,.30,.07,0],['SPRT','ArenaSports','Entertainment',55,.18,.05,.015],['UTIL','GridPower','Utilities',52,.08,.04,.045],['WATR','AquaCo','Utilities',44,.07,.035,.04],['TELC','LinkNet Telecom','Utilities',36,.10,.035,.05]];
+/* sym,name,yield,kind,vol */
+const FUNDS=[['LV50','LifeVerse 500 Index',.01,'idx',.14],['TECHX','Tech Select ETF',0,'sec:Technology',.26],['DIVX','Dividend Income ETF',.03,'div',.10],['BONDX','Stable Bond Fund',0,'bond',.03]];
+const INFO={},ALL=[];
+META.forEach(m=>{const o={sym:m[0],name:m[1],sec:m[2],px:m[3],vol:m[4],drift:m[5],yld:m[6],orig:!!m[7],fund:false};INFO[o.sym]=o;ALL.push(o);});
+FUNDS.forEach(m=>{const o={sym:m[0],name:m[1],sec:'Fund',px:100,vol:m[4],drift:0,yld:m[2],orig:false,fund:true,kind:m[3]};INFO[o.sym]=o;ALL.push(o);});
+const risk=v=>v<.08?'Very low':v<.15?'Low':v<.25?'Medium':v<.38?'High':'Extreme';
+const RT=s=>s>.6?['⭐⭐⭐⭐⭐','Strong Buy']:s>.2?['⭐⭐⭐⭐','Buy']:s>-.2?['⭐⭐⭐','Hold']:s>-.6?['⭐⭐','Sell']:['⭐','Strong Sell'];
+let tab='mkt',qty=1,sq='';
+
+/* ---------------- state ---------------- */
+function init(){
+ if(!S.lv19||typeof S.lv19!=='object')S.lv19={};
+ const d={salt:0,basis:{},realized:0,tax:0,div:0,drip:false,rules:{},news:[],hist:[],mood:{},q:{},rate:{},trades:0,best:0,splits:0,crashes:0,crashHeld:false,flt:'All',srt:'sym',sel:'NOVA'};
+ for(const k in d)if(S.lv19[k]===undefined||S.lv19[k]===null)S.lv19[k]=d[k];
+}
+function market(){
+ if(!S.v6||!S.v6.stocks)return false;const L=S.lv19,st=S.v6.stocks;if(!S.v6.hold)S.v6.hold={};
+ ALL.forEach(m=>{if(!st[m.sym]&&m.px)st[m.sym]={p:m.px,o:m.px,h:[m.px]};
+  if(!m.fund&&L.q[m.sym]===undefined){L.q[m.sym]=+((hash(m.sym)%1601)/1000-.8).toFixed(2);L.rate[m.sym]=L.q[m.sym];}});
+ for(const k in S.v6.hold){const n=S.v6.hold[k];if(n>0&&L.basis[k]===undefined&&st[k])L.basis[k]=Math.round(n*st[k].p);if(!(n>0))delete L.basis[k];}
+ return true;
+}
+const ST=()=>S.v6.stocks,HO=()=>S.v6.hold,sh=s=>HO()[s]||0;
+const pv=()=>{let t=0;if(!S.v6||!S.v6.stocks)return 0;for(const k in HO()){const s=ST()[k];if(s)t+=HO()[k]*s.p;}return Math.round(t);};
+const costAll=()=>Object.values(S.lv19.basis).reduce((a,b)=>a+b,0);
+const maxN=p=>{let n=Math.floor(S.money/p);while(n>0&&Math.round(p*n)>S.money)n--;return Math.max(0,n);};
+
+/* ---------------- trading ---------------- */
+function buyX(sym,n){
+ if(S.dead)return;if(S.age<18)return popup('📈 Too young','Investing starts at age 18.');
+ const s=ST()[sym];if(!s)return;n=Math.floor(n);
+ if(!(n>=1))return popup('Invalid amount','Enter a whole number of shares (1 or more).');
+ const c=Math.round(s.p*n);if(S.money<c)return popup('💸 Not enough cash',`${n.toLocaleString()} share(s) of ${sym} cost <b>${money(c)}</b>. You have <b>${money(S.money)}</b>.`);
+ const L=S.lv19;S.money-=c;HO()[sym]=sh(sym)+n;L.basis[sym]=(L.basis[sym]||0)+c;L.trades++;
+ addEvent(`📈 ${playerName()} bought ${n.toLocaleString()} ${sym} for ${money(c)}.`);toast(`Bought ${n.toLocaleString()} ${sym}`);render();
+}
+function sellX(sym,n,auto){
+ const L=S.lv19,h=sh(sym),s=ST()[sym];
+ if(!h||!s){if(!auto)popup('📉 Nothing to sell',`You don't own any ${sym}.`);return 0;}
+ n=Math.min(Math.floor(n),h);if(!(n>=1)){if(!auto)popup('Invalid amount','Enter a whole number of shares (1 or more).');return 0;}
+ const pr=Math.round(s.p*n),cost=Math.round((L.basis[sym]||0)/h*n),gain=pr-cost;
+ const tax=(S.lv11&&S.lv11.tax&&gain>0)?Math.round(gain*.10):0;
+ S.money+=pr-tax;HO()[sym]=h-n;L.basis[sym]=Math.max(0,(L.basis[sym]||0)-cost);if(HO()[sym]<=0){delete L.basis[sym];delete HO()[sym];}
+ L.realized+=gain;L.tax+=tax;L.trades++;if(cost>0&&pr/cost>L.best)L.best=pr/cost;
+ addEvent(`📉 ${playerName()} ${auto?'auto-':''}sold ${n.toLocaleString()} ${sym} for ${money(pr)} (${gain>=0?'profit':'loss'} ${money(Math.abs(gain))}${tax?', tax '+money(tax):''}).`);
+ if(!auto){toast(`Sold ${n.toLocaleString()} ${sym}: ${sm(gain)}${tax?' (tax '+money(tax)+')':''}`);render();}
+ return pr-tax;
+}
+
+/* ---------------- yearly engine ---------------- */
+function year(){
+ const L=S.lv19;if(!market())return;const st=ST(),hold=HO(),news=[];
+ const N=(t,tone)=>news.push({a:S.age,t,tone});
+ const econ=S.v6.econ?S.v6.econ.state:'Stable',em=econ==='Boom'?.06:econ==='Recession'?-.09:0;
+ const fl=Math.floor(((S.v6.skills&&S.v6.skills.fin)||0)/50);
+ const pre={};for(const k in st)pre[k]={p:st[k].p,o:st[k].o,sh:hold[k]||0};
+ /* market-wide event */
+ let mk=0;const x=Math.random()*100;
+ if(x<2.5){mk=-r(15,30)/100;L.crashes++;N('MARKET CRASH: panic selling across the exchange.','dn');if(pv()>=10000)L.crashHeld=true;}
+ else if(x<5){mk=r(12,22)/100;N('Market-wide rally: investors pile in.','up');}
+ /* new stocks run their own year; originals already ran in V6 */
+ ALL.forEach(m=>{if(m.fund)return;const s=st[m.sym];
+  if(!m.orig){s.o=s.p;let ret=m.drift+L.q[m.sym]*.04+em+(Math.random()*2-1)*m.vol;
+   if(s.p>m.px*4)ret-=.05;if(s.p<m.px*.3)ret+=.03;s.p=Math.max(.25,Math.round(s.p*(1+Math.max(-.85,ret))*100)/100);}
+  else s.p=Math.max(.25,Math.round(s.p*(1+L.q[m.sym]*.03)*100)/100);
+  if(mk)s.p=Math.max(.25,Math.round(s.p*(1+mk)*100)/100);});
+ /* sector shocks */
+ SEC.forEach(sec=>{if(!chance(35))return;const up=chance(econ==='Boom'?65:econ==='Recession'?35:50);let m=r(6,18)/100;if(!up)m=-m;
+  ALL.forEach(a=>{if(a.sec===sec){const s=st[a.sym];s.p=Math.max(.25,Math.round(s.p*(1+m)*100)/100);}});
+  L.mood[sec]={t:TPL[sec][up?0:1],m,a:S.age};N(`${sec}: ${TPL[sec][up?0:1]} (${f(m)}).`,up?'up':'dn');});
+ /* company events, bankruptcies, splits */
+ const EVT=[['beats earnings expectations',()=>r(8,22)],['misses earnings expectations',()=>-r(8,22)],['launches a hit product',()=>r(10,30)],['is hit by a scandal',()=>-r(12,35)],['receives a buyout offer',()=>r(25,50)],['recalls a product',()=>-r(8,20)],['wins a major contract',()=>r(8,20)],['faces a costly lawsuit',()=>-r(8,18)]];
+ ALL.forEach(m=>{if(m.fund)return;const s=st[m.sym];
+  if(m.vol>=.3&&chance(.4)){s.p=Math.max(.25,Math.round(s.p*r(4,10)/100*100)/100);N(`${m.name} (${m.sym}) filed for bankruptcy. Shares collapsed.`,'dn');return;}
+  if(chance(4)){const e=pick(EVT),v=e[1]()/100;s.p=Math.max(.25,Math.round(s.p*(1+v)*100)/100);N(`${m.name} (${m.sym}) ${e[0]} (${f(v)}).`,v>=0?'up':'dn');}
+  if(s.p>=220){s.p=Math.round(s.p/2*100)/100;s.o=s.o/2;if(s.h)s.h=s.h.map(z=>+(z/2).toFixed(2));if(hold[m.sym]){hold[m.sym]*=2;}L.splits++;N(`${m.name} (${m.sym}) announced a 2-for-1 stock split.`,'up');}});
+ /* funds follow their constituents */
+ ALL.forEach(m=>{if(!m.fund)return;const s=st[m.sym];s.o=s.p;let ret;
+  if(m.kind==='bond')ret=.035+r(-2,2)/100+(econ==='Recession'?.01:econ==='Boom'?-.005:0);
+  else{const set=ALL.filter(a=>!a.fund&&(m.kind==='idx'||(m.kind==='div'?a.yld>=.025:a.sec===m.kind.split(':')[1])));
+   ret=set.reduce((a,b)=>{const t=st[b.sym];return a+(t.o?t.p/t.o-1:0);},0)/set.length-.002;}
+  s.p=Math.max(1,Math.round(s.p*(1+ret)*100)/100);});
+ /* dividends */
+ let divs=0;
+ ALL.forEach(m=>{const p0=pre[m.sym];if(!m.yld||!p0||p0.sh<1)return;
+  const d=Math.round(p0.sh*(m.orig?p0.o:p0.p)*m.yld);if(d<1)return;divs+=d;
+  let amt=d;if(m.orig){if(!L.drip)return;amt=Math.min(d,S.money);S.money-=amt;}
+  else if(!L.drip){S.money+=d;return;}
+  const s=st[m.sym],n=Math.floor(amt/s.p);if(n<1){S.money+=amt;return;}
+  hold[m.sym]=(hold[m.sym]||0)+n;L.basis[m.sym]=(L.basis[m.sym]||0)+Math.round(n*s.p);S.money+=amt-Math.round(n*s.p);});
+ if(divs){L.div+=divs;S.stats.moneyEarned+=divs;addEvent(`💵 Dividends received${L.drip?' (reinvested)':''}: ${money(divs)}.`);}
+ /* auto-sell rules */
+ for(const k of Object.keys(L.rules)){const ru=L.rules[k],h=hold[k]||0;if(!h||!ru||!st[k])continue;const g=(st[k].p/((L.basis[k]||1)/h)-1)*100;
+  if(ru.tp>0&&g>=ru.tp){sellX(k,h,true);delete L.rules[k];N(`Take-profit rule sold all ${k} (${g.toFixed(0)}% gain).`,'up');}
+  else if(ru.sl>0&&g<=-ru.sl){sellX(k,h,true);delete L.rules[k];N(`Stop-loss rule sold all ${k} (${g.toFixed(0)}% loss).`,'dn');}}
+ /* analyst ratings for next year */
+ ALL.forEach(m=>{if(m.fund)return;L.q[m.sym]=clamp(+(L.q[m.sym]*.7+(Math.random()-.5)).toFixed(2),-1,1);
+  const sd=Math.max(.15,.45-fl*.04);L.rate[m.sym]=+(L.q[m.sym]+(Math.random()*2-1)*sd*1.7).toFixed(2);});
+ /* history lines, news */
+ ALL.forEach(m=>{const s=st[m.sym];if(!s.h)s.h=[];if(m.orig){if(s.h.length)s.h[s.h.length-1]=s.p;else s.h.push(s.p);}else{s.h.push(s.p);if(s.h.length>30)s.h.shift();}});
+ L.hist=L.hist.filter(h=>h.a!==S.age);L.hist.push({a:S.age,v:pv(),c:costAll()});if(L.hist.length>80)L.hist.shift();
+ L.news=news.concat(L.news).slice(0,60);
+ const ix=st.LV50;addEvent(`📊 Market report: index ${f(ix.o?ix.p/ix.o-1:0)}, ${news.length} headline(s). Economy: ${econ}.`);
+}
+const _age=window.ageUp;
+window.ageUp=function(){
+ init();if(S.dead||q('popupBg').style.display==='flex')return _age.apply(this,arguments);
+ const b=S.age,s0=S;_age.apply(this,arguments);
+ if(S.dead||S!==s0||S.age<=b)return;
+ init();const real=Math.random;Math.random=mul(hash(((S.lv14&&S.lv14.id)||'x')+'|19|'+S.lv19.salt+'|'+S.age));
+ try{year();}finally{Math.random=real;}
+ render();
+};
+if(window.LV14&&LV14.fate){const o=LV14.fate;LV14.fate=function(){init();S.lv19.salt++;return o.apply(this,arguments);};}
+
+/* ---------------- actions ---------------- */
+function rowsHTML(){
+ const L=S.lv19,st=ST();let a=ALL.slice();
+ if(L.flt!=='All')a=a.filter(m=>m.sec===L.flt);
+ if(sq)a=a.filter(m=>(m.sym+' '+m.name).toLowerCase().includes(sq));
+ const ch=m=>{const s=st[m.sym];return s.o?s.p/s.o-1:0;},K={sym:(x,y)=>x.sym.localeCompare(y.sym),px:(x,y)=>st[y.sym].p-st[x.sym].p,chg:(x,y)=>ch(y)-ch(x),yld:(x,y)=>y.yld-x.yld,rate:(x,y)=>(L.rate[y.sym]??-9)-(L.rate[x.sym]??-9),risk:(x,y)=>x.vol-y.vol,held:(x,y)=>sh(y.sym)*st[y.sym].p-sh(x.sym)*st[x.sym].p};
+ a.sort(K[L.srt]||K.sym);
+ return `<table><tr><th>Stock</th><th>Price</th><th>Trend</th><th>Yield</th><th>Risk</th><th>Analysts</th><th>Held</th><th></th></tr>${a.map(m=>{const s=st[m.sym],c=ch(m),h=sh(m.sym),rt=m.fund?['—','Fund']:RT(L.rate[m.sym]);
+  return `<tr><td><b>${m.sym}</b><br><small class="muted">${E(m.name)}</small><br><span class="badge">${m.sec}</span></td><td>$${s.p.toFixed(2)}<br><small class="${cc(c)}">${f(c)}</small></td><td>${spark(s.h,80,24,c>=0?'#86efac':'#f87171')}</td><td>${(m.yld*100).toFixed(1)}%</td><td>${risk(m.vol)}</td><td><small>${rt[0]}<br>${rt[1]}</small></td><td>${h?h.toLocaleString()+'<br><small class="muted">'+money(h*s.p)+'</small>':'—'}</td><td>${btn('Trade',`LV19.pick('${m.sym}')`,L.sel===m.sym?'gold':'')}</td></tr>`;}).join('')}</table>`;
+}
+function spark(a,w,h,col){if(!a||a.length<2)return'';const mn=Math.min(...a),mx=Math.max(...a),d=(mx-mn)||1;return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${col}" stroke-width="2" points="${a.map((v,i)=>(i/(a.length-1)*w).toFixed(1)+','+(h-2-(v-mn)/d*(h-4)).toFixed(1)).join(' ')}"/></svg>`;}
+
+window.LV19={
+ tab(t){tab=t;render();},
+ qty(v){qty=Math.max(0,Math.floor(Number(v)||0));},
+ find(v){sq=String(v||'').toLowerCase().trim();const e=q('lv19tbl');if(e)e.innerHTML=rowsHTML();},
+ flt(v){S.lv19.flt=v;render();},srt(v){S.lv19.srt=v;render();},
+ pick(s){S.lv19.sel=s;qty=1;render();const e=q('lv19');if(e)e.scrollIntoView();},
+ buy(mode){const s=S.lv19.sel;if(mode==='max'){const n=maxN(ST()[s].p);if(n<1)return popup('💸 Not enough cash',`You can't afford a share of ${s}.`);return buyX(s,n);}buyX(s,qty);},
+ sell(fr){const s=S.lv19.sel,h=sh(s);sellX(s,fr==='qty'?qty:fr==='all'?h:Math.max(1,Math.floor(h*fr)));},
+ rule(){const s=S.lv19.sel,tp=Math.max(0,Number(q('lv19tp').value)||0),sl=Math.min(99,Math.max(0,Number(q('lv19sl').value)||0));
+  if(!tp&&!sl)delete S.lv19.rules[s];else S.lv19.rules[s]={tp,sl};toast(tp||sl?`Rule saved for ${s}: sell all at +${tp||'—'}% / −${sl||'—'}%`:'Rule removed');render();},
+ drip(){S.lv19.drip=!S.lv19.drip;render();}
+};
+
+/* ---------------- UI ---------------- */
+function tradePanel(){
+ const L=S.lv19,m=INFO[L.sel]||INFO.NOVA,s=ST()[m.sym],h=sh(m.sym),c=s.o?s.p/s.o-1:0,avg=h?(L.basis[m.sym]||0)/h:0,pl=h?s.p*h-(L.basis[m.sym]||0):0,ru=L.rules[m.sym]||{tp:0,sl:0},rt=m.fund?null:RT(L.rate[m.sym]);
+ return `<div class="card"><h2>${m.fund?'🧺':'🏢'} ${m.sym} — ${E(m.name)}</h2><p class="muted">${m.sec} • risk ${risk(m.vol)} • yield ${(m.yld*100).toFixed(1)}%${rt?' • analysts: '+rt[0]+' '+rt[1]:''}</p>
+ <p>Price <b>$${s.p.toFixed(2)}</b> <b class="${cc(c)}">${f(c)}</b> • Held <b>${h.toLocaleString()}</b> • Avg cost <b>$${avg.toFixed(2)}</b> • Unrealized <b class="${cc(pl)}">${h?sm(pl):'—'}</b> • Max buy <b>${maxN(s.p).toLocaleString()}</b></p>
+ <label>Number of shares</label><input type="number" min="1" step="1" value="${qty}" oninput="LV19.qty(this.value)">
+ <div>${btn('📈 Buy',"LV19.buy()",'good')}${btn('💰 Buy MAX',"LV19.buy('max')",'gold')}${btn('📉 Sell',"LV19.sell('qty')")}${btn('Sell ½',"LV19.sell(.5)",'',!h)}${btn('Sell all',"LV19.sell('all')",'danger',!h)}</div>
+ <h3 style="margin-top:14px">🎯 Auto-sell rule (checked every age-up)</h3><div class="two"><div><label>Take profit at +% (0 = off)</label><input id="lv19tp" type="number" min="0" value="${ru.tp}"></div><div><label>Stop loss at −% (0 = off)</label><input id="lv19sl" type="number" min="0" max="99" value="${ru.sl}"></div></div>${btn('Save rule','LV19.rule()')}
+ ${S.lv11&&S.lv11.tax?'<p class="muted">Capital gains tax of 10% applies to profits when you sell.</p>':''}</div>`;
+}
+function body(){const L=S.lv19,st=ST();
+ if(tab==='mkt')return tradePanel()+`<div class="card"><div class="two"><input placeholder="🔎 Search ticker or name..." value="${E(sq)}" oninput="LV19.find(this.value)"><div class="two"><select onchange="LV19.flt(this.value)">${['All'].concat(SEC,['Fund']).map(x=>`<option ${L.flt===x?'selected':''}>${x}</option>`).join('')}</select><select onchange="LV19.srt(this.value)">${[['sym','Sort: ticker'],['px','Sort: price'],['chg','Sort: 1y change'],['yld','Sort: dividend yield'],['rate','Sort: analyst rating'],['risk','Sort: lowest risk'],['held','Sort: my holdings']].map(x=>`<option value="${x[0]}" ${L.srt===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div><div id="lv19tbl" style="overflow-x:auto">${rowsHTML()}</div></div>`;
+ if(tab==='pf'){const val=pv(),cost=costAll(),un=val-cost,by={};
+  const held=Object.keys(HO()).filter(k=>HO()[k]>0&&st[k]);held.forEach(k=>{const m=INFO[k];if(m)by[m.sec]=(by[m.sec]||0)+HO()[k]*st[k].p;});
+  let chart='<p class="muted">Age up a few times to build the chart.</p>';
+  if(L.hist.length>1){const vs=L.hist.map(x=>x.v),cs=L.hist.map(x=>x.c),all=vs.concat(cs),mn=Math.min(...all),mx=Math.max(...all),d=(mx-mn)||1,W=640,H=200,P=(a,col)=>`<polyline fill="none" stroke="${col}" stroke-width="3" points="${a.map((v,i)=>(10+i/(a.length-1)*(W-20)).toFixed(1)+','+(H-10-(v-mn)/d*(H-30)).toFixed(1)).join(' ')}"/>`;
+   chart=`<svg viewBox="0 0 ${W} ${H+20}" style="width:100%;background:#0c121b;border-radius:10px">${P(cs,'#94a3b8')}${P(vs,'#60a5fa')}<text x="12" y="16" fill="#94a3b8" font-size="12">blue = value • grey = money invested • ages ${L.hist[0].a}–${L.hist[L.hist.length-1].a}</text></svg>`;}
+  return `<div class="grid"><div class="stat"><small>💼 Value</small><strong>${money(val)}</strong></div><div class="stat"><small>💵 Invested</small><strong>${money(cost)}</strong></div><div class="stat"><small>📈 Unrealized</small><strong class="${cc(un)}">${held.length?sm(un):'—'}</strong></div><div class="stat"><small>✅ Realized</small><strong class="${cc(L.realized)}">${sm(L.realized)}</strong></div><div class="stat"><small>💰 Dividends</small><strong>${money(L.div)}</strong></div><div class="stat"><small>🧾 Tax paid</small><strong>${money(L.tax)}</strong></div><div class="stat"><small>🔁 Trades</small><strong>${L.trades}</strong></div><div class="stat"><small>✂️ Splits</small><strong>${L.splits}</strong></div></div><br>
+  <div class="card"><h2>🔁 Dividend reinvestment (DRIP)</h2><p class="muted">When ON, dividends buy more shares automatically instead of paying cash.</p>${btn(L.drip?'DRIP: ON (turn off)':'DRIP: OFF (turn on)','LV19.drip()',L.drip?'good':'')}</div>
+  <div class="card"><h2>📊 Portfolio history</h2>${chart}</div>
+  <div class="card"><h2>🧩 Allocation</h2>${Object.keys(by).length?Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div>${k} <b>${Math.round(v/val*100)}%</b> (${money(v)})<div class="progress"><div style="width:${v/val*100}%"></div></div></div>`).join(''):'<p class="muted">Nothing held.</p>'}</div>
+  <div class="card"><h2>💼 Holdings</h2>${held.length?`<div style="overflow-x:auto"><table><tr><th>Stock</th><th>Shares</th><th>Avg cost</th><th>Price</th><th>Value</th><th>P/L</th><th></th></tr>${held.sort((a,b)=>HO()[b]*st[b].p-HO()[a]*st[a].p).map(k=>{const h=HO()[k],b=L.basis[k]||0,pl=h*st[k].p-b;return `<tr><td><b>${k}</b></td><td>${h.toLocaleString()}</td><td>$${(b/h).toFixed(2)}</td><td>$${st[k].p.toFixed(2)}</td><td>${money(h*st[k].p)}</td><td class="${cc(pl)}">${sm(pl)} (${f(b?pl/b:0)})</td><td>${btn('Trade',`LV19.pick('${k}');LV19.tab('mkt')`)}</td></tr>`;}).join('')}</table></div>`:'<p class="muted">You hold no investments yet.</p>'}</div>`;}
+ const mood=SEC.map(s=>{const m=L.mood[s];return `<tr><td><b>${s}</b></td><td>${m?`<span class="${cc(m.m)}">${f(m.m)}</span> • ${E(m.t)} <small class="muted">(age ${m.a})</small>`:'<span class="muted">quiet</span>'}</td></tr>`;}).join('');
+ return `<div class="card"><h2>🌐 Sector watch</h2><div style="overflow-x:auto"><table>${mood}</table></div></div><div class="card"><h2>📰 Market headlines</h2>${L.news.map(n=>`<div class="${n.tone==='up'?'news':'event'}"><b>Age ${n.a}</b> ${n.tone==='up'?'📈':'📉'} ${E(n.t)}</div>`).join('')||'<p class="muted">Age up to see headlines.</p>'}</div>`;
+}
+function page(){
+ const el=q('lv19_c');if(!el)return;const a=document.activeElement;if(a&&a.tagName==='INPUT'&&el.contains(a))return;
+ if(!market()){el.innerHTML='<div class="card muted">This add-on needs the V6 add-on (stock engine) installed.</div>';return;}
+ const L=S.lv19,ix=ST().LV50,ich=ix&&ix.o?ix.p/ix.o-1:0,econ=S.v6.econ?S.v6.econ.state:'Stable';
+ el.innerHTML=`<div class="grid"><div class="stat"><small>🌍 Economy</small><strong>${econ}</strong></div><div class="stat"><small>📊 LV500 Index (1y)</small><strong class="${cc(ich)}">${f(ich)}</strong></div><div class="stat"><small>💼 Portfolio</small><strong>${money(pv())}</strong></div><div class="stat"><small>💵 Cash</small><strong>${money(S.money)}</strong></div></div><br><div>${[['mkt','📊 Market'],['pf','💼 Portfolio'],['news','📰 News & Sectors']].map(t=>btn(t[1],`LV19.tab('${t[0]}')`,tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;
+}
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('lv19'))return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ const s=document.createElement('section');s.id='lv19';s.className='page';s.innerHTML='<h1>📊 Exchange</h1><div id="lv19_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.textContent='📊 Exchange';b.setAttribute('onclick',"showPage('lv19',this)");side.insertBefore(b,anc);})();
+function dash(){const sec=q('dashboard');if(!sec||!S.v6)return;let e=q('lv19Dash');if(!e){e=document.createElement('div');e.id='lv19Dash';e.className='card';sec.appendChild(e);}
+ const val=pv(),un=val-costAll();e.innerHTML=`<h2>📊 Investments</h2><div class="grid"><div class="stat"><small>Portfolio</small><strong>${money(val)}</strong></div><div class="stat"><small>Unrealized P/L</small><strong class="${cc(un)}">${Object.keys(S.lv19.basis).length?sm(un):'—'}</strong></div><div class="stat"><small>Dividends</small><strong>${money(S.lv19.div)}</strong></div></div>`;}
+[['First Trade','Buy or sell a stock.',()=>S.lv19&&S.lv19.trades>=1],['Diversified','Hold stocks in 6 different sectors.',()=>{if(!S.v6||!S.lv19)return false;const x=new Set();for(const k in HO()){if(HO()[k]>0&&INFO[k]&&!INFO[k].fund)x.add(INFO[k].sec);}return x.size>=6;}],['Ten Bagger','Sell a position for 10x what you paid.',()=>S.lv19&&S.lv19.best>=10],['Dividend Collector','Collect $50,000 in dividends.',()=>S.lv19&&S.lv19.div>=5e4],['Diamond Hands','Hold $10,000+ through a market crash.',()=>S.lv19&&S.lv19.crashHeld],['Index Investor','Own the LifeVerse 500 Index.',()=>S.v6&&S.v6.hold&&S.v6.hold.LV50>0],['Stock Split Luck','Own shares through a stock split.',()=>S.lv19&&S.lv19.splits>=1&&Object.keys(S.v6&&S.v6.hold||{}).length>0]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+const _render=window.render;
+window.render=function(){init();market();_render();
+ document.querySelectorAll('.sidebar .nav').forEach(b=>{if((b.getAttribute('onclick')||'').includes("'v6_stocks'"))b.style.display='none';});
+ dash();const p=q('lv19');if(p&&p.classList.contains('active'))page();};
+init();render();
+})();
+</script>
+
 </body>
 </html>
