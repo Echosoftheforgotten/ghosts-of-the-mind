@@ -11409,5 +11409,149 @@ init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V20 ADD-ON — ROYAL TREASURY + COURT UPGRADES
+  Paste RIGHT BEFORE </body>, AFTER every other script (must be LAST).
+  Needs the V8 + V9 royalty add-ons. Everything lives in S.lv20.
+  - Treasury Office: donate any amount / 10% / 25% / 50% / ALL cash,
+    withdraw a custom amount (25% of treasury max, once a year)
+  - 8 permanent Court Upgrades (buy with treasury OR your own cash,
+    yearly upkeep, yearly benefits that also protect against revolution)
+  - 4 new court actions: tournament, charity, spy mission, trade mission
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV20)return;window.__LV20=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+let amt='';
+
+/* ---------- state ---------- */
+function init(){
+ if(!S.lv20||typeof S.lv20!=='object')S.lv20={};
+ const d={used:{},up:{},donated:0,taken:0,log:[]};
+ for(const k in d)if(S.lv20[k]===undefined||S.lv20[k]===null)S.lv20[k]=d[k];
+}
+const ROY=()=>S.lv8&&S.lv8.royal;
+const active=()=>!!(ROY()&&ROY().active);
+function tier(){const t=String(ROY().title||'');
+ if(/Emperor|Empress|Kaiser/.test(t))return 4;
+ if(/Grand Duke|Grand Duchess/.test(t))return 2;
+ if(/Duke|Duchess/.test(t))return 1;
+ if(/Prince|Princess/.test(t))return 0;
+ return 3;}
+const realm=()=>S.lv9&&S.lv9.realm;
+const ruling=()=>active()&&tier()>=1&&!!realm();
+const T=()=>tier()*1000000;
+const U=id=>S.lv20.used[id]||0;
+function log(t){const L=S.lv20.log;L.unshift({a:S.age,t});if(L.length>12)L.length=12;addEvent(t);}
+function toast(m){let t=q('lv20t');if(!t){t=document.createElement('div');t.id='lv20t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #fbbf24;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+function rx(o){const rm=realm();for(const k in o){if(['pop','mil','nob','stab'].includes(k))rm[k]=clamp(Math.round(rm[k]+o[k]),0,100);else if(k==='treas')rm.treas+=o[k];else if(['happiness','health','fame','smarts','reputation'].includes(k))S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}}
+function num(v){const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?Math.floor(n):NaN;}
+const bar=(l,v)=>`<div>${l} <b>${Math.round(v)}%</b><div class="progress"><div style="width:${clamp(v,0,100)}%"></div></div></div>`;
+
+/* ---------- upgrades: id, icon, name, description, base cost (x rank tier), effects per year ---------- */
+const UP=[
+['guard','🛡️','Royal Guard','+2 stability each year.',150000,{stab:2}],
+['spy','🕵️','Spy Network','+2 noble loyalty, +1 stability. Spy missions much more accurate.',120000,{nob:2,stab:1}],
+['grain','🌾','Royal Granary','+2 popularity each year (hunger hurts less).',100000,{pop:2}],
+['hosp','🏥','Royal Hospital','+2 popularity, +1 health each year.',180000,{pop:2,health:1}],
+['port','⚓','Trade Port','Earns treasury income every year.',250000,{}],
+['acad','🎓','Royal Academy','+2 military, +1 smarts each year.',200000,{mil:2,smarts:1}],
+['fort','🏰','Great Fortress','+3 military, +1 stability each year.',400000,{mil:3,stab:1}],
+['wing','🏛️','Palace Wing','+3 noble loyalty, +1 happiness each year.',300000,{nob:3,happiness:1}]];
+const cost=u=>u[4]*Math.max(1,tier());
+const upkeep=u=>Math.round(cost(u)*.05);
+
+function buyUp(id,mode){
+ if(!ruling())return;const u=UP.find(x=>x[0]===id);if(!u||S.lv20.up[id])return;const c=cost(u),rm=realm();
+ if(mode==='treas'){if(rm.treas<c)return popup('💸 Treasury low',`${E(u[2])} costs ${money(c)}. The treasury holds ${money(rm.treas)}.`);rm.treas-=c;}
+ else{if(S.money<c)return popup('💸 Not enough cash',`${E(u[2])} costs ${money(c)}. You have ${money(S.money)}.`);S.money-=c;}
+ S.lv20.up[id]=1;rx({pop:2,nob:1});log(`${u[1]} ${playerName()} built the ${u[2]} for ${money(c)} (upkeep ${money(upkeep(u))}/yr).`);toast(`${u[1]} ${u[2]} built!`);render();
+}
+
+/* ---------- treasury ---------- */
+function parse(){const i=q('lv20Amt');return num(i?i.value:amt);}
+function donate(n){
+ if(!ruling())return;if(!(n>=1))return popup('Invalid amount','Enter a whole dollar amount of 1 or more.');
+ if(n>S.money)return popup('💸 Not enough cash',`You only have ${money(S.money)}.`);
+ S.money-=n;realm().treas+=n;S.lv20.donated+=n;
+ const g=Math.min(5,Math.floor(n/(T()*.5)));if(g>0)rx({pop:g,nob:Math.ceil(g/2)});
+ log(`💰 ${playerName()} donated ${money(n)} to the treasury.`);toast(`Donated ${money(n)}`+(g?` (+${g} popularity)`:''));amt='';render();
+}
+function withdraw(n){
+ if(!ruling())return;const rm=realm(),cap=Math.floor(rm.treas*.25);
+ if(U('wd')>=1)return popup('⏳ Limit reached','You can withdraw once a year.');
+ if(!(n>=1))return popup('Invalid amount','Enter a whole dollar amount of 1 or more.');
+ if(n>cap)return popup('🏦 Too much',`You can withdraw at most 25% of the treasury (${money(cap)}) per year.`);
+ rm.treas-=n;S.money+=n;S.lv20.taken+=n;S.lv20.used.wd=1;rx({pop:-3,nob:-2});log(`🏦 ${playerName()} withdrew ${money(n)} from the treasury.`);amt='';render();
+}
+
+/* ---------- new actions ---------- */
+const AC=[
+['tour','🏇','Royal tournament','Costs 10% of rank budget. +6 popularity, +4 noble loyalty, +2 fame.',1,.1,()=>{rx({pop:6,nob:4,fame:2});return 'A grand tournament thrilled the realm.';}],
+['char','🤲','Fund charity','Costs 5% of rank budget. +5 popularity, +2 stability.',2,.05,()=>{rx({pop:5,stab:2,reputation:2});return 'Your charity fed the poor.';}],
+['spy','🔍','Spy mission','Costs 5% of rank budget. Uncovers plots (+4 stability, +3 noble loyalty).',1,.05,()=>{const p=S.lv20.up.spy?85:50;if(chance(p)){rx({stab:4,nob:3});return 'Your spies uncovered and crushed a plot.';}return 'Your spies found nothing this time.';}],
+['trade','🚢','Trade mission','Costs 3% of rank budget. Could earn 10-25% of rank budget, or lose.',1,.03,()=>{if(chance(S.lv20.up.port?75:60)){const g=Math.round(T()*r(10,25)/100);realm().treas+=g;rx({pop:1});return `The trade mission returned ${money(g)}.`;}rx({nob:-2});return 'The trade mission failed.';}]];
+function doAct(id){
+ if(!ruling())return;const a=AC.find(x=>x[0]===id),rm=realm(),c=Math.round(a[5]*T());
+ if(U(id)>=a[4])return popup('⏳ Limit reached',`You already used <b>${E(a[2])}</b> ${a[4]} time(s) this year.`);
+ if(rm.treas<c)return popup('💸 Treasury low',`This needs ${money(c)} in the treasury.`);
+ rm.treas-=c;S.lv20.used[id]=U(id)+1;S.stats.activities++;const m=a[6]();log(a[1]+' '+m);toast(m);render();
+}
+
+/* ---------- yearly: upgrades apply BEFORE the age-up so they can prevent revolutions ---------- */
+function preYear(){
+ const L=S.lv20;L.used={};if(!ruling())return;const rm=realm();let paid=0,inc=0;
+ UP.forEach(u=>{if(!L.up[u[0]])return;const up=upkeep(u);
+  if(rm.treas>=up){rm.treas-=up;paid+=up;rx(u[5]);if(u[0]==='port'){const g=Math.round(rm.lands*tier()*150000*(.5+rm.stab/100));rm.treas+=g;inc+=g;}}
+  else addEvent(`${u[1]} The ${u[2]} lay idle: the treasury could not pay ${money(up)} upkeep.`);});
+ if(paid)addEvent(`🏰 Court upgrades cost ${money(paid)} in upkeep${inc?` and the Trade Port earned ${money(inc)}`:''}.`);
+}
+const _age=window.ageUp;
+window.ageUp=function(){init();const s0=S,age0=S.age,dead=S.dead;
+ if(!dead&&q('popupBg').style.display!=='flex')preYear();
+ return _age.apply(this,arguments);};
+
+/* carry upgrades to the heir */
+const _ch=window.chooseHeir;
+window.chooseHeir=function(i){init();const keep=JSON.parse(JSON.stringify(S.lv20)),s0=S;_ch.apply(this,arguments);
+ if(S!==s0){S.lv20={used:{},up:keep.up,donated:keep.donated,taken:0,log:[]};render();}};
+
+/* ---------- UI ---------- */
+window.LV20={
+ amt(v){amt=v;},
+ quick(p){const n=p==='all'?Math.floor(S.money):Math.floor(S.money*p);donate(n);},
+ donate(){donate(parse());},
+ wd(){withdraw(parse());},
+ wdmax(){const n=Math.floor(realm().treas*.25);const i=q('lv20Amt');if(i)i.value=n;amt=String(n);},
+ buy:buyUp,act:doAct
+};
+function card(){
+ const host=q('lv8_royal_c');if(!host||!q('lv8_royal').classList.contains('active'))return;
+ const old=q('lv20Roy');const a=document.activeElement;if(old&&a&&old.contains(a))return;
+ if(old)old.remove();if(!ruling())return;
+ const rm=realm(),L=S.lv20,cap=Math.floor(rm.treas*.25);
+ const d=document.createElement('div');d.id='lv20Roy';
+ d.innerHTML=`<div class="card"><h2>💰 Treasury Office</h2>
+  <p>Treasury: <b>${money(rm.treas)}</b> • Your cash: <b>${money(S.money)}</b></p>
+  <p class="muted">Donated so far: ${money(L.donated)} • Withdrawn so far: ${money(L.taken)}. Big donations (relative to your rank) raise popularity. Withdrawals are capped at 25% of the treasury once a year and cost popularity.</p>
+  <label>Amount ($)</label><input id="lv20Amt" type="text" inputmode="numeric" placeholder="Custom amount..." value="${E(amt)}" oninput="LV20.amt(this.value)">
+  <div>${btn('💰 Donate amount','LV20.donate()','good')}${btn('10%','LV20.quick(.1)')}${btn('25%','LV20.quick(.25)')}${btn('50%','LV20.quick(.5)')}${btn('ALL cash','LV20.quick("all")','danger')}</div>
+  <div style="margin-top:6px">${btn('🏦 Withdraw amount ('+U('wd')+'/1)','LV20.wd()','gold',U('wd')>=1)}${btn('Fill max ('+money(cap)+')','LV20.wdmax()')}</div>
+  ${L.log.length?'<h3 style="margin-top:12px">Recent court ledger</h3>'+L.log.slice(0,5).map(x=>`<div class="news"><b>Age ${x.a}</b> ${E(x.t)}</div>`).join(''):''}</div>
+ <div class="card"><h2>🏗️ Court Upgrades</h2><p class="muted">Permanent buildings. Upkeep is 5% of cost per year from the treasury; if it cannot be paid the upgrade goes idle that year. Their bonuses are applied before each age-up, so they help prevent revolutions.</p>
+  <div class="grid">${UP.map(u=>{const own=L.up[u[0]],c=cost(u);return `<div class="card"><h3>${u[1]} ${E(u[2])}</h3><p class="muted">${E(u[3])}<br>Cost ${money(c)} • Upkeep ${money(upkeep(u))}/yr</p>${own?'<span class="badge">✅ Built</span>':btn('Buy (treasury)',`LV20.buy('${u[0]}','treas')`,'good',rm.treas<c)+btn('Buy (my cash)',`LV20.buy('${u[0]}','cash')`,'gold',S.money<c)}</div>`;}).join('')}</div></div>
+ <div class="card"><h2>🎭 More Court Actions</h2><div class="grid">${AC.map(x=>{const c=Math.round(x[5]*T());return `<div class="card"><h3>${x[1]} ${E(x[2])}</h3><p class="muted">${E(x[3])}<br>Cost ${money(c)}</p>${btn('Do it '+U(x[0])+'/'+x[4],`LV20.act('${x[0]}')`,'',U(x[0])>=x[4])}</div>`;}).join('')}</div></div>`;
+ host.appendChild(d);
+}
+[['Patriot','Donate $1,000,000 to the treasury in total.',()=>S.lv20&&S.lv20.donated>=1e6],['Master Builder','Build all 8 court upgrades.',()=>S.lv20&&UP.every(u=>S.lv20.up[u[0]])]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+const _render=window.render;
+window.render=function(){init();_render();card();};
+init();render();
+})();
+</script>
+
 </body>
 </html>
