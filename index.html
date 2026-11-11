@@ -11553,5 +11553,504 @@ init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V21 ADD-ON — paste RIGHT BEFORE </body>, AFTER every other
+  script (must be LAST).  Everything lives in S.lv21 (old saves are safe).
+
+  FIXES
+   - ROOT-CAUSE BUG: many buttons were written like onclick="LV14.tab("x")"
+     (double quotes inside a double-quoted attribute). The browser cut the
+     attribute in half, so those buttons did nothing. That broke:
+       Random Extras tab + Time Machine tab, Crypto "Buy max", Credit-card
+       "Pay all", Savings goal "Add all cash", Divorce buttons, Treasury "ALL cash".
+     This add-on repairs them everywhere, automatically.
+   - Random events/dice after age-up are now seeded too, so the timeline is
+     fully consistent when you rewind and replay.
+  NEW PAGES: ⏪ Time Machine (rewritten), 🎲 Random Activities, 🪙 Crypto,
+     💘 Dating & Marriage, 🏦 Banking & Credit, 🏚️ Real Estate, 🎁 Charity,
+     🚗 Driving & Cars
+  RENAMED vague pages to say what is inside them.
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV21)return;window.__LV21=1;
+
+/* =========================================================
+   0. REPAIR BROKEN onclick="fn("arg")" BUTTONS EVERYWHERE
+   ========================================================= */
+(function(){
+ const d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+ if(!d||!d.set||window.__LV21FIXQ)return;window.__LV21FIXQ=1;
+ const re=/onclick="([\w.$]+)\(((?:"[^"]*"\s*,?\s*)+)\)"/g;
+ Object.defineProperty(Element.prototype,'innerHTML',{configurable:true,enumerable:d.enumerable,get:d.get,
+  set:function(v){
+   if(typeof v==='string'&&v.indexOf('onclick="')>-1)v=v.replace(re,(m,fn,args)=>'onclick="'+fn+'('+args.replace(/"/g,"'")+')"');
+   d.set.call(this,v);}});
+})();
+
+/* ---------------- helpers ---------------- */
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const bar=(l,v)=>`<div>${l} <b>${Math.round(v)}%</b><div class="progress"><div style="width:${clamp(v,0,100)}%"></div></div></div>`;
+const num=v=>{const n=Number(String(v==null?'':v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:NaN;};
+const sm=n=>(n<0?'−':'+')+money(Math.abs(n));
+const cc=x=>x>=0?'green':'red';
+const has=(o,k)=>!!o&&typeof o[k]==='function';
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mul(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function toast(m){let t=q('lv21t');if(!t){t=document.createElement('div');t.id='lv21t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #38bdf8;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+function fx(o){for(const k in o){const v=o[k];
+ if(k==='money')S.money=Math.max(0,S.money+v);
+ else if(k==='stress'){if(S.lifePlus)S.lifePlus.stress=clamp(safeNumber(S.lifePlus.stress,0)+v,0,100);}
+ else S[k]=clamp(Math.round(safeNumber(S[k],50)+v),0,100);}}
+function spark(a,w,h,col){if(!a||a.length<2)return'';const mn=Math.min(...a),mx=Math.max(...a),d=(mx-mn)||1;return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${col||'#60a5fa'}" stroke-width="2" points="${a.map((v,i)=>(i/(a.length-1)*w).toFixed(1)+','+(h-2-(v-mn)/d*(h-4)).toFixed(1)).join(' ')}"/></svg>`;}
+const px=p=>p<1?'$'+p.toFixed(4):'$'+p.toFixed(2);
+
+/* =========================================================
+   DATA
+   ========================================================= */
+/* sym, name, icon, start price, min %/yr, max %/yr, staking %/yr, risk, description */
+const COINS=[
+['LFC','LifeCoin','🪙',100,-45,80,4,'High','The original coin. Yearly swings from −45% to +80%.'],
+['STBL','StableDollar','💵',1,-3,3,3,'Very low','Pegged near $1. A safe parking spot with a small staking yield.'],
+['ORCL','OracleNet','🔮',45,-35,60,5,'Medium','Data network coin. Moderate swings.'],
+['GRNC','GreenChain','🌿',12,-40,70,8,'High','Eco-friendly chain with the best staking reward.'],
+['PIXL','PixelPunk','🎮',20,-60,150,0,'Extreme','Meme-game coin. Can explode or collapse.'],
+['MOON','MoonShot','🚀',0.5,-80,300,0,'Extreme','Tiny coin with huge upside, and an 8% yearly chance of a rug-pull.']];
+
+const XM=[['fort','🔮','Fortune teller','$50. A prophecy nudges your luck.',10,50,1],['dig','🧭','Treasure hunt','$200 metal-detector trip. Big finds are rare.',10,200,2],['esc','🗝️','Escape room','$60 with friends. Happiness and smarts.',8,60,2],['park','🎢','Amusement park','$150 day of fun.',3,150,1],['vip','🎫','VIP concert','$800. You might meet a star.',16,800,1],['blood','🩸','Donate blood','Free. Reputation and a kind heart.',17,0,2],['camp','⛺','Camping trip','$200. Health and calm (8% injury risk).',8,200,1],['lang','🗣️','Language lessons','$300. Level up a language (10 = fluent).',8,300,1],['box','🎁','Mystery box','$100. Worth far more or far less.',10,100,2],['mara','🏃','Run a marathon','Needs athleticism 50+.',16,0,1],['sky','🪂','Skydiving','$400. Huge thrill, about 1% risk.',18,400,1],['pool','🎟️','Lottery pool','Needs a job. $20 for a tiny shot at a shared win.',18,20,1],['smart','🏠','Smart home upgrade','$8,000 once. Needs a property.',18,8000,1],['diary','📓','Write in your diary','Free. Calm.',8,0,2],['chess','♟️','Chess tournament','$40. Your smarts decide.',8,40,1],['ret','🧘','Meditation retreat','$500. Big stress relief.',16,500,1],['food','🍜','Street food tour','$80. Happiness.',8,80,1]];
+
+const NA=[
+['kite','🪁','Fly a kite','Free. Simple joy.',3,0,2,()=>{fx({happiness:r(2,5),health:1});return 'You flew a kite on a breezy day.';}],
+['cookie','🥠','Fortune cookie','Free. A tiny lucky surprise.',3,0,3,()=>{if(chance(10)){const m=r(10,100);S.money+=m;return 'The cookie had a lucky number: '+money(m)+'!';}fx({happiness:1});return pick(['"Good things are coming."','"Call an old friend."','"Take a risk this year."']);}],
+['beach','🏖️','Beach day','$30. Happiness and health.',3,30,2,()=>{fx({happiness:r(4,8),health:r(1,3),stress:-5});return 'Sun, sand and waves.';}],
+['karate','🥋','Belt test','$100. Athleticism and discipline.',7,100,1,()=>{fx({athleticSkill:r(2,5),discipline:r(2,4)});return 'You earned your next belt.';}],
+['bake','🧁','Bake sale','$40 of ingredients. Earn $100-$600.',8,40,1,()=>{const m=r(100,600);S.money+=m;fx({happiness:2,reputation:1});return 'Your bake sale raised '+money(m)+'.';}],
+['board','🎲','Board-game café','$25 with friends.',8,25,2,()=>{fx({happiness:r(3,6)});(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+2,0,100));return 'A fun evening with friends.';}],
+['robot','🤖','Robotics workshop','$250. Smarts and creativity.',9,250,1,()=>{fx({smarts:r(2,5),creativity:r(1,4)});return 'You built a working robot.';}],
+['thrift','🧥','Thrift shopping','$100. Maybe a valuable find.',10,100,2,()=>{if(chance(15)){const m=r(300,2500);S.money+=m;return 'You found a rare piece worth '+money(m)+'!';}fx({looks:1,happiness:2});return 'You found some great clothes.';}],
+['balloon','🎈','Hot air balloon','$600. Unforgettable.',12,600,1,()=>{fx({happiness:r(8,14)});return 'The view from above was breathtaking.';}],
+['comedy','🎤','Stand-up night','Free. Charisma, maybe fame.',16,0,1,()=>{if(chance(25+safeNumber(S.charisma,50)*.3)){fx({charisma:3,fame:1,happiness:5});return 'You killed it on stage!';}fx({charisma:1,happiness:-2});return 'You bombed, but learned something.';}],
+['dj','🎧','DJ set','Free. Creativity and a chance at fame.',16,0,1,()=>{fx({creativity:r(2,4),happiness:3});if(chance(15)){fx({fame:1});return 'Your set went viral!';}return 'The crowd danced all night.';}],
+['cabin','🛖','Cabin getaway','$400. Deep calm.',16,400,1,()=>{fx({happiness:r(5,9),health:2,stress:-20});return 'You disconnected and recharged.';}],
+['quiz','🍻','Pub quiz','$20. Win up to $500 if you are sharp.',18,20,1,()=>{if(chance(clamp(S.smarts*.4,10,50))){const m=r(100,500);S.money+=m;fx({happiness:4});return 'Your team won '+money(m)+'!';}fx({happiness:2});return 'Fun night, no prize.';}]];
+
+const REN={lv10:'🎟️ Lottery, Jobs & Lawsuits',lv11:'🌴 Retirement & Taxes',lv12:'🏋️ Gym, Mentoring & Hobbies',lv13:'🤝 Social Club & Career Breaks',lv15:'🔨 Auctions, Travel & Fun',lv16:'🧾 Bills, Job Loss & Estate',lv17:'🧓 Senior Care & Kids School',lv18:'🏥 Hospital & Campus'};
+
+/* =========================================================
+   STATE
+   ========================================================= */
+function init(){
+ if(!S.lv21||typeof S.lv21!=='object')S.lv21={};
+ const d={used:{},salt:0,tab:'main',pause:true,metric:'nw',hist:[],coins:{},basis:{},stake:{},dca:null,real:0,taxPaid:0,rug:0,news:[],cTab:'mkt',sel:'LFC',sponsor:0,school:false,vows:0,safe:false,ffYears:0,relief:0};
+ for(const k in d)if(S.lv21[k]===undefined||S.lv21[k]===null)S.lv21[k]=d[k];
+ COINS.forEach(c=>{if(c[0]==='LFC')return;if(!S.lv21.coins[c[0]])S.lv21.coins[c[0]]={p:c[3],h:[c[3]],u:0,rug:false};});
+}
+const lid=()=>(S.lv14&&S.lv14.id)||'x';
+const U=id=>S.lv21.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;
+ if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${E(label)}</b> ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${E(label)} costs <b>${money(cost)}</b>.`);return false;}
+ S.money-=cost;S.lv21.used[id]=U(id)+1;S.stats.activities++;return true;}
+
+/* =========================================================
+   1. TIME MACHINE ENGINE (rewind, jump forward, fast-forward)
+   ========================================================= */
+const TLM={},BMM={};
+const tl=()=>TLM[lid()]||(TLM[lid()]={});
+const bms=()=>BMM[lid()]||(BMM[lid()]=[]);
+function snap(){try{const T=tl();T[S.age]=JSON.stringify(S);const ks=Object.keys(T).map(Number);
+ while(ks.length>45){let far=ks[0];ks.forEach(k=>{if(Math.abs(k-S.age)>Math.abs(far-S.age))far=k;});delete T[far];ks.splice(ks.indexOf(far),1);}}catch(e){console.warn('snap failed',e);}}
+function restore(json,msg){
+ let s;try{s=normalizeLoadedState(JSON.parse(json));}catch(e){popup('❌ Error','Could not restore that moment.');return false;}
+ const tr=((S.lv14&&S.lv14.travels)||0)+1;
+ ffStop(true);S=s;init();if(S.lv14)S.lv14.travels=tr;S.dead=false;if(S.v6)S.v6.rewinds=99;
+ closePopup();toast(msg||('⏪ Now at age '+S.age));render();return true;}
+function jump(a){const j=tl()[a];if(j===undefined)return popup('⏳ No saved moment','There is no saved moment at age '+a+'.');restore(j,(a<S.age?'⏪ Back to age ':'⏩ Forward to age ')+a+'. Years replay the same way unless you alter fate.');}
+function back(n){const ages=Object.keys(tl()).map(Number).filter(a=>a<S.age);
+ if(!ages.length)return popup('⏪ Nothing to rewind','Age up at least once first. Saved moments live in memory and clear if you refresh the page.');
+ const c=ages.filter(a=>a<=S.age-n);jump(c.length?Math.max(...c):Math.min(...ages));}
+function fwd(){const f=Object.keys(tl()).map(Number).filter(a=>a>S.age);if(f.length){jump(Math.min(...f));}else ageUp();}
+
+/* fast forward */
+let FF=null;
+function ffStart(n,cond){
+ if(FF&&FF.on)return popup('⏩ Already running','Stop the current fast-forward first.');
+ if(S.dead)return popup('🕊️ Life ended','Start or continue a life first.');
+ if(!(n>=1))return popup('⏩ Nothing to do','Pick a target in the future.');
+ FF={on:true,left:n,cond:cond||null,idle:0,stuck:0,start:{a:S.age,nw:netWorth(),h:S.health,ha:S.happiness,m:S.money,f:S.fame}};
+ toast('⏩ Fast-forwarding...');render();setTimeout(ffStep,200);}
+function ffStop(silent,reason){if(!FF)return;const f=FF;FF=null;if(!silent)ffReport(f,reason);render();}
+function ffReport(f,reason){
+ if(reason==='decision'){toast('⏸️ Fast-forward paused: a decision needs you.');return;}
+ const d=(a,b)=>{const x=Math.round(a-b);return (x>=0?'+':'')+x;};
+ const evs=((S.lv11&&S.lv11.log)||[]).filter(x=>x.a>f.start.a);
+ const key=evs.filter(x=>/died|passed away|married|was born|promot|graduat|arrest|diagnos|laid off|fired|retire|bankrupt|inherit|crash|champion|cured|enrolled|bought|sold|adopted|divorc|elected|won/i.test(x.t)).slice(0,10);
+ popup('⏩ Fast-forward complete',`<p>${reason&&reason!=='Done'?E(reason)+'<br>':''}Age <b>${f.start.a}</b> → <b>${S.age}</b> (${S.age-f.start.a} year(s))</p>
+ <p>💎 Net worth: <b>${money(netWorth())}</b> (${sm(netWorth()-f.start.nw)})<br>💵 Cash: <b>${money(S.money)}</b> (${sm(S.money-f.start.m)})<br>❤️ Health: <b>${Math.round(S.health)}%</b> (${d(S.health,f.start.h)})<br>😊 Happiness: <b>${Math.round(S.happiness)}%</b> (${d(S.happiness,f.start.ha)})<br>⭐ Fame: <b>${Math.round(S.fame)}</b> (${d(S.fame,f.start.f)})</p>
+ ${key.length?'<h3>Highlights</h3>'+key.map(x=>`<div class="news"><b>Age ${x.a}</b> ${E(x.t)}</div>`).join(''):''}`);}
+function ffStep(){
+ if(!FF||!FF.on)return;
+ if(S.dead){ffStop(false,'Your character died.');return;}
+ const sm0=q('startMenu');if(sm0&&sm0.style.display==='flex'){ffStop(true);return;}
+ const bg=q('popupBg');
+ if(bg.style.display==='flex'){
+  FF.idle=0;const txt=q('popupContent').textContent||'';
+  if(/Life Has Ended|Life Complete|has ended/i.test(txt)){ffStop(false,'Your character died.');return;}
+  const btns=[...q('popupButtons').querySelectorAll('button')];
+  const yearPopup=/YEAR\s+\d{4}/.test(txt)&&btns.length&&/continue/i.test(btns[0].textContent);
+  if(btns.length>1&&!yearPopup&&S.lv21.pause){ffStop(false,'decision');return;}
+  const b=btns.find(x=>/continue/i.test(x.textContent))||btns.find(x=>!/danger/.test(x.className))||btns[0];
+  if(b)b.click();else closePopup();
+  setTimeout(ffStep,350);return;}
+ FF.idle++;if(FF.idle<3){setTimeout(ffStep,300);return;}FF.idle=0;
+ if(FF.left<=0||(FF.cond&&FF.cond())){ffStop(false,'Done');return;}
+ const a0=S.age;FF.left--;ageUp();
+ if(S.age===a0&&!S.dead){FF.stuck++;if(FF.stuck>=6){ffStop(false,'Fast-forward stopped: the game would not advance.');return;}}
+ else{FF.stuck=0;S.lv21.ffYears=(S.lv21.ffYears||0)+1;}
+ setTimeout(ffStep,450);}
+function ffCheck(){}
+
+/* =========================================================
+   2. CRYPTO ENGINE
+   ========================================================= */
+const hasLFC=()=>!!(S.lv12&&S.lv12.crypto);
+const list=()=>COINS.filter(c=>c[0]!=='LFC'||hasLFC());
+const P=s=>s==='LFC'?S.lv12.crypto.p:S.lv21.coins[s].p;
+const H=s=>s==='LFC'?S.lv12.crypto.h:S.lv21.coins[s].h;
+const UN=s=>s==='LFC'?S.lv12.crypto.u:S.lv21.coins[s].u;
+const setU=(s,v)=>{if(s==='LFC')S.lv12.crypto.u=v;else S.lv21.coins[s].u=v;};
+const VAL=s=>UN(s)*P(s);
+const rugged=s=>s!=='LFC'&&!!S.lv21.coins[s].rug;
+function ensureBasis(s){const B=S.lv21.basis;if(UN(s)>1e-9){if(B[s]===undefined)B[s]=UN(s)*P(s);}else delete B[s];}
+const extraVal=()=>{let t=0;for(const k in S.lv21.coins){const c=S.lv21.coins[k];t+=c.u*c.p;}return t;};
+const cryptoTotal=()=>{try{return list().reduce((a,c)=>a+VAL(c[0]),0);}catch(e){return 0;}};
+
+function cbuy(sym,dollars){
+ if(S.dead)return;if(S.age<18)return popup('🔒 Too young','Crypto trading starts at age 18.');
+ if(rugged(sym))return popup('☠️ Worthless','This coin was rug-pulled. Nobody will sell it to you.');
+ dollars=Math.floor(dollars);
+ if(!(dollars>=1))return popup('💸 Invalid amount',S.money<1?'You have no cash to invest.':'Enter a dollar amount of 1 or more.');
+ if(S.money<dollars)return popup('💸 Not enough cash',`That costs <b>${money(dollars)}</b>. You have <b>${money(S.money)}</b>.`);
+ ensureBasis(sym);S.money-=dollars;setU(sym,UN(sym)+dollars/P(sym));S.lv21.basis[sym]=(S.lv21.basis[sym]||0)+dollars;
+ addEvent(`🪙 ${playerName()} bought ${money(dollars)} of ${sym}.`);toast(`Bought ${money(dollars)} of ${sym}`);render();}
+function csell(sym,mode,dollars){
+ if(S.lv21.stake[sym])return popup('🔒 Staked','Unstake this coin first (Staking tab).');
+ ensureBasis(sym);const u=UN(sym);if(!(u>1e-9))return popup('📉 Nothing to sell',`You hold no ${sym}.`);
+ const total=u*P(sym);let amt;
+ if(mode==='all')amt=total;else if(mode==='frac')amt=total*dollars;else{if(!(dollars>=1))return popup('Invalid amount','Enter a dollar amount of 1 or more.');amt=Math.min(dollars,total);}
+ const fr=Math.min(1,amt/total),cost=(S.lv21.basis[sym]||0)*fr,gain=amt-cost,tax=(S.lv11&&S.lv11.tax&&gain>0)?Math.round(gain*.10):0;
+ S.money+=Math.round(amt-tax);setU(sym,mode==='all'||fr>=.999999?0:u*(1-fr));S.lv21.basis[sym]=Math.max(0,(S.lv21.basis[sym]||0)-cost);
+ if(!(UN(sym)>1e-9))delete S.lv21.basis[sym];
+ S.lv21.real+=gain;S.lv21.taxPaid+=tax;
+ addEvent(`🪙 ${playerName()} sold ${money(amt)} of ${sym} (${gain>=0?'profit':'loss'} ${money(Math.abs(gain))}${tax?', tax '+money(tax):''}).`);
+ toast(`Sold ${money(amt)} of ${sym}: ${sm(gain)}`);render();}
+
+function cryptoYear(){
+ const L=S.lv21,news=[];
+ if(L.dca&&S.age>=18&&L.dca.amt>=1){const sy=L.dca.sym;
+  if(COINS.some(c=>c[0]===sy&&(sy!=='LFC'||hasLFC()))&&!rugged(sy)&&S.money>=L.dca.amt){ensureBasis(sy);S.money-=L.dca.amt;setU(sy,UN(sy)+L.dca.amt/P(sy));L.basis[sy]=(L.basis[sy]||0)+L.dca.amt;news.push(`Auto-buy purchased ${money(L.dca.amt)} of ${sy}.`);}}
+ COINS.forEach(c=>{const sy=c[0];if(sy==='LFC'&&!hasLFC())return;if(L.stake[sy]&&c[6]>0&&UN(sy)>0&&!rugged(sy))setU(sy,UN(sy)*(1+c[6]/100));});
+ let lfcRet=0;if(hasLFC()){const h=S.lv12.crypto.h;if(h.length>1)lfcRet=h[h.length-1]/h[h.length-2]-1;}
+ const crash=lfcRet<-.35,reg=chance(4);
+ if(crash)news.push('LifeCoin crashed and dragged other coins down.');
+ if(reg)news.push('New crypto regulation spooked the market.');
+ COINS.forEach(c=>{const sy=c[0];if(sy==='LFC')return;const s=L.coins[sy];
+  if(s.rug){s.h.push(s.p);if(s.h.length>30)s.h.shift();return;}
+  if(sy==='STBL'){s.p=+clamp(1+(Math.random()*2-1)*.02,.95,1.05).toFixed(4);}
+  else{let ret=(c[4]+Math.random()*(c[5]-c[4]))/100;
+   if(crash&&chance(55))ret-=r(10,25)/100;if(reg)ret-=r(5,15)/100;
+   if(chance(3)){ret=-r(30,60)/100;news.push(`${c[1]} (${sy}) was hacked. Price plunged.`);}
+   if(sy==='MOON'&&chance(8)){s.p=.01;s.rug=true;L.rug++;L.stake[sy]=false;news.push(`MoonShot (MOON) was a RUG-PULL. Holders lost everything.`);addEvent(`☠️ MoonShot was a rug-pull. Its price collapsed to nothing.`);}
+   else s.p=Math.max(.01,+(s.p*(1+Math.max(-.97,ret))).toFixed(4));}
+  s.h.push(s.p);if(s.h.length>30)s.h.shift();});
+ if(news.length){L.news=news.map(t=>({a:S.age,t})).concat(L.news).slice(0,25);addEvent(`🪙 Crypto report: ${news.length} headline(s). Portfolio ${money(cryptoTotal())}.`);}
+}
+
+/* =========================================================
+   3. YEARLY HOOK + SEEDED WHOLE YEAR
+   ========================================================= */
+let ACC0=0;
+function year21(){
+ const L=S.lv21;L.used={};
+ try{cryptoYear();}catch(e){console.warn('crypto year',e);}
+ if(L.sponsor>0){const c=1200*L.sponsor;if(S.money>=c){S.money-=c;fx({reputation:Math.min(3,L.sponsor),happiness:1});addEvent(`🎁 ${playerName()} paid ${money(c)} to sponsor ${L.sponsor} child${L.sponsor>1?'ren':''}.`);}else{L.sponsor=0;addEvent('🎁 You could not afford your child sponsorships and had to stop.');}}
+ if(L.safe&&S.lv12&&S.lv12.accidents>ACC0){S.money+=1500;fx({health:5});addEvent('🚗 Your safe-driver training reduced the damage of an accident (+$1,500).');}
+ L.hist=L.hist.filter(h=>h.a!==S.age);L.hist.push({a:S.age,nw:Math.round(netWorth()),h:Math.round(S.health),ha:Math.round(S.happiness),f:Math.round(S.fame),m:Math.round(S.money)});
+ if(L.hist.length>130)L.hist.shift();
+}
+const _nw=window.netWorth;
+window.netWorth=function(){let x=_nw.apply(this,arguments);try{if(S.lv21)x+=extraVal();}catch(e){}return x;};
+
+const _age=window.ageUp;
+window.ageUp=function(){
+ init();
+ const bg=q('popupBg');
+ if(S.dead||(bg&&bg.style.display==='flex'))return _age.apply(this,arguments);
+ snap();ACC0=S.lv12?S.lv12.accidents||0:0;
+ const b=S.age,s0=S,real=Math.random;
+ Math.random=mul(hash(lid()+'|21|'+S.lv21.salt+'|'+b));
+ try{_age.apply(this,arguments);if(S===s0&&!S.dead&&S.age>b){init();year21();}}
+ finally{Math.random=real;}
+ if(S===s0&&S.age>b){
+  if(!S.dead){snap();
+   if(S.age%10===0){const B=bms();B.push({n:'Age '+S.age+' (auto)',a:S.age,j:JSON.stringify(S),auto:true});const autos=B.filter(x=>x.auto);if(autos.length>8)B.splice(B.indexOf(autos[0]),1);}}
+  render();}
+};
+/* alter fate also re-seeds this add-on */
+if(window.LV14&&has(LV14,'fate')){const o=LV14.fate;LV14.fate=function(){init();S.lv21.salt++;const T=tl();Object.keys(T).forEach(a=>{if(+a>S.age)delete T[a];});return o.apply(this,arguments);};}
+/* old rewind buttons (floating button, death screen) now use the new time machine */
+if(window.LV14){LV14.rewind=n=>back(n||1);LV14.can=()=>Object.keys(tl()).map(Number).some(a=>a<S.age);}
+if(window.V6)window.V6.rewind=()=>back(1);
+
+/* =========================================================
+   4. ACTIONS (window.LV21)
+   ========================================================= */
+const amtVal=id=>{const e=q(id);return e?num(e.value):NaN;};
+let cAmt='';
+window.LV21={
+ go(id){showPage(id,q('nav_'+id));},
+ tab(t){S.lv21.tab=t;render();},
+ pause(){S.lv21.pause=!S.lv21.pause;render();},
+ back,jump,fwd,
+ ff(n){ffStart(n);},
+ ffTo(a){ffStart(a-S.age);},
+ ffUntil(k){if(k==='rich')ffStart(120,()=>netWorth()>=1e6);else{S.lv21.pause=true;ffStart(120);}},
+ ffStop(){ffStop(false,'Stopped by you.');},
+ fate(){if(has(window.LV14,'fate'))LV14.fate();else{init();S.lv21.salt++;render();}},
+ bmSave(){const e=q('lv21bm'),nm=String(e&&e.value||'').replace(/[<>&"'`]/g,'').trim().slice(0,30)||('Age '+S.age),B=bms();
+  if(B.filter(x=>!x.auto).length>=6)return popup('🔖 Full','You can keep 6 manual bookmarks. Delete one first.');
+  B.push({n:nm,a:S.age,j:JSON.stringify(S),auto:false});toast('🔖 Bookmark saved');render();},
+ bmLoad(i){const b=bms()[i];if(b)restore(b.j,'🔖 Loaded bookmark "'+b.n+'" (age '+b.a+').');},
+ bmDel(i){bms().splice(i,1);render();},
+ metric(m){S.lv21.metric=m;render();},
+ /* crypto */
+ cTab(t){S.lv21.cTab=t;render();},
+ cSel(s){S.lv21.sel=s;S.lv21.cTab='mkt';render();},
+ cAmt(v){cAmt=v;},
+ cBuy(mode){const s=S.lv21.sel;if(mode==='max')return cbuy(s,Math.floor(S.money));
+  if(mode==='f25')return cbuy(s,Math.floor(S.money*.25));if(mode==='f50')return cbuy(s,Math.floor(S.money*.5));
+  cbuy(s,amtVal('lv21cAmt'));},
+ cSell(mode){const s=S.lv21.sel;if(mode==='all')return csell(s,'all');if(mode==='f25')return csell(s,'frac',.25);if(mode==='f50')return csell(s,'frac',.5);
+  csell(s,'amt',amtVal('lv21cAmt'));},
+ cStake(s){if(rugged(s))return;S.lv21.stake[s]=!S.lv21.stake[s];render();},
+ cDca(){const sym=(q('lv21DcaSym')||{}).value,a=Math.floor(amtVal('lv21Dca'));if(!(a>=1))return popup('Invalid amount','Enter a dollar amount of 1 or more.');S.lv21.dca={sym,amt:a};toast('Auto-buy set: '+money(a)+' of '+sym+' each year.');render();},
+ cDcaOff(){S.lv21.dca=null;render();},
+ /* random activities */
+ act(i){const a=NA[i];if(!a)return;if(S.age<a[4])return popup('🔒 Too young',`Needs age ${a[4]}.`);if(S.prisonYears>0)return popup('🔒 Prison','Not available while imprisoned.');
+  if(!use(a[0],a[6],a[2],a[5]))return;const m=a[7]();addEvent(`${a[1]} ${playerName()}: ${m}`);toast(a[1]+' '+m);render();},
+ /* love */
+ vows(){const p=S.partner;if(!(S.married&&p&&p.alive!==false))return popup('💍 No spouse','You need a living spouse.');if(!use('vows',1,'Renewing vows',2000))return;p.relationship=clamp(p.relationship+10,0,100);fx({happiness:6});S.lv21.vows++;addEvent(`💍 ${playerName()} renewed vows with ${p.name}.`);render();},
+ letter(){const p=S.partner,tgt=(S.married&&p&&p.alive!==false)?p:(S.lv12&&S.lv12.dating&&S.lv12.dating[0]);if(!tgt)return popup('💌 Nobody to write to','You need a partner or a dating match.');if(!use('letter',1,'A love letter'))return;
+  if(tgt===p)p.relationship=clamp(p.relationship+4,0,100);else tgt.rel=clamp(tgt.rel+6,0,100);fx({happiness:2});addEvent(`💌 ${playerName()} wrote a love letter.`);render();},
+ surprise(){const p=S.partner;if(!(S.married&&p&&p.alive!==false))return popup('🎉 No spouse','You need a living spouse.');if(!use('surp',1,'A surprise party',800))return;p.relationship=clamp(p.relationship+8,0,100);(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+2,0,100));fx({happiness:5});addEvent(`🎉 ${playerName()} threw ${p.name} a surprise party.`);render();},
+ /* bank */
+ dep(){const n=Math.floor(amtVal('lv21Bk'));if(!(S.lifePlus&&S.lifePlus.bank))return popup('🏦 Bank required','Open a bank account first.');if(!(n>=1))return popup('Invalid amount','Enter a dollar amount of 1 or more.');if(n>S.money)return popup('💸 Not enough cash',`You have ${money(S.money)}.`);S.money-=n;S.lifePlus.savings+=n;addEvent(`💰 ${playerName()} deposited ${money(n)} into savings.`);render();},
+ wd(){const n=Math.floor(amtVal('lv21Bk'));if(!(S.lifePlus&&S.lifePlus.bank))return popup('🏦 Bank required','Open a bank account first.');if(!(n>=1))return popup('Invalid amount','Enter a dollar amount of 1 or more.');if(n>S.lifePlus.savings)return popup('💸 Not enough savings',`You have ${money(S.lifePlus.savings)} saved.`);S.lifePlus.savings-=n;S.money+=n;render();},
+ /* charity */
+ sponsor(d){const L=S.lv21;if(S.age<18)return popup('🔒 Too young','From age 18.');if(d>0){if(L.sponsor>=5)return popup('🎁 Limit','You can sponsor up to 5 children.');L.sponsor++;fx({reputation:1,happiness:2});addEvent(`🎁 ${playerName()} began sponsoring a child.`);}else if(L.sponsor>0)L.sponsor--;render();},
+ school(){const L=S.lv21;if(L.school)return;if(S.age<18)return popup('🔒 Too young','From age 18.');if(S.money<250000)return popup('💸 Not enough cash','Building a school costs $250,000.');S.money-=250000;L.school=true;fx({reputation:8,fame:2,happiness:8});addEvent(`🏫 ${playerName()} built a school for a village.`);popup('🏫 School built','A village school now carries your name.');render();},
+ relief(){if(S.age<18)return popup('🔒 Too young','From age 18.');if(!use('relief',1,'Disaster relief',25000))return;S.lv21.relief++;fx({reputation:3,happiness:3});if(chance(20))fx({fame:1});addEvent(`🆘 ${playerName()} funded disaster relief.`);render();},
+ /* driving */
+ course(){if(S.age<16)return popup('🔒 Too young','From age 16.');if(S.lv21.safe)return popup('✅ Already trained','You already took the safe-driver course.');if(!use('course',1,'The safe-driver course',400))return;S.lv21.safe=true;fx({discipline:2,reputation:1});addEvent(`🚗 ${playerName()} took a safe-driver course.`);render();},
+ trip(){if(!(S.lv10&&S.lv10.license))return popup('🚗 License needed','Get a driver\'s license first.');if(!S.cars.length)return popup('🚗 No car','Buy a car first.');if(!use('trip',1,'A road trip',300))return;fx({happiness:r(6,11),stress:-8});
+  if(chance(6)&&S.lifePlus){S.money=Math.max(0,S.money-500);S.lifePlus.carCondition=clamp(S.lifePlus.carCondition-8,0,100);addEvent('🚗 Car trouble on a road trip (-$500).');}else addEvent(`🛣️ ${playerName()} took a road trip.`);render();}
+};
+
+/* =========================================================
+   5. PAGES
+   ========================================================= */
+const tabsBar=(cur,items,fn)=>`<div>${items.map(t=>btn(t[1],`${fn}('${t[0]}')`,cur===t[0]?'gold':'')).join('')}</div><br>`;
+
+/* ---------- ⏪ TIME MACHINE ---------- */
+function pTime(){
+ const L=S.lv21,T=tl(),ages=Object.keys(T).map(Number).sort((a,b)=>a-b),past=ages.filter(a=>a<S.age),fut=ages.filter(a=>a>S.age);
+ const tabs=[['main','⏪ Travel'],['ff','⏩ Fast Forward'],['tl','🗂️ Timeline'],['bm','🔖 Bookmarks'],['chart','📊 Life Chart'],['cast','🔮 Forecast']];
+ let b='';
+ if(L.tab==='main')b=`<div class="card"><h2>⏪ Time machine (unlimited)</h2>
+  <p class="muted">Every year you live is saved as a moment. Go back to any age, or jump forward again to a moment you already lived. Replayed years play out the same way (same market, same dice) unless you alter fate. Saved moments live in memory and clear if you refresh the page.</p>
+  <p>Age <b>${S.age}</b> • saved moments <b>${ages.length}</b> • trips <b>${(S.lv14&&S.lv14.travels)||0}</b></p>
+  <h3>⏪ Back</h3>${btn('1 year','LV21.back(1)','purple',!past.length)}${btn('5 years','LV21.back(5)','purple',!past.length)}${btn('10 years','LV21.back(10)','purple',!past.length)}${btn('To the very start','LV21.back(999)','purple',!past.length)}
+  <h3>⏩ Forward</h3>${btn('▶ Age up 1 year','LV21.fwd()','good')}${btn('⏭ Next saved moment'+(fut.length?' (age '+fut[0]+')':''),'LV21.jump('+(fut.length?fut[0]:S.age)+')','good',!fut.length)}${btn('⏭⏭ Furthest saved moment'+(fut.length?' (age '+fut[fut.length-1]+')':''),'LV21.jump('+(fut.length?fut[fut.length-1]:S.age)+')','good',!fut.length)}
+  <p class="muted">Want to skip many years at once? Open the Fast Forward tab.</p></div>
+  <div class="card"><h2>🎲 Alter fate</h2><p class="muted">Re-rolls every random result from now on (market, crypto, events, dice). Saved future moments are erased.</p>${btn('🎲 Alter fate','LV21.fate()','gold')}</div>`;
+ else if(L.tab==='ff'){const run=FF&&FF.on;
+  b=`<div class="card"><h2>⏩ Fast forward</h2><p class="muted">Ages you up automatically and clicks through year summaries. ${L.pause?'It <b>pauses whenever a real decision appears</b>, so nothing is chosen for you.':'It <b>picks the first sensible option</b> for each decision (never a red option unless it has no choice).'} It stops if your character dies and then shows a report.</p>
+  ${btn(L.pause?'⏸️ Pause at decisions: ON (turn off)':'▶ Pause at decisions: OFF (turn on)','LV21.pause()',L.pause?'good':'')}
+  ${run?`<p class="green">⏩ Running... ${FF.left} year(s) left.</p>${btn('⏹ Stop','LV21.ffStop()','danger')}`:''}
+  <h3>Skip years</h3>${[1,5,10,20,50].map(n=>btn('+'+n+' year'+(n>1?'s':''),'LV21.ff('+n+')','gold',run)).join('')}
+  <h3>Skip to an age</h3>${[18,30,50,65,80,100].filter(a=>a>S.age).map(a=>btn('Age '+a,'LV21.ffTo('+a+')','',run)).join('')||'<span class="muted">No later milestone.</span>'}
+  <h3>Skip until...</h3>${btn('💎 Net worth reaches $1M','LV21.ffUntil(\'rich\')','',run)}${btn('📬 The next decision','LV21.ffUntil(\'decision\')','',run)}
+  <p class="muted">Total years fast-forwarded: ${L.ffYears}. Tip: a bookmark before a big skip lets you return.</p></div>`;}
+ else if(L.tab==='tl')b=`<div class="card"><h2>🗂️ Timeline</h2><p class="muted">Every saved moment of this life. Jump to any of them, past or future.</p><div style="overflow-x:auto"><table><tr><th>Age</th><th>Net worth</th><th>Health</th><th>Happiness</th><th></th></tr>${ages.map(a=>{const h=L.hist.find(x=>x.a===a);return `<tr><td><b>${a}</b>${a===S.age?' (now)':''}</td><td>${h?money(h.nw):'—'}</td><td>${h?h.h+'%':'—'}</td><td>${h?h.ha+'%':'—'}</td><td>${btn(a===S.age?'Here':'Jump','LV21.jump('+a+')','',a===S.age)}</td></tr>`;}).join('')||'<tr><td colspan="5">Age up to create moments.</td></tr>'}</table></div></div>`;
+ else if(L.tab==='bm'){const B=bms();b=`<div class="card"><h2>🔖 Bookmarks</h2><p class="muted">Save this exact moment (6 manual slots). A bookmark is also created automatically every 10 years. Stored in memory.</p>
+  <input id="lv21bm" placeholder="Bookmark name (optional)" maxlength="30">${btn('🔖 Save bookmark here','LV21.bmSave()','gold')}</div>
+  ${B.map((x,i)=>`<div class="card"><b>${x.auto?'🕰️':'🔖'} ${E(x.n)}</b> • age ${x.a} ${btn('Load','LV21.bmLoad('+i+')','good')}${btn('Delete','LV21.bmDel('+i+')','danger')}</div>`).join('')||'<div class="card muted">No bookmarks yet.</div>'}`;}
+ else if(L.tab==='chart'){const M={nw:'💎 Net worth',h:'❤️ Health',ha:'😊 Happiness',f:'⭐ Fame',m:'💵 Cash'},k=L.metric,h=L.hist.slice().sort((a,b)=>a.a-b.a);
+  let svg='<p class="muted">Age up a few times to build the chart.</p>';
+  if(h.length>1){const vs=h.map(x=>x[k]),mn=Math.min(...vs),mx=Math.max(...vs),d=(mx-mn)||1,W=640,Hh=220,money$=v=>(k==='nw'||k==='m')?money(v):Math.round(v);
+   svg=`<svg viewBox="0 0 ${W} ${Hh+20}" style="width:100%;background:#0c121b;border-radius:10px"><polyline fill="none" stroke="#60a5fa" stroke-width="3" points="${vs.map((v,i)=>(10+i/(vs.length-1)*(W-20)).toFixed(1)+','+(Hh-10-(v-mn)/d*(Hh-30)).toFixed(1)).join(' ')}"/><text x="12" y="16" fill="#94a3b8" font-size="12">max ${money$(mx)}</text><text x="12" y="${Hh+14}" fill="#94a3b8" font-size="12">min ${money$(mn)} • ages ${h[0].a}–${h[h.length-1].a}</text></svg>`;}
+  b=`<div class="card"><h2>📊 Life chart</h2><div>${Object.entries(M).map(([id,l])=>btn(l,`LV21.metric('${id}')`,k===id?'gold':'')).join('')}</div><br>${svg}</div>`;}
+ else{const nw=netWorth(),inc=(S.career!=='None'?S.salary:0)+((S.footballContract&&S.footballContract.salary)||0)+((S.basketballContract&&S.basketballContract.salary)||0),infl=(S.lv16&&S.lv16.infl)||1,net=Math.max(-20000,inc*.65-14000*infl),inv=(S.investments||0)+(S.lv21&&S.v6?(function(){try{return Object.keys(S.v6.hold||{}).reduce((a,k)=>a+(S.v6.hold[k]||0)*((S.v6.stocks[k]||{}).p||0),0);}catch(e){return 0;}})():0);
+  const proj=n=>Math.round(nw+net*n+inv*(Math.pow(1.05,n)-1)),exp=Math.round(clamp(82+(S.health-60)/3+(S.happiness-50)/10,60,105));
+  b=`<div class="card"><h2>🔮 Forecast (rough estimate)</h2><p class="muted">A simple projection from your income, savings and health. Random events, markets and your own choices will change everything.</p>
+  <div style="overflow-x:auto"><table><tr><th>In</th><th>Your age</th><th>Projected net worth</th></tr>${[5,10,20,30].map(n=>`<tr><td>${n} years</td><td>${S.age+n}</td><td><b>${money(proj(n))}</b></td></tr>`).join('')}</table></div>
+  <p>Estimated yearly savings: <b>${sm(Math.round(net))}</b> • Rough life expectancy: <b>about ${exp}</b>${exp<=S.age?' (you are already past it!)':''}</p></div>`;}
+ return tabsBar(L.tab,tabs,'LV21.tab')+b;}
+
+/* ---------- 🎲 RANDOM ACTIVITIES ---------- */
+function pRand(){
+ const u14=(S.lv14&&S.lv14.used)||{},L14=S.lv14||{};
+ return `<div class="card"><h2>🎲 Random activities</h2><p class="muted">Quick one-off activities with a yearly limit. Language level ${L14.lang||0}/10 • Treasures found ${L14.found||0}${L14.smart?' • 🏠 Smart home owned':''}</p></div>
+ <h2>Classic activities</h2><div class="grid">${XM.map((x,i)=>{const n=u14[x[0]]||0;return `<div class="card"><h3>${x[1]} ${E(x[2])}</h3><p class="muted">${E(x[3])}<br>Age ${x[4]}+</p>${btn('Do it '+n+'/'+x[6],'LV14.run('+i+')','',n>=x[6]||S.age<x[4])}</div>`;}).join('')}</div>
+ <h2>New activities</h2><div class="grid">${NA.map((x,i)=>`<div class="card"><h3>${x[1]} ${E(x[2])}</h3><p class="muted">${E(x[3])}<br>Age ${x[4]}+</p>${btn('Do it '+U(x[0])+'/'+x[6],'LV21.act('+i+')','',U(x[0])>=x[6]||S.age<x[4])}</div>`).join('')}</div>
+ <div class="card"><h3>🎲 Random yearly events</h3><p class="muted">Each age-up may bring a school superlative, a found wallet or a secret admirer.</p></div>`;}
+
+/* ---------- 🪙 CRYPTO ---------- */
+function pCrypto(){
+ const L=S.lv21;list().forEach(c=>ensureBasis(c[0]));
+ if(!list().some(c=>c[0]===L.sel))L.sel=list()[0][0];
+ const total=list().reduce((a,c)=>a+VAL(c[0]),0),cost=list().reduce((a,c)=>a+(L.basis[c[0]]||0),0),un=total-cost;
+ const ch=s=>{const h=H(s);return h.length>1&&h[h.length-2]?h[h.length-1]/h[h.length-2]-1:0;};
+ const tabs=[['mkt','📊 Market'],['pf','💼 Portfolio'],['stake','🔒 Staking & Auto-Buy'],['news','📰 News']];
+ let b='';
+ const top=`<div class="grid"><div class="stat"><small>💵 Cash</small><strong>${money(S.money)}</strong></div><div class="stat"><small>🪙 Crypto value</small><strong>${money(total)}</strong></div><div class="stat"><small>📈 Unrealized</small><strong class="${cc(un)}">${cost?sm(un):'—'}</strong></div><div class="stat"><small>✅ Realized</small><strong class="${cc(L.real)}">${sm(L.real)}</strong></div></div><br>`;
+ if(L.cTab==='mkt'){
+  const sy=L.sel,c=COINS.find(x=>x[0]===sy),u=UN(sy),avg=u>1e-9?(L.basis[sy]||0)/u:0,pl=VAL(sy)-(L.basis[sy]||0),cg=ch(sy);
+  b=`<div class="card"><h2>${c[2]} ${sy} — ${E(c[1])}</h2><p class="muted">${E(c[8])}<br>Risk: ${c[7]} • Staking: ${c[6]?c[6]+'%/yr':'none'}</p>
+  <p>Price <b>${px(P(sy))}</b> <b class="${cc(cg)}">${(cg>=0?'+':'')+(cg*100).toFixed(1)}%</b> • You hold <b>${u.toFixed(u<1?6:3)}</b> (${money(VAL(sy))}) • Avg cost <b>${u>1e-9?px(avg):'—'}</b> • P/L <b class="${cc(pl)}">${u>1e-9?sm(pl):'—'}</b>${L.stake[sy]?' • <b class="yellow">🔒 staked</b>':''}</p>
+  ${spark(H(sy),320,60,cg>=0?'#86efac':'#f87171')}
+  ${rugged(sy)?'<p class="red"><b>☠️ This coin was rug-pulled and is worthless.</b></p>':`<label>Amount in dollars</label><input id="lv21cAmt" type="text" inputmode="numeric" placeholder="e.g. 5000" value="${E(cAmt)}" oninput="LV21.cAmt(this.value)">
+  <div>${btn('📈 Buy amount','LV21.cBuy(\'amt\')','good')}${btn('Buy 25% cash','LV21.cBuy(\'f25\')')}${btn('Buy 50% cash','LV21.cBuy(\'f50\')')}${btn('💰 Buy MAX','LV21.cBuy(\'max\')','gold')}</div>
+  <div style="margin-top:6px">${btn('📉 Sell amount','LV21.cSell(\'amt\')')}${btn('Sell 25%','LV21.cSell(\'f25\')','',u<=1e-9)}${btn('Sell 50%','LV21.cSell(\'f50\')','',u<=1e-9)}${btn('💸 Sell ALL','LV21.cSell(\'all\')','danger',u<=1e-9)}</div>`}
+  ${S.lv11&&S.lv11.tax?'<p class="muted">A 10% capital gains tax applies to profits when you sell.</p>':''}</div>
+  <div class="card"><div style="overflow-x:auto"><table><tr><th>Coin</th><th>Price</th><th>1y</th><th>Trend</th><th>Risk</th><th>Held</th><th></th></tr>${list().map(c=>{const s=c[0],g=ch(s);return `<tr><td><b>${c[2]} ${s}</b><br><small class="muted">${E(c[1])}</small></td><td>${px(P(s))}</td><td class="${cc(g)}">${(g>=0?'+':'')+(g*100).toFixed(1)}%</td><td>${spark(H(s),80,24,g>=0?'#86efac':'#f87171')}</td><td>${c[7]}</td><td>${UN(s)>1e-9?money(VAL(s)):'—'}</td><td>${btn('Trade','LV21.cSel(\''+s+'\')',L.sel===s?'gold':'')}</td></tr>`;}).join('')}</table></div></div>`;}
+ else if(L.cTab==='pf'){const held=list().filter(c=>UN(c[0])>1e-9);
+  b=`<div class="card"><h2>💼 Holdings</h2>${held.length?`<div style="overflow-x:auto"><table><tr><th>Coin</th><th>Units</th><th>Avg cost</th><th>Price</th><th>Value</th><th>P/L</th></tr>${held.map(c=>{const s=c[0],u=UN(s),bs=L.basis[s]||0,pl=u*P(s)-bs;return `<tr><td><b>${c[2]} ${s}</b>${L.stake[s]?' 🔒':''}</td><td>${u.toFixed(u<1?6:3)}</td><td>${px(bs/u)}</td><td>${px(P(s))}</td><td>${money(u*P(s))}</td><td class="${cc(pl)}">${sm(pl)}</td></tr>`;}).join('')}</table></div>`:'<p class="muted">You hold no crypto.</p>'}
+  <p class="muted">Tax paid on crypto gains: ${money(L.taxPaid)} • Rug-pulls suffered: ${L.rug}</p></div>`;}
+ else if(L.cTab==='stake'){
+  b=`<div class="card"><h2>🔒 Staking</h2><p class="muted">Staked coins earn yearly yield in extra coins, but are <b>locked</b> (cannot be sold) until you unstake.</p>
+  ${list().map(c=>{const s=c[0];return `<p><b>${c[2]} ${s}</b> • ${c[6]?c[6]+'%/yr':'no staking'} • holding ${UN(s).toFixed(UN(s)<1?6:3)} ${btn(L.stake[s]?'🔓 Unstake':'🔒 Stake','LV21.cStake(\''+s+'\')',L.stake[s]?'good':'',!c[6]||rugged(s))}</p>`;}).join('')}</div>
+  <div class="card"><h2>🔁 Auto-buy (dollar-cost averaging)</h2><p class="muted">Every age-up, buys the chosen amount if you have the cash.</p>${L.dca?`<p>Active: <b>${money(L.dca.amt)}</b> of <b>${L.dca.sym}</b> every year ${btn('Turn off','LV21.cDcaOff()','danger')}</p>`:'<p class="muted">Off.</p>'}
+  <select id="lv21DcaSym">${list().map(c=>`<option value="${c[0]}">${c[0]} — ${E(c[1])}</option>`).join('')}</select><input id="lv21Dca" type="text" inputmode="numeric" placeholder="Dollars per year">${btn('Set auto-buy','LV21.cDca()','gold')}</div>`;}
+ else b=`<div class="card"><h2>📰 Crypto news</h2>${L.news.map(n=>`<div class="event"><b>Age ${n.a}</b> ${E(n.t)}</div>`).join('')||'<p class="muted">Age up to see headlines.</p>'}</div>`;
+ return top+tabsBar(L.cTab,tabs,'LV21.cTab')+b;}
+
+/* ---------- 💘 DATING & MARRIAGE ---------- */
+function pLove(){
+ const D=(S.lv12&&S.lv12.dating)||[],p=S.partner,wed=S.married&&p&&p.alive!==false,uu=(S.lv12&&S.lv12.used)||{},L11=S.lv11||{};
+ let h='';
+ if(wed)h+=`<div class="card"><h2>💍 ${E(p.name)}</h2><p>Age ${p.age} • ${E(p.gender||'')} • wealth ${money(safeNumber(p.wealth,0))}</p>${bar('Relationship',p.relationship)}
+  ${has(window.V6,'partner')?btn('🍷 Date night ($150)',"V6.partner('date')")+btn('🎁 Gift ($500)',"V6.partner('gift')")+btn('🏝️ Trip ($3,000)',"V6.partner('trip')")+btn('🛋️ Counseling ($200)',"V6.partner('counsel')"):''}
+  ${has(window.LV15,'anniv')?btn('🍷 Anniversary dinner',"LV15.anniv()",'good'):''}${has(window.LV13,'vac')?btn('🏖️ Family vacation',"LV13.vac()",'good'):''}
+  ${btn('💍 Renew vows ($2,000) '+U('vows')+'/1','LV21.vows()','gold',U('vows')>=1)}${btn('🎉 Surprise party ($800) '+U('surp')+'/1','LV21.surprise()','',U('surp')>=1)}${btn('💌 Love letter '+U('letter')+'/1','LV21.letter()','',U('letter')>=1)}
+  <br>${typeof haveChild==='function'?btn('👶 Have a child','haveChild()','good'):''}${has(window.LV10,'adopt')?btn('🧒 Adopt a child ($15,000)','LV10.adopt()'):''}
+  <br><h3>Hard times</h3>${has(window.LV11,'divorce')?btn('🤝 Amicable divorce',"LV11.divorce('ami')")+btn('⚔️ Contested divorce',"LV11.divorce('con')",'danger'):''}${has(window.V6,'partner')?btn('💔 End the relationship',"V6.partner('split')",'danger'):''}</div>`;
+ else h+=`<div class="card"><h2>💔 Single</h2><p class="muted">${p&&p.alive===false?'Your partner has passed away. You may meet someone new.':'You have no partner.'} Use the dating app below, or settle down faster:</p>${typeof findPartner==='function'?btn('💌 Find a partner now (marry immediately)','findPartner()','good'):''}${has(window.LV10,'adopt')?btn('🧒 Adopt a child ($15,000)','LV10.adopt()'):''}${btn('💌 Love letter '+U('letter')+'/1','LV21.letter()','',U('letter')>=1)}</div>`;
+ h+=`<div class="card"><h2>💘 Dating app</h2><p class="muted">Matches ${D.length}/4 • Dates this year ${uu.date||0}/3. Propose at 70%+ relationship.</p>${has(window.LV12,'match')?btn('💘 Find matches '+(uu.match||0)+'/2','LV12.match()','gold',(uu.match||0)>=2):''}</div>
+ <div class="grid">${D.map((d,i)=>`<div class="card"><h3>${d.g==='Male'?'👨':'👩'} ${E(d.n)}</h3><p class="muted">Age ${d.age} • wealth ${money(d.w)}</p>${bar('Relationship',d.rel)}${btn('🍷 Date ($80)','LV12.date('+i+')','',(uu.date||0)>=3)}${btn('💍 Propose','LV12.propose('+i+')','good',d.rel<70)}${btn('🗑️','LV12.dump('+i+')','danger')}</div>`).join('')}</div>
+ <div class="card"><h3>📊 Love life</h3><span class="badge">💔 Divorces ${L11.divorces||0}</span><span class="badge">👶 Children ${S.children}</span>${L11.alimony?`<span class="badge">💸 Alimony ${money(L11.alimony.amt)}/yr • ${L11.alimony.left} yr</span>`:''}${S.lv18&&S.lv18.late?`<span class="badge">🌅 Late-life marriages ${S.lv18.late}</span>`:''}<p class="muted">Seniors in a retirement community can also find love on the 🏥 Hospital & Campus page (Retirement Social tab).</p></div>`;
+ return h;}
+
+/* ---------- 🏦 BANKING & CREDIT ---------- */
+function pBank(){
+ const L10=S.lv10||{credit:650,loans:[]},L13=S.lv13||{cc:0,sl:0,bonds:0,pawn:[],goal:null},L11=S.lv11||{mort:[]},LP=S.lifePlus||{};
+ const loans=(L10.loans||[]).reduce((a,l)=>a+l.p,0),mort=(L11.mort||[]).reduce((a,m)=>a+m.bal,0),debt=loans+(L13.cc||0)+(L13.sl||0)+mort,lim=Math.max(0,(L10.credit-450))*600,ccl=Math.max(1000,Math.round((L10.credit-400)*25));
+ return `<div class="grid"><div class="stat"><small>💵 Cash</small><strong>${money(S.money)}</strong></div><div class="stat"><small>🏦 Savings</small><strong>${money(LP.savings||0)}</strong></div><div class="stat"><small>📊 Credit score</small><strong>${L10.credit}</strong></div><div class="stat"><small>💳 Total debt</small><strong class="${debt?'red':''}">${money(debt)}</strong></div></div><br>
+ <div class="grid">
+ <div class="card"><h3>🏦 Bank account</h3><p class="muted">${LP.bank?'Open. Savings earn 1-5% a year.':'No account yet (age 12+).'}</p>${LP.bank?`<input id="lv21Bk" type="text" inputmode="numeric" placeholder="Amount $">${btn('💰 Deposit','LV21.dep()','good')}${btn('💸 Withdraw','LV21.wd()')}`:(typeof openBank==='function'?btn('Open a bank account','openBank()','good'):'')}</div>
+ <div class="card"><h3>💵 Personal loans</h3><p class="muted">Debt limit ${money(lim)} • owed ${money(loans)} (${(L10.loans||[]).length}/4 loans)</p>${has(window.LV10,'loan')?[5000,25000,100000,500000].map(a=>btn('Borrow '+money(a),'LV10.loan('+a+')')).join(''):''}${(L10.loans||[]).map((l,i)=>`<p>${money(l.p)} • ${(l.rate*100).toFixed(1)}% ${btn('Repay (cash)','LV10.repay('+i+')','good')}</p>`).join('')}</div>
+ <div class="card"><h3>💳 Credit card</h3><p class="muted">Balance ${money(L13.cc||0)} / limit ${money(ccl)}. 22% interest.</p>${has(window.LV13,'charge')?btn('Advance $1,000','LV13.charge(1000)')+btn('Advance $5,000','LV13.charge(5000)')+btn('Pay $1,000','LV13.ccpay(1000)','good',!L13.cc)+btn('Pay all',"LV13.ccpay('all')",'good',!L13.cc):''}</div>
+ <div class="card"><h3>🎓 Student loans</h3><p class="muted">Owed ${money(L13.sl||0)} (cap $80,000). 5% interest.</p>${has(window.LV13,'sloan')?btn('Borrow $10,000','LV13.sloan(10000)')+btn('Borrow $30,000','LV13.sloan(30000)')+btn('Repay','LV13.srepay()','good',!L13.sl):''}</div>
+ <div class="card"><h3>📜 Bonds</h3><p class="muted">Held ${money(L13.bonds||0)}. Safe 4% a year.</p>${has(window.LV13,'bbuy')?btn('Buy $5,000','LV13.bbuy(5000)')+btn('Buy $50,000','LV13.bbuy(50000)')+btn('Sell all','LV13.bsell()','good',!L13.bonds):''}</div>
+ <div class="card"><h3>🏪 Pawn shop</h3><p class="muted">40% of a car's value now; buy it back for 115% within 2 years.</p>${has(window.LV13,'pawn')?S.cars.map((c,i)=>btn('Pawn '+E(c),'LV13.pawn('+i+')','danger')).join(''):''}${(L13.pawn||[]).map((p,i)=>`<p>${E(p.n)} (due age ${p.due}) ${btn('Redeem '+money(Math.round(p.loan*1.15)),'LV13.redeem('+i+')','good')}</p>`).join('')}</div>
+ <div class="card"><h3>🎯 Savings goal</h3>${L13.goal?`<p class="muted">${money(L13.goal.s)} of ${money(L13.goal.t)}. Reach it for a 5% bonus.</p>${btn('Add $1,000','LV13.gadd(1000)')+btn('Add $10,000','LV13.gadd(10000)')+btn('Add all cash',"LV13.gadd('all')",'gold')}`:`<p class="muted">Set a target and fill it.</p>${has(window.LV13,'goal')?btn('Set a goal','LV13.goal()','gold'):''}`}</div>
+ <div class="card"><h3>🏠 Mortgages</h3><p class="muted">Owed ${money(mort)}. Manage them on the 🏚️ Real Estate page.</p>${btn('Open Real Estate',"LV21.go('v21_re')")}</div>
+ <div class="card"><h3>🛡️ Protection</h3><p class="muted">Financial insurance: ${LP.insurance&&LP.insurance.general?'✅':'❌'}</p>${typeof buyMoneyInsurance==='function'?btn('Upgrade protection ($1,000)','buyMoneyInsurance()'):''}</div>
+ <div class="card"><h3>🏦 Bankruptcy</h3><p class="muted">Clears loans and cards; mortgaged homes are foreclosed; credit stays low for 7 years.</p>${has(window.LV16,'bankrupt')?btn('Declare bankruptcy','LV16.bankrupt()','danger',debt<=0):''}</div></div>`;}
+
+/* ---------- 🏚️ REAL ESTATE ---------- */
+function pRE(){
+ const m=(S.lv17&&S.lv17.mk)||{idx:1,hist:[1],head:''},agent=S.lv17&&S.lv17.agent,L11=S.lv11||{mort:[]},L12=S.lv12||{flips:[],flipProfit:0,flipsDone:0},rent=(S.lv9&&S.lv9.rent)||[];
+ const hv=n=>{const f=houses.find(x=>x[0]===n);return f?f[1]:0;},totalV=S.houses.reduce((a,n)=>a+hv(n),0),mort=(L11.mort||[]).reduce((a,x)=>a+x.bal,0);
+ return `<div class="grid"><div class="stat"><small>🏠 Property value</small><strong>${money(totalV)}</strong></div><div class="stat"><small>🏦 Mortgage debt</small><strong>${money(mort)}</strong></div><div class="stat"><small>💎 Equity</small><strong>${money(totalV-mort)}</strong></div><div class="stat"><small>📈 Market index</small><strong>${m.idx.toFixed(2)}x</strong></div></div><br>
+ <div class="card"><h2>🏘️ Housing market</h2><p>${E(m.head||'')}</p>${spark(m.hist,320,60,'#4ade80')}${has(window.LV17,'agent')?`<p>🤝 Real estate agent ($2,000/yr): <b>${agent?'Active (4% off purchases)':'Off'}</b> ${btn(agent?'Dismiss':'Hire','LV17.agent()',agent?'':'good')}</p>`:''}</div>
+ <div class="card"><h2>🏠 Buy property</h2><div class="grid">${houses.map((h,i)=>{const p=Math.round(h[1]*(agent?.96:1));return `<div class="card"><h3>${E(h[0])}</h3><p>${money(p)}<br><small class="muted">Down payment ${money(Math.round(h[1]*.2))}</small></p>${has(window.LV17,'buy')?btn('Buy (cash)','LV17.buy('+i+')','',S.money<p):''}${has(window.LV11,'mort')?btn('Mortgage','LV11.mort('+i+')','good'):''}</div>`;}).join('')}</div></div>
+ <div class="card"><h2>📦 Your properties</h2>${S.houses.map((n,i)=>`<p><b>${E(n)}</b> • worth ${money(hv(n))} • ${rent[i]?'🏘️ rented out':'🏠 yours'}<br>${has(window.LV9,'rentTog')?btn(rent[i]?'Stop renting out':'Rent it out','LV9.rentTog('+i+')',rent[i]?'':'good'):''}${has(window.LV9,'sell')?btn('Sell','LV9.sell(\'h'+i+'\')','danger'):''}</p>`).join('')||'<p class="muted">You own no property.</p>'}<p class="muted">Rented homes earn about 5.4% of their value a year. Property tax and upkeep are about 1.3%.</p></div>
+ <div class="card"><h2>🏦 Mortgages</h2>${(L11.mort||[]).map((x,i)=>`<p><b>${E(x.n)}</b> • owes ${money(x.bal)} • ${money(x.pay)}/yr • ${(x.rate*100).toFixed(1)}% ${btn('Pay off','LV11.payoff('+i+')','good')}</p>`).join('')||'<p class="muted">No mortgages.</p>'}</div>
+ <div class="card"><h2>🏚️ House flipping</h2><p class="muted">Active ${(L12.flips||[]).length}/2 • Flipped ${L12.flipsDone||0} • Profit ${money(L12.flipProfit||0)}. A flip sells next age-up; renovating (15%) lifts the price.</p>${has(window.LV12,'flip')?btn('Buy a fixer-upper','LV12.flip()','gold'):''}${(L12.flips||[]).map((f,i)=>`<p>${E(f.n)} ${money(f.price)} ${btn(f.reno?'✅ Renovated':'🔨 Renovate','LV12.reno('+i+')','',f.reno)}</p>`).join('')}</div>
+ <div class="card"><h2>🔑 Rent a home</h2><p class="muted">Current rental: ${S.rentals&&S.rentals.length?E(S.rentals[S.rentals.length-1]):'none'}</p><div class="grid">${rentals.map(x=>`<div class="card"><b>${E(x[0])}</b><p>${money(x[1])}/month</p>${btn('Rent',`rentHome('${E(x[0])}',${x[1]})`)}</div>`).join('')}</div></div>`;}
+
+/* ---------- 🎁 CHARITY ---------- */
+function pGive(){
+ const L12=S.lv12||{given:0,fnd:false,used:{}},uu=L12.used||{},L=S.lv21;
+ return `<div class="grid"><div class="stat"><small>🎁 Given in total</small><strong>${money(L12.given||0)}</strong></div><div class="stat"><small>🎖️ Reputation</small><strong>${Math.round(S.reputation)}%</strong></div><div class="stat"><small>👧 Children sponsored</small><strong>${L.sponsor}/5</strong></div></div><br>
+ <div class="card"><h2>🎁 Donations</h2><p class="muted">Three donations a year (${uu.give||0}/3). Bigger gifts earn more reputation.</p>${has(window.LV12,'give')?btn('$500','LV12.give(500)')+btn('$5,000','LV12.give(5000)')+btn('$50,000','LV12.give(50000)','gold'):''}</div>
+ <div class="card"><h2>🏛️ Foundation</h2><p class="muted">$100,000 to found. Donates 1% of your cash every year for reputation and fame.</p>${has(window.LV12,'found')?btn(L12.fnd?'✅ Founded':'Found it','LV12.found()','',!!L12.fnd):''}</div>
+ <div class="card"><h2>👧 Sponsor a child</h2><p class="muted">$1,200 per child per year, paid automatically. Reputation grows every year.</p>${btn('➕ Sponsor a child','LV21.sponsor(1)','good',L.sponsor>=5)}${btn('➖ Stop one','LV21.sponsor(-1)','',L.sponsor<=0)}</div>
+ <div class="card"><h2>🆘 Disaster relief</h2><p class="muted">$25,000, once a year. Reputation and happiness. Funded so far: ${L.relief} time(s).</p>${btn('Fund relief '+U('relief')+'/1','LV21.relief()','gold',U('relief')>=1)}</div>
+ <div class="card"><h2>🏫 Build a village school</h2><p class="muted">$250,000, once per life. Big reputation, fame and happiness.</p>${btn(L.school?'✅ Built':'Build the school','LV21.school()','gold',L.school)}</div>`;}
+
+/* ---------- 🚗 DRIVING & CARS ---------- */
+function pDrive(){
+ const L10=S.lv10||{},LP=S.lifePlus||{},ins=LP.insurance&&LP.insurance.car,lic=L10.license,L=S.lv21,uu=L10.used||{};
+ return `<div class="grid"><div class="stat"><small>🪪 License</small><strong>${lic?'✅ Licensed':'❌ None'}</strong></div><div class="stat"><small>🚗 Cars owned</small><strong>${S.cars.length}</strong></div><div class="stat"><small>🔧 Condition</small><strong>${Math.round(safeNumber(LP.carCondition,100))}%</strong></div><div class="stat"><small>🛡️ Car insurance</small><strong>${ins?'Yes':'No'}</strong></div></div><br>
+ <div class="card"><h2>🪪 Driver's license</h2><p class="muted">Needed to buy cars and deliver food. Test costs $150, 3 attempts a year, age 16+. Attempts this year: ${uu.test||0}/3</p>${has(window.LV10,'test')?btn('Take driving test',"LV10.test()",'good',!!lic||(uu.test||0)>=3):''}${btn(L.safe?'✅ Safe-driver trained':'🎓 Safe-driver course ($400)','LV21.course()','gold',L.safe)}<p class="muted">The safe-driver course refunds $1,500 whenever you have a car accident.</p></div>
+ <div class="card"><h2>🔧 Care & travel</h2>${typeof useLifePlus==='function'?btn('🛡️ Car insurance ($1,000)','useLifePlus(9)','',!S.cars.length)+btn('🚙 Service car ($250)','useLifePlus(82)','',!S.cars.length)+btn('⛽ Fuel up ($80)','useLifePlus(83)','',!S.cars.length):''}${btn('🛣️ Road trip ($300) '+U('trip')+'/1','LV21.trip()','good',U('trip')>=1)}<p class="muted">Accidents so far: ${(S.lv12&&S.lv12.accidents)||0}. Cars lose value every year.</p></div>
+ <div class="card"><h2>🚗 Your cars</h2>${S.cars.map((n,i)=>{const f=cars.find(c=>c[0]===n);return `<p><b>${E(n)}</b> • list price ${money(f?f[1]:0)}<br>${has(window.LV9,'sell')?btn('Sell','LV9.sell(\'c'+i+'\')','danger'):''}${has(window.LV13,'pawn')?btn('Pawn','LV13.pawn('+i+')'):''}</p>`;}).join('')||'<p class="muted">You own no car.</p>'}</div>
+ <div class="card"><h2>🛒 Car dealership</h2><div class="grid">${cars.map(c=>`<div class="card"><b>${E(c[0])}</b><p>${money(c[1])}</p>${btn('Buy',`buyCar('${E(c[0])}',${c[1]})`,'',!lic||S.money<c[1])}</div>`).join('')}</div>${lic?'':'<p class="muted">Get your license first.</p>'}</div>`;}
+
+/* =========================================================
+   6. MOUNT PAGES, RENAMES, MOVED-CONTENT LINKS
+   ========================================================= */
+const PAGES=[['v21_time','⏪ Time Machine',pTime],['v21_rand','🎲 Random Activities',pRand],['v21_crypto','🪙 Crypto',pCrypto],['v21_love','💘 Dating & Marriage',pLove],['v21_bank','🏦 Banking & Credit',pBank],['v21_re','🏚️ Real Estate',pRE],['v21_give','🎁 Charity',pGive],['v21_drive','🚗 Driving & Cars',pDrive]];
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side)return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ PAGES.forEach(([id,l])=>{if(q(id))return;const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=`<h1>${l}</h1><div id="${id}_c"></div>`;main.appendChild(s);
+  const b=document.createElement('button');b.className='nav';b.id='nav_'+id;b.textContent=l;b.setAttribute('onclick',`showPage('${id}',this)`);side.insertBefore(b,anc);});
+ /* floating forward button next to the old rewind button */
+ if(!q('lv21Fwd')){const f=document.createElement('button');f.id='lv21Fwd';f.className='action good';f.textContent='⏩ Forward';f.style.cssText='position:fixed;left:112px;bottom:12px;z-index:350;margin:0';f.setAttribute('onclick','LV21.fwd()');document.body.appendChild(f);}
+})();
+const act=id=>q(id)&&q(id).classList.contains('active');
+function swapCard(root,starts,pageId,label){const el=q(root);if(!el)return;el.querySelectorAll('.card h2,.card h3').forEach(h=>{if(h.textContent.trim().startsWith(starts)){const c=h.closest('.card');if(c&&!c.dataset.moved){c.dataset.moved='1';c.innerHTML=`<h3>${E(label)}</h3><p class="muted">This now has its own page.</p>${btn('Open page',"LV21.go('"+pageId+"')",'gold')}`;}}});}
+function hideBtn(root,texts){const el=q(root);if(!el)return;el.querySelectorAll('button').forEach(b=>{if(texts.some(t=>b.textContent.includes(t)))b.style.display='none';});}
+function housekeeping(){
+ for(const id in REN){const nav=document.querySelector(`.sidebar .nav[onclick*="'${id}'"]`);if(nav&&nav.textContent!==REN[id])nav.textContent=REN[id];const h=q(id)&&q(id).querySelector('h1');if(h&&h.textContent!==REN[id])h.textContent=REN[id];}
+ const old=document.querySelector(`.sidebar .nav[onclick*="'lv14'"]`);if(old)old.style.display='none';
+ hideBtn('lv10_c',['🏦 Loans','🚗 License']);
+ hideBtn('lv11_c',['🏠 Mortgages','💔 Marriage']);
+ hideBtn('lv12_c',['💘 Love']);
+ hideBtn('lv17_c',['🏠 Property Market']);
+ swapCard('lv12_c','🪙 Crypto','v21_crypto','🪙 Crypto wallet');
+ swapCard('lv12_c','🏚️ House flipping','v21_re','🏚️ House flipping');
+ swapCard('lv12_c','🎁 Charity','v21_give','🎁 Charity');
+ swapCard('lv12_c','🏛️ Foundation','v21_give','🏛️ Foundation');
+ ['💳 Credit card','🎓 Student loans','📜 Bonds','🏪 Pawn shop','🎯 Savings goal'].forEach(t=>swapCard('lv13_c',t,'v21_bank',t));
+ swapCard('lv16_c','🏦 Bankruptcy','v21_bank','🏦 Bankruptcy');
+}
+
+[['Crypto Whale','Hold $1,000,000 in crypto.',()=>S.lv21&&cryptoTotal()>=1e6],['Rug Pulled','Lose money in a rug-pull.',()=>S.lv21&&S.lv21.rug>=1],['Staker','Stake a coin.',()=>S.lv21&&Object.values(S.lv21.stake).some(Boolean)],['Time Hopper','Jump through time 25 times.',()=>S.lv14&&S.lv14.travels>=25],['Fast Forwarder','Fast-forward 50 years in total.',()=>S.lv21&&S.lv21.ffYears>=50],['Sponsor','Sponsor 3 children.',()=>S.lv21&&S.lv21.sponsor>=3],['Village Benefactor','Build a village school.',()=>S.lv21&&S.lv21.school]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+
+const _render=window.render;
+window.render=function(){
+ init();_render();
+ try{housekeeping();}catch(e){console.warn('housekeeping',e);}
+ PAGES.forEach(([id,l,f])=>{
+  if(!act(id))return;const el=q(id+'_c');if(!el)return;
+  const a=document.activeElement;if(a&&el.contains(a)&&(a.tagName==='INPUT'||a.tagName==='SELECT'))return;
+  try{el.innerHTML=f();}catch(e){console.warn(l,e);el.innerHTML='<div class="card muted">This page hit an error: '+E(String(e&&e.message||e))+'</div>';}
+ });
+};
+
+init();
+/* pages that moved: start the old pages on a tab that still exists */
+try{if(window.LV12&&LV12.tab)LV12.tab('health');}catch(e){}
+try{if(window.LV17&&LV17.tab)LV17.tab('care');}catch(e){}
+snap();
+render();
+})();
+</script>
+
 </body>
 </html>
