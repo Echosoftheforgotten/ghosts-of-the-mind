@@ -12052,5 +12052,267 @@ render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V22 ADD-ON — paste RIGHT BEFORE </body>, AFTER every other
+  script (must be LAST). Everything lives in S.lv22 (old saves are safe).
+  🕵️ Secret Societies (4 of them, each with its own special action)
+  ✈️ Travel Agency (40 destinations, First/Second/Third class, cruises)
+  🐾 Pets (30 species, own up to 15)
+  💼 Business (12 types, market advice, staff, training, ads, discounts)
+  🧸 Childhood: ~50 specific yearly events + 20 decisions for ages 0-17
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LV22)return;window.__LV22=1;
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const bar=(l,v)=>`<div>${l} <b>${Math.round(v)}%</b><div class="progress"><div style="width:${clamp(v,0,100)}%"></div></div></div>`;
+const sm=n=>(n<0?'−':'+')+money(Math.abs(n)),cc=x=>x>=0?'green':'red';
+const lid=()=>(S.lv14&&S.lv14.id)||'x';
+const K={h:'happiness',s:'smarts',l:'looks',p:'health',c:'charisma',r:'creativity',a:'athleticSkill',d:'discipline',f:'fame',e:'reputation',g:'energy',m:'money'};
+function pf(s){const o={};String(s||'').split(',').forEach(x=>{const m=/^([a-z])(-?\d+)$/.exec(x.trim());if(m&&K[m[1]])o[K[m[1]]]=+m[2];});return o;}
+function fx(o){for(const k in o){if(k==='money')S.money=Math.max(0,S.money+o[k]);else S[k]=clamp(Math.round(safeNumber(S[k],50)+o[k]),0,100);}}
+function toast(m){let t=q('lv22t');if(!t){t=document.createElement('div');t.id='lv22t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #c084fc;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+const Q=[];let dr=0;
+function later(f){Q.push(f);if(dr)return;dr=1;(function t(){if(!Q.length){dr=0;return;}const bg=q('popupBg');if(bg.style.display==='flex'||q('startMenu').style.display==='flex'){setTimeout(t,700);return;}Q.shift()();setTimeout(t,700);})();}
+function init(){
+ if(!S.lv22||typeof S.lv22!=='object')S.lv22={};
+ const d={used:{},soc:null,pets:[],biz:[],bi:0,bt:'my',cls:0,cab:0,tt:'fly',ly:-1,ld:'',lf:'',bizEarned:0,trips:0,spent:0};
+ for(const k in d)if(S.lv22[k]===undefined||S.lv22[k]===null)S.lv22[k]=d[k];
+}
+const U=id=>S.lv22.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${E(label)}</b> ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${E(label)} costs <b>${money(cost)}</b>.`);return false;}S.money-=cost;S.lv22.used[id]=U(id)+1;S.stats.activities++;return true;}
+const ECON=()=>(S.v6&&S.v6.econ&&S.v6.econ.state)||'Stable';
+
+/* =========================================================
+   1. SECRET SOCIETIES
+   ========================================================= */
+const RK=['Initiate','Adept','Brother','Elder','Master'];
+const SOC=[
+{id:'illum',i:'👁️',n:'The Illuminati',b:'+3% extra investment growth every year',j:250000,u:['🕶️ Pull Political Strings',50000,4,s=>{if(S.wanted>0)S.wanted--;fx({reputation:4,fame:2});s.inf+=4;return 'Powerful friends quietly cleaned up your problems.';}]},
+{id:'mason',i:'🔺',n:'Order of the Square',b:'+8% extra profit from your businesses',j:150000,u:['🏛️ Build a Landmark',50000,4,s=>{fx({reputation:6,fame:3,happiness:4});s.rep+=4;return 'The Order dedicated a landmark in your name.';}]},
+{id:'skull',i:'💀',n:'Order of the Skull',b:'+4 career performance and +2% salary yearly',j:200000,u:['💼 Elite Job Referral',50000,6,s=>{S.performance=clamp(S.performance+15,0,100);if(S.career!=='None'&&chance(35))S.salary=Math.round(S.salary*1.05);s.inf+=3;return 'A brother in a high place vouched for you.';}]},
+{id:'crim',i:'🛡️',n:'The Crimson Order',b:'+3 health and +2 reputation yearly',j:100000,u:['🗝️ Guard a Relic',50000,5,s=>{fx({health:5,reputation:5});s.rep+=3;if(chance(30)){const m=r(20000,100000);S.money+=m;return 'Guarding the relic revealed hidden treasure: '+money(m)+'.';}return 'You stood guard through the night.';}]}];
+const CA=[
+['rit','🕯️ Attend Ritual',0,2,1,2,s=>{s.rep+=3;s.inf++;fx({happiness:2});return 'The ritual deepened your bond.';}],
+['txt','📜 Study Ancient Texts',0,2,1,0,s=>{s.rep+=1;s.inf+=2;fx({smarts:2});return 'You uncovered hidden knowledge.';}],
+['don','💰 Donate to Society',10000,2,1,0,s=>{s.rep+=5;s.inf+=3;return 'Your donation was noted by the elders.';}],
+['net','🤝 Network with Brothers',1000,3,1,1,s=>{s.inf+=2;s.rep+=1;if(chance(25))(S.friends=S.friends||[]).push({name:pick(['Aurelio','Maren','Sol','Idris','Vera'])+' (member)',relationship:r(45,70)});return 'You made valuable contacts.';}],
+['rec','🎭 Recruit Candidate',5000,2,1,3,s=>{s.rep+=4;s.inf+=1;return 'A promising candidate was brought in.';}],
+['stl','🔓 Steal Rival\'s Secret',20000,1,1,12,s=>{if(chance(55+s.inf*.1)){const m=r(20000,80000);S.money+=m;s.rep+=5;return 'You stole a secret and sold it for '+money(m)+'.';}s.exp+=15;s.rep=Math.max(0,s.rep-5);return 'You were nearly caught stealing the secret.';}]];
+const sdef=()=>SOC.find(x=>x.id===S.lv22.soc.id);
+const srank=s=>clamp(1+Math.floor(s.rep/25),1,5);
+function sacts(d){return CA.concat([['uni',d.u[0],d.u[1],1,3,d.u[2],d.u[3]],['lead','⚔️ Leadership Challenge',100000,1,4,10,s=>{const p=clamp(35+s.rep*.25+s.inf*.2,20,80);if(chance(p)){s.rep+=20;s.inf+=15;fx({fame:4,reputation:4});return 'You won leadership of a chapter!';}s.rep=Math.max(0,s.rep-10);s.exp+=15;return 'Your challenge failed and drew attention.';}]]);}
+function socYear(){const s=S.lv22.soc;if(!s)return;s.years++;s.rep=Math.min(125,s.rep+1);s.exp=Math.max(0,s.exp-6);
+ if(s.id==='illum'&&S.investments>0){const g=Math.round(S.investments*.03);S.investments+=g;addEvent(`👁️ Society connections boosted your investments by ${money(g)}.`);}
+ if(s.id==='skull'){S.performance=clamp(S.performance+4,0,100);if(S.career!=='None')S.salary=Math.round(S.salary*1.02);}
+ if(s.id==='crim')fx({health:3,reputation:2});}
+function scandal(){const d=sdef(),f=Math.min(S.money,50000);S.money-=f;S.lv22.soc=null;fx({reputation:-20,fame:-8,happiness:-10});addEvent(`🕵️ ${playerName()} was exposed as a member of ${d.n} and expelled.`);popup('🕵️ EXPOSED!',`Your membership in <b>${E(d.n)}</b> leaked to the press. You were expelled and fined <b>${money(f)}</b>.`);}
+
+/* =========================================================
+   2. TRAVEL AGENCY
+   ========================================================= */
+const TD=[['🇫🇷','France',3200],['🇯🇵','Japan',4200],['🇮🇹','Italy',3000],['🇪🇸','Spain',2800],['🇬🇧','United Kingdom',3400],['🇺🇸','United States',3800],['🇨🇦','Canada',3300],['🇦🇺','Australia',4500],['🇳🇿','New Zealand',4800],['🇧🇷','Brazil',3100],['🇦🇷','Argentina',3000],['🇲🇽','Mexico',1900],['🇪🇬','Egypt',2200],['🇿🇦','South Africa',2900],['🇰🇷','South Korea',3000],['🇹🇭','Thailand',1800],['🇻🇳','Vietnam',1500],['🇮🇳','India',1700],['🇮🇩','Indonesia',1800],['🇲🇾','Malaysia',1300],['🇸🇬','Singapore',1500],['🇨🇭','Switzerland',5200],['🇳🇴','Norway',4600],['🇮🇸','Iceland',4400],['🇬🇷','Greece',2600],['🇹🇷','Türkiye',2100],['🇦🇪','UAE',3600],['🇵🇪','Peru',2400],['🇲🇦','Morocco',1900],['🇰🇪','Kenya',2600],['🇩🇪','Germany',3000],['🇳🇱','Netherlands',2900],['🇵🇹','Portugal',2500],['🇨🇿','Czechia',2300],['🇭🇷','Croatia',2400],['🇨🇱','Chile',3300],['🇨🇴','Colombia',2400],['🇵🇭','Philippines',1800],['🇳🇵','Nepal',2000],['🇲🇻','Maldives',5500],['🇫🇯','Fiji',5200],['🇯🇴','Jordan',2300]];
+const CL=[['👑 First Class / VIP',4,[12,20],'Lounges, lie-flat seats, champagne. Highest price.'],['💺 Second Class',2,[8,14],'Comfortable seat and meals.'],['🎫 Third Class',1,[4,9],'Cheapest seat. Possible delays.']];
+const CR=[['🌴','Caribbean Cruise',6000],['🏔️','Alaska Cruise',7000],['🏛️','Mediterranean Cruise',6500],['🌊','Pacific Islands Cruise',8000],['🧊','Antarctic Expedition',15000]];
+const CB=[['👑 Royal Suite',4,[14,22]],['🌅 Balcony Cabin',2,[9,15]],['🛏️ Inside Cabin',1,[5,10]]];
+function stamp(n){if(S.v6&&Array.isArray(S.v6.stamps)){if(!S.v6.stamps.includes(n))S.v6.stamps.push(n);S.countries=Math.max(S.countries,1+S.v6.stamps.length);}else S.countries++;}
+function trip(i){const d=TD[i],L=S.lv22,c=CL[L.cls];if(S.age<10)return popup('✈️ Too young','Travel starts at age 10.');if(S.prisonYears>0)return popup('🔒 Prison','Not available.');
+ const cost=d[2]*c[1];if(!use('trip',3,'Flights',cost))return;L.trips++;L.spent+=cost;stamp(d[1]);S.stats.travelCount++;
+ let h=r(c[2][0],c[2][1]),ex='';
+ if(L.cls===0){fx({health:2});if(chance(15)){fx({fame:1});ex+=' You met a celebrity in the lounge.';}if(chance(10)){(S.friends=S.friends||[]).push({name:pick(['Dante','Mira','Kofi','Lena'])+' (VIP lounge)',relationship:r(45,70)});ex+=' New friend from the lounge.';}}
+ if(L.cls===2&&chance(20)){S.money=Math.max(0,S.money-150);h-=3;ex+=' Long delays and lost luggage (-$150).';}
+ fx({happiness:h,smarts:1});addEvent(`✈️ ${playerName()} flew ${c[0].replace(/^\S+\s/,'')} to ${d[1]}.`);toast(`${d[0]} ${d[1]}! +${h} happiness.${ex}`);render();}
+function cruise(i){const d=CR[i],L=S.lv22,c=CB[L.cab];if(S.age<18)return popup('🔒 Too young','Cruises are 18+.');const cost=d[2]*c[1];if(!use('cruise',1,'A cruise',cost))return;L.spent+=cost;stamp(d[1]);S.countries+=1;
+ fx({happiness:r(c[2][0],c[2][1]),health:2});if(L.cab===0)fx({fame:1,reputation:1});if(S.partner&&S.partner.alive!==false)S.partner.relationship=clamp(S.partner.relationship+6,0,100);
+ if(chance(30))(S.friends=S.friends||[]).push({name:pick(['Mara','Theo','Jun','Omar','Ines'])+' (cruise)',relationship:r(45,70)});addEvent(`🚢 ${playerName()} took the ${d[1]} in a ${c[0].replace(/^\S+\s/,'')}.`);toast('🚢 '+d[1]+' complete!');render();}
+
+/* =========================================================
+   3. PETS
+   ========================================================= */
+const SP=[['🐶','Dog',400,13],['🐱','Cat',250,15],['🐰','Rabbit',120,9],['🐹','Hamster',40,3],['🐭','Pet Mouse',20,2],['🐢','Turtle',150,40],['🦜','Parrot',600,30],['🐠','Goldfish',15,6],['🐟','Betta Fish',25,4],['🦎','Gecko',100,15],['🐍','Corn Snake',120,20],['🐸','Tree Frog',60,8],['🐴','Horse',9000,25],['🐷','Mini Pig',900,15],['🐐','Goat',300,12],['🐑','Sheep',250,12],['🐓','Chicken',30,8],['🦆','Duck',50,9],['🦉','Owl',800,20],['🦔','Hedgehog',150,6],['🦫','Capybara',1500,10],['🦊','Fennec Fox',2500,12],['🐿️','Sugar Glider',200,10],['🐒','Marmoset',3500,15],['🦙','Alpaca',1800,20],['🕷️','Tarantula',60,15],['🦢','Swan',700,20],['🐕‍🦺','Service Dog',3000,12],['🐈‍⬛','Black Cat',250,15],['🦚','Peacock',500,18]];
+const PN=['Biscuit','Luna','Milo','Coco','Pepper','Mochi','Ziggy','Nala','Rocket','Olive','Maple','Pixel','Bean','Waffles','Ginger','Pickles','Atlas','Juno','Peanut','Sage'];
+const upk=sp=>Math.round(sp[2]/12+120);
+function adopt(i){const sp=SP[i],L=S.lv22;if(S.age<5)return popup('🐾 Too young','You need to be 5.');if(L.pets.length>=15)return popup('🐾 Full house','Fifteen pets maximum.');if(S.money<sp[2])return popup('💸 Not enough money',`${sp[1]} costs ${money(sp[2])}.`);
+ S.money-=sp[2];L.pets.push({n:pick(PN),t:i,a:0,mo:90,hp:95});fx({happiness:8});addEvent(`${sp[0]} ${playerName()} adopted a ${sp[1].toLowerCase()}.`);render();}
+function petAct(i,a){const p=L22().pets[i];if(!p)return;const cost={feed:20,play:0,vet:150,train:60}[a];if(!use('p'+i+a,1,'This pet care',cost))return;
+ if(a==='feed'){p.hp=clamp(p.hp+r(8,15),0,100);p.mo=clamp(p.mo+3,0,100);}if(a==='play'){p.mo=clamp(p.mo+r(12,22),0,100);fx({happiness:3});}if(a==='vet')p.hp=clamp(p.hp+r(25,40),0,100);if(a==='train'){p.mo=clamp(p.mo+8,0,100);fx({discipline:1});}
+ toast(p.n+' is happier!');render();}
+function rehome(i){const p=S.lv22.pets[i];if(!p||!confirm('Rehome '+p.n+'?'))return;S.lv22.pets.splice(i,1);fx({happiness:-3});render();}
+const L22=()=>S.lv22;
+function petsYear(){const L=S.lv22;let cost=0;
+ L.pets=L.pets.filter(p=>{const sp=SP[p.t];p.a++;p.mo=clamp(p.mo-r(8,18),0,100);p.hp=clamp(p.hp-r(5,15),0,100);const u=upk(sp);
+  if(S.money>=u){S.money-=u;cost+=u;}else p.hp=clamp(p.hp-15,0,100);
+  if(p.a>=sp[3]||p.hp<=0){fx({happiness:-12});addEvent(`🕊️ ${p.n} the ${sp[1].toLowerCase()} passed away.`);return false;}return true;});
+ if(L.pets.length){fx({happiness:Math.min(5,L.pets.length)});if(L.pets.some(p=>p.t===0||p.t===27))fx({health:1});}
+ if(cost)addEvent(`🐾 Pet care cost ${money(cost)} this year.`);}
+
+/* =========================================================
+   4. BUSINESS
+   ========================================================= */
+/* id, icon, name, startup cost, revenue at standard staffing, max staff, risk, economy sensitivity, description */
+const BT=[
+['clean','🧹','Cleaning Service',30000,110000,12,.08,.4,'Low risk and cheap to start. A great first business.'],
+['ecom','📦','E-commerce Store',50000,220000,10,.3,.7,'Online shop. Profits swing with the economy.'],
+['cafe','☕','Coffee Café',60000,140000,8,.15,.6,'Steady local favorite with loyal customers.'],
+['salon','💇','Salon & Spa',70000,170000,8,.12,.5,'Regulars keep it stable.'],
+['shop','🛒','Convenience Store',90000,200000,10,.1,.4,'Always-needed goods, very stable.'],
+['app','📱','Mobile App Studio',120000,480000,15,.4,.8,'High reward, high risk.'],
+['gym','🏋️','Fitness Gym',150000,330000,12,.15,.5,'Memberships give reliable income.'],
+['rest','🍽️','Restaurant',180000,420000,18,.25,.7,'Big revenue but demanding to run.'],
+['farm','🌾','Farm',200000,360000,14,.2,.3,'Steady and recession-proof.'],
+['game','🎮','Game Studio',300000,900000,20,.45,.8,'Hit-driven. Can make or break you.'],
+['hotel','🏨','Boutique Hotel',900000,1500000,30,.25,.9,'Big, prestigious, slow payback.'],
+['fact','🏭','Factory',1500000,3200000,40,.3,.8,'Huge scale and the biggest payouts.']];
+const tdef=id=>BT.find(x=>x[0]===id);
+const bw=t=>Math.round(t[4]/(t[5]/2)*.7);
+const SN=['Ava','Ben','Cleo','Dax','Eli','Fay','Gus','Hana','Ivo','Jada','Kai','Lena','Milo','Nora','Omar','Pia','Quin','Rio','Sage','Tia'];
+function eff(b){let e=1;b.st.forEach(s=>{e+=(.5+.25*s.sk)*(.7+.5*s.mo/100);});return e;}
+const avg=(b,k)=>b.st.length?b.st.reduce((a,s)=>a+s[k],0)/b.st.length:0;
+function tbonus(b){const a=avg(b,'sk');return b.st.length>=2?(a>=4.5?.2:a>=3.5?.12:a>=2.5?.05:0):0;}
+function demand(b){return 1+b.adv*.03+b.rep/250+b.disc*.012;}
+function econM(t){const e=ECON();return e==='Boom'?1+.12*t[7]:e==='Recession'?1-.15*t[7]:1;}
+function wages(b){return b.st.reduce((a,s)=>a+s.w,0);}
+function over(b){const t=tdef(b.t);return Math.round(t[3]*.03+4000*(1+b.st.length*.25));}
+function revenue(b,em){const t=tdef(b.t),f=Math.min(2.2,eff(b)/(t[5]/2));return Math.round(t[4]*f*demand(b)*em*(1+tbonus(b))*(1-b.disc/100));}
+const projP=b=>revenue(b,econM(tdef(b.t)))-wages(b)-over(b);
+const bval=b=>{const t=tdef(b.t);return Math.round(t[3]*.6+Math.max(0,b.profit)*3);};
+function outlook(t){const n=Math.max(1,Math.floor(t[5]/2)),rev=t[4]*econM(t),cost=n*bw(t)*1.15+t[3]*.03+4000*(1+n*.25),pr=rev-cost,pay=pr>0?t[3]/pr:99;
+ const st=clamp((pay<=2?5:pay<=4?4:pay<=7?3:pay<=12?2:1)-(t[6]>.3?1:0),1,5);return{pr,pay,st,score:(pr>0?pr/t[3]:-1)-t[6]};}
+const BEST=()=>BT.filter(t=>t[3]<=S.money||true).map(t=>({t,o:outlook(t)})).sort((a,b)=>b.o.score-a.o.score);
+const cur=()=>S.lv22.biz[S.lv22.bi]||null;
+function nstaff(b,sk,mult){return{n:pick(SN),sk,mo:60,w:Math.round(bw(tdef(b.t))*(1+.15*(sk-1))*mult),tr:0,rz:0};}
+const hireCost=(b,prem)=>Math.round(bw(tdef(b.t))*(prem?.5:.2));
+function startBiz(i){const t=BT[i],L=S.lv22;if(S.age<18)return popup('🔒 Too young','You must be 18+.');if(L.biz.length>=4)return popup('💼 Limit','You can run 4 businesses at once.');if(S.money<t[3])return popup('💸 Not enough cash',`Starting a ${E(t[2])} costs ${money(t[3])}.`);
+ S.money-=t[3];L.biz.push({t:t[0],n:S.name.split(' ')[0]+"'s "+t[2],st:[],rep:20,adv:0,disc:0,profit:0,loss:0,yrs:0,u:{}});L.bi=L.biz.length-1;L.bt='my';fx({happiness:6});addEvent(`💼 ${playerName()} opened ${L.biz[L.bi].n}.`);render();}
+function bz(id,max,cost,label){const b=cur();if(!b)return false;if((b.u[id]||0)>=max){popup('⏳ Limit reached',`You already did <b>${E(label)}</b> ${max} time(s) this year.`);return false;}if(S.money<cost){popup('💸 Not enough cash',`${E(label)} costs <b>${money(cost)}</b>.`);return false;}S.money-=cost;b.u[id]=(b.u[id]||0)+1;return true;}
+function hire(n,prem){const b=cur();if(!b)return;const t=tdef(b.t),room=t[5]-1-b.st.length;n=Math.min(n,room);if(n<1)return popup('👥 Full','You have reached the maximum staff for this business.');
+ const c=hireCost(b,prem)*n;if(S.money<c)return popup('💸 Not enough cash',`Hiring ${n} costs ${money(c)}.`);S.money-=c;for(let i=0;i<n;i++)b.st.push(prem?nstaff(b,3,1.35):nstaff(b,r(1,2),1));addEvent(`👥 ${b.n} hired ${n} ${prem?'premium ':''}staff.`);render();}
+function fire(i){const b=cur(),s=b&&b.st[i];if(!s)return;const c=Math.round(s.w*.25);if(S.money<c)return popup('💸 Severance',`Severance is ${money(c)}.`);S.money-=c;b.st.splice(i,1);b.st.forEach(x=>x.mo=clamp(x.mo-5,0,100));addEvent(`🔥 ${b.n} fired ${s.n}.`);render();}
+function raise(i){const b=cur();if(!b)return;if(i==='all'){if(!b.st.length||!bz('raiseAll',1,0,'A staff raise'))return;b.st.forEach(s=>{s.w=Math.round(s.w*1.08);s.mo=clamp(s.mo+10,0,100);});toast('Everyone got a raise (+8% wages).');}
+ else{const s=b.st[i];if(!s)return;if(s.rz)return popup('⏳ Limit','One raise per person per year.');s.rz=1;s.w=Math.round(s.w*1.1);s.mo=clamp(s.mo+18,0,100);}render();}
+function train(i,tier){const b=cur();if(!b||!b.st.length)return;
+ if(i==='all'){const T=tier?{c:1,p:.85,m:5,n:'Advanced'}:{c:.4,p:.6,m:3,n:'Basic'},cost=Math.round(b.st.reduce((a,s)=>a+s.w*T.c,0));if(!bz('trainAll',1,cost,T.n+' training program'))return;let up=0;b.st.forEach(s=>{if(s.sk<T.m&&chance(T.p)){s.sk++;s.w=Math.round(s.w*1.12);up++;}s.mo=clamp(s.mo+4,0,100);});toast(`${T.n} training: ${up} staff improved.`);addEvent(`🎓 ${b.n} ran a ${T.n.toLowerCase()} training program (${up} promoted a skill level).`);}
+ else{const s=b.st[i];if(!s||s.tr)return popup('⏳ Limit','One training per person per year.');if(s.sk>=5)return popup('🎓 Maxed','Already top skill.');const c=Math.round(s.w*.8);if(S.money<c)return popup('💸 Not enough cash',`Training costs ${money(c)}.`);S.money-=c;s.tr=1;if(chance(80)){s.sk++;s.w=Math.round(s.w*1.12);toast(s.n+' improved to skill '+s.sk+'.');}else toast('Training did not stick.');}
+ render();}
+function encourage(){const b=cur();if(!b||!b.st.length)return;if(!bz('enc',2,Math.max(200,Math.round(wages(b)*.05)),'A staff event'))return;b.st.forEach(s=>s.mo=clamp(s.mo+10,0,100));toast('Team spirit up!');render();}
+function advert(l){const b=cur();if(!b)return;const t=tdef(b.t),c=Math.round(t[3]*[.015,.05,.12][l]);if(!bz('ad',2,c,'An ad campaign'))return;b.adv=Math.min(10,b.adv+[1,3,6][l]);b.rep=clamp(b.rep+[1,2,4][l],0,100);toast('📣 Campaign launched.');render();}
+function sellBiz(){const b=cur();if(!b||!confirm(`Sell ${b.n} for ${money(bval(b))}?`))return;S.money+=bval(b);S.lv22.biz.splice(S.lv22.bi,1);S.lv22.bi=0;addEvent(`💼 ${playerName()} sold ${b.n}.`);render();}
+const BEV=[['A health inspector praised your standards.',.03,2],['A food-blogger/influencer review went viral.',.15,3],['A theft cost you money.',-.06,-3],['A customer lawsuit was settled.',-.08,-2],['A rival opened nearby.',-.05,0],['A big client signed a contract.',.12,2],['A supplier raised prices.',-.04,0],['An employee came up with a brilliant idea.',.07,2]];
+function bizYear(){const L=S.lv22;let tot=0;
+ L.biz=L.biz.filter(b=>{const t=tdef(b.t);b.yrs++;b.u={};
+  b.st.forEach(s=>{s.mo=clamp(s.mo+r(-6,1),0,100);s.tr=0;s.rz=0;});
+  b.st=b.st.filter(s=>{if(s.mo<25&&chance(45)){addEvent(`🚪 ${s.n} quit ${b.n} (low morale).`);return false;}return true;});
+  let rev=revenue(b,econM(t)*(0.9+Math.random()*.2)),note='';
+  if(chance(t[6]*30)){rev=Math.round(rev*.65);note=' A bad year hit sales.';}
+  if(chance(14)){const e=pick(BEV);rev=Math.round(rev*(1+e[1]));if(e[2])b.rep=clamp(b.rep+e[2],0,100);note+=' '+e[0];}
+  let pr=rev-wages(b)-over(b);
+  if(pr>0&&S.lv22.soc&&S.lv22.soc.id==='mason')pr=Math.round(pr*1.08);
+  S.money=Math.max(0,S.money+pr);b.profit=pr;if(pr>0){S.stats.moneyEarned+=pr;L.bizEarned+=pr;}tot+=pr;
+  b.rep=clamp(Math.round(b.rep+(avg(b,'mo')-50)/20+(avg(b,'sk')-2)*1.5+b.disc/8+r(-1,2)),0,100);b.adv=Math.floor(b.adv/2);
+  b.loss=(pr<0&&S.money<=0)?b.loss+1:0;
+  addEvent(`💼 ${b.n}: revenue ${money(rev)}, profit ${sm(pr)}.${note}`);
+  if(b.st.length>=3&&avg(b,'sk')>=4)fx({reputation:2});
+  if(b.loss>=3){addEvent(`💥 ${b.n} went bankrupt.`);later(()=>popup('💥 Business closed',`<b>${E(b.n)}</b> lost money for 3 years and shut down.`));return false;}
+  return true;});
+ if(L.bi>=L.biz.length)L.bi=0;}
+const _nw=window.netWorth;
+window.netWorth=function(){let x=_nw.apply(this,arguments);try{if(S.lv22)x+=S.lv22.biz.reduce((a,b)=>a+bval(b),0);}catch(e){}return x;};
+
+/* =========================================================
+   5. CHILDHOOD EVENTS (ages 0-17) + better adult headlines
+   effects: h happy, s smarts, l looks, p health, c charisma, r creativity, a athletic, d discipline, f fame, e reputation, m money
+   ========================================================= */
+const KE=['0|1|{n} took first wobbly steps.|h4,a1','0|1|{n} said a first word: "mama".|h5,s1','0|2|{n} giggled at the family dog and would not stop.|h4','0|2|{n} cut a first tooth and cried all night.|h-2,p-1','0|2|{n} learned to clap along to music.|h3,r1','1|3|{n} fell in love with a stuffed bunny and refused to let go.|h4','2|4|{n} made a mess painting the kitchen wall.|r3,h2','2|4|{n} learned to count to ten.|s3','3|5|{n} started preschool and made a first friend.|c3,h3','3|5|{n} learned the whole alphabet song.|s3,h2','3|6|{n} built a giant block tower.|r2,s1','3|6|{n} got a gold star for sharing toys.|e2,h3','4|6|{n} learned to ride a bike with training wheels.|a3,h4','4|7|{n} lost a first tooth and got a coin from the tooth fairy.|h4,m5','4|7|{n} learned to swim at the community pool.|a3,p1,h3','5|8|{n} read a first picture book alone.|s3,h3','5|9|{n} won a coloring contest at school.|r3,e1,h4','6|9|{n} won the class spelling bee.|s3,e2,h5','6|9|{n} joined a soccer team and scored a first goal.|a4,h5','6|10|{n} had a sleepover and stayed up too late.|h4,g-5','6|10|{n} was picked class helper for the week.|e2,d2','7|10|{n} played a tree in the school play.|c3,r1,h3','7|11|{n} broke an arm falling off the monkey bars.|p-4,h-3','7|11|{n} learned to play a song on the recorder.|r3,h2','8|12|{n} got the top mark on a math quiz.|s3,h4','8|12|{n} caught a big fish on a family trip.|h5','8|12|{n} raised money for the animal shelter with a bake sale.|e3,m20,h3','9|12|{n} started a collection of cards and comics.|h3,r1','9|13|{n} built a working volcano for the science fair.|s3,r2,h3','10|13|{n} joined the school chess club.|s3,d2','10|13|{n} got braces and felt self-conscious.|h-3,l-1','10|14|{n} came second in the school swimming gala.|a3,h3','10|14|{n} wrote a short story that the teacher read to the class.|r3,e2,h4','11|14|{n} went on a school camping trip.|h5,p1','11|14|{n} got a first smartphone.|h4','11|15|{n} had a falling-out with a friend and made up a week later.|c2,h-1','12|15|{n} joined the school band.|r3,c1,h3','12|16|{n} tried coding and built a first small game.|s4,r2','12|16|{n} grew several inches over the summer.|l2,a2','13|16|{n} won a place on the school debate team.|c4,s2,e1','13|17|{n} earned a bit of pocket money mowing lawns.|m60,d2','14|17|{n} sang a solo at the school concert.|r3,c3,f1,h4','14|17|{n} volunteered at a local food bank.|e4,h3','14|17|{n} went to a first school dance.|c2,h4','15|17|{n} aced a big exam after weeks of study.|s4,d3,h3','15|17|{n} made the varsity team.|a4,e2,h4','16|17|{n} passed a first driving lesson with a calm instructor.|d2,h4','16|17|{n} got a first summer job.|m400,d3','16|17|{n} visited universities on a campus tour.|s2,h2','17|17|{n} organized a charity run for the school.|e4,c3,f1'];
+const AE=['18|99|{n} was honored at a community awards dinner.|e3,h3','18|99|{n} finished a first full marathon.|p3,a3,h5','18|99|{n} won a local cooking contest.|r3,h4,m100','18|99|{n} organized a neighborhood cleanup.|e3,h3','18|99|{n} picked up a new hobby: woodworking.|r3,h3','18|99|{n} learned to play chess well enough to beat a rival.|s3,h3','18|99|{n} attended a friend\'s wedding and danced all night.|h5','18|99|{n} adopted healthier habits and felt great.|p3,h3','18|99|{n} got a glowing review from a colleague.|e2,d2','18|99|{n} took a free online course and finished it.|s3,d2','18|99|{n} found a hidden gem of a restaurant.|h4','18|99|{n} spent a quiet year with family and enjoyed it.|h5','18|99|{n} gave a well-received talk at a local event.|c3,e2,f1','30|99|{n} reconnected with an old friend.|h5','50|99|{n} started writing memoirs for the grandchildren.|r3,h4'];
+function flavor(){init();const L=S.lv22,a=S.age,pool=(a<18?KE:AE).filter(x=>{const p=x.split('|');return a>=+p[0]&&a<=+p[1]&&x!==L.lf;});if(!pool.length)return false;
+ const x=pick(pool),p=x.split('|');L.lf=x;fx(pf(p[3]));addEvent('🌟 '+p[2].replace('{n}',playerName()));return true;}
+/* decisions: min,max,title,text,[label,desc,fx,msg,riskPct,riskFx,riskMsg] */
+const DEC=[
+[6,17,'😠 Playground bully','Someone keeps picking on a classmate in front of {n}.',[['Stand up to them','Brave but risky.','e4,h2','You stood up for your classmate.',35,'p-6,e2','It turned into a scuffle, but the bully backed off.'],['Tell a teacher','Safe and sensible.','e2,d1','The teacher stepped in.'],['Stay out of it','Avoid drama.','h-3','You felt guilty about it.']]],
+[8,17,'📝 Cheating temptation','A classmate offers {n} the answers to tomorrow\'s test.',[['Take them','Easy grade.','s1,h2','You aced the test.',40,'e-6,d-2,s-1','You were caught and punished.'],['Study properly','Honest effort.','d3,s3','You studied hard and did well.']]],
+[6,13,'🍋 Lemonade stand','{n} wants to run a lemonade stand.',[['Go for it ($10)','Earn pocket money.','m-10,d2','You sold out by noon and earned $60.',100,'m50,d2,h3','You sold out by noon and earned $60.'],['Skip it','Play instead.','h3','You played outside all day.']]],
+[5,14,'🐹 Pet begging','{n} begs for a pet hamster.',[['Buy it ($40)','Responsibility lesson.','m-40,h6,d2','You adopted a hamster.'],['Say not yet','Wait a year.','h-2','You promised to ask again next year.']]],
+[7,17,'🎭 Talent show','The school talent show needs performers.',[['Perform','Show what you can do.','f1,c3,r2','The crowd loved it.',25,'h-5,c1','You froze on stage.'],['Watch from the audience','No pressure.','h2','You cheered on friends.']]],
+[8,15,'🛏️ Sleepover invite','A friend invites {n} to a sleepover.',[['Go','Fun with friends.','h4,c2','Pizza, movies and giggles.'],['Stay home','Quiet night.','g5','You rested.']]],
+[8,17,'⚽ Sports tryout','{n} could try out for the school team.',[['Try out ($30)','Test yourself.','a4,h3,m-30','You made the team!',35,'h-3,a1','You did not make it this year.'],['Skip','Not for me.','','You skipped it.']]],
+[6,14,'🏕️ Summer camp','A summer camp is open for enrolment.',[['Go ($400)','New skills and friends.','m-400,c3,h5,s1','Camp was the best week of the summer.'],['Stay home','Save money.','h1','You enjoyed a lazy summer.']]],
+[11,17,'😎 A dare','Friends dare {n} to sneak out after dark.',[['Do it','Thrill.','h4,e-2','You snuck out and had fun.',30,'e-5,h-4','You were caught and grounded.'],['Say no','Hold firm.','e2,d2','You stood your ground.']]],
+[5,15,'🎻 Music lessons','Mom and Dad suggest an instrument.',[['Piano ($200)','Classic.','m-200,r4,d2','You started piano lessons.'],['Guitar ($200)','Cool.','m-200,r4,c1','You started guitar lessons.'],['No thanks','Not interested.','h1','You declined.']]],
+[11,17,'🗳️ Class president','{n} is nominated for class president.',[['Run','Campaign hard.','e3,c3','You won in a landslide!',45,'h-4,c1','You lost, but learned a lot.'],['Decline','Stay private.','','You declined.']]],
+[9,14,'📱 First phone','{n} asks for a first phone.',[['Ask politely','Good odds.','h5','Your parents agreed.',30,'h-2,d1','They said not yet.'],['Save up ($150)','Earn it yourself.','m-150,h5,d3','You bought your own phone.']]],
+[9,17,'🔬 Science competition','A regional science competition is open.',[['Enter','Big project.','s3,r3,d2','You learned a lot.',25,'f2,s2,h4','You won a regional ribbon!'],['Skip','Save your energy.','h1','You skipped it.']]],
+[4,17,'🚗 Family road trip','The family is planning a road trip.',[['Go along','Make memories.','h6,s1','An unforgettable trip.'],['Stay with friends','Do your own thing.','c2,h2','You had a fun week at a friend\'s.']]],
+[12,17,'📉 Grades slump','{n}\'s grades slipped this term.',[['Hire a tutor ($300)','Get help.','m-300,s4,d2','Your grades recovered.'],['Study alone','Push yourself.','d3,s2','You improved slowly.',35,'h-3,s-1','You struggled to catch up.'],['Ignore it','Hope.','h2,s-2','Grades dipped further.']]],
+[13,17,'🤲 Volunteer drive','A local drive needs young volunteers.',[['Join','Give your time.','e4,h4','You felt great afterward.']]],
+[6,13,'🧹 Chores for cash','Mom offers pocket money for chores.',[['Do them','Earn money.','m40,d3','You earned $40.'],['Skip','Pass.','h2','You skipped chores.']]],
+[4,9,'🏊 Swim class','{n} can sign up for swim class.',[['Sign up ($100)','Get strong.','m-100,a3,p2','You learned to swim.'],['Not now','Maybe later.','','You skipped swim class.']]],
+[3,12,'🎂 Birthday party','{n}\'s birthday is coming up.',[['Invite the whole class ($50)','Big party!','m-50,h6,c3','The party was a huge hit.'],['Small family dinner','Cozy.','h3','A cozy birthday dinner.']]],
+[14,17,'💼 Weekend job','A local shop offers {n} weekend work.',[['Take it','Earn money.','m600,d3,h-1','You earned your first paychecks.'],['Decline','Keep free time.','h3','You kept your weekends free.']]],
+[15,17,'🎓 College plans','{n} must think about life after school.',[['Aim for a top university','Study hard.','s3,d3,h-2','You went all in on your grades.'],['Plan a gap year','Explore first.','h4,c2','You started planning a gap year.'],['Start working early','Get experience.','m300,d3','You lined up an early job.']]]];
+function showDec(e){decision('📬 '+e[2],e[3].replace('{n}',playerName()),e[4].map(o=>({title:o[0],description:o[1],class:'',action:()=>{const f=pf(o[2]);if(f.money<0&&S.money<-f.money){popup('💸 Can\'t afford it','You do not have enough cash for that choice.');return;}let ff=f,m=o[3];if(o[4]&&chance(o[4])){ff=pf(o[5]);m=o[6];}fx(ff);addEvent('📬 '+e[2]+': '+m);toast(m);render();}})));}
+function kidDec(){const L=S.lv22;if(S.age<3||S.age>17||!chance(60))return;const ok=DEC.filter(e=>S.age>=e[0]&&S.age<=e[1]&&e[2]!==L.ld);if(!ok.length)return;const e=pick(ok);L.ld=e[2];later(()=>showDec(e));}
+
+/* yearly hook: runs inside the game's own randomLifeEvent() so it happens during age-up (works with the Time Machine) */
+function year22(){const L=S.lv22;L.used={};socYear();petsYear();bizYear();kidDec();}
+window.randomLifeEvent=function(){init();const L=S.lv22;if(L.ly!==S.age){L.ly=S.age;year22();}flavor();};
+
+/* =========================================================
+   ACTIONS + PAGES
+   ========================================================= */
+window.LV22={
+ go(id){showPage(id,q('nav_'+id));},
+ join(id){const d=SOC.find(x=>x.id===id);if(S.lv22.soc)return;if(S.age<18)return popup('🔒 Too young','Members must be 18+.');if(S.reputation<40)return popup('🎖️ Reputation too low','You need reputation 40+.');if(S.money<d.j)return popup('💸 Not enough cash',`Initiation costs ${money(d.j)}.`);
+  S.money-=d.j;S.lv22.soc={id,rep:5,inf:0,exp:0,years:0};addEvent(`${d.i} ${playerName()} was initiated into ${d.n}.`);popup(d.i+' Welcome',`You are now an <b>Initiate</b> of <b>${E(d.n)}</b>.`);render();},
+ leave(){if(!confirm('Leave the society? You lose your rank.'))return;addEvent(`🚪 ${playerName()} left the society.`);S.lv22.soc=null;render();},
+ sa(k){const s=S.lv22.soc;if(!s)return;const d=sdef(),a=sacts(d).find(x=>x[0]===k);if(!a)return;if(srank(s)<a[4])return popup('🔒 Rank too low',`Needs rank ${a[4]}.`);if(!use('s'+k,a[3],a[1],a[2]))return;
+  s.exp=Math.min(100,s.exp+a[5]);const m=a[6](s);s.rep=clamp(s.rep,0,125);addEvent(`${d.i} ${m}`);toast(d.i+' '+m);if(s.exp>=100)scandal();render();},
+ cls(i){S.lv22.cls=i;render();},cab(i){S.lv22.cab=i;render();},tt(t){S.lv22.tt=t;render();},trip,cruise,
+ adopt,petAct,rehome,
+ bt(t){S.lv22.bt=t;render();},sel(i){S.lv22.bi=i;S.lv22.bt='my';render();},
+ start:startBiz,hire,fire,raise,train,enc:encourage,ad:advert,sell:sellBiz,
+ disc(v){const b=cur();if(b){b.disc=v;render();}},
+ dbl(){const b=cur();if(b)hire(Math.max(1,b.st.length),false);}
+};
+const stars=n=>'⭐'.repeat(n)+'☆'.repeat(5-n);
+function pSoc(){const s=S.lv22.soc;
+ if(!s)return `<div class="card"><h2>🕵️ Secret Societies</h2><p class="muted">Age 18+, reputation 40+ and an initiation fee. Each society gives a different yearly bonus and its own special action. Actions raise <b>exposure</b>: at 100% you are exposed and expelled.</p></div><div class="grid">${SOC.map(d=>`<div class="card"><h3>${d.i} ${E(d.n)}</h3><p class="muted">🎁 ${d.b}<br>Special action: ${E(d.u[0])}<br>Initiation ${money(d.j)}</p>${btn('Join',`LV22.join('${d.id}')`,'gold',S.age<18||S.money<d.j||S.reputation<40)}</div>`).join('')}</div>`;
+ const d=sdef(),rk=srank(s);
+ return `<div class="card"><h2>${d.i} ${E(d.n)}</h2><p>📊 Rank: <b>${RK[rk-1]} (Level ${rk})</b><br>Reputation ${Math.round(s.rep)} | Years ${s.years}<br>Influence ${s.inf} | Exposure ${s.exp}%</p>${bar('Exposure',s.exp)}</div><p class="green"><b>🎁 Passive bonus: ${d.b}</b></p><h2>⚔️ Society actions</h2>${sacts(d).map(a=>`<p>${btn(`${a[1]}${a[2]?' ('+money(a[2])+')':''}${a[4]>1?' [Rank '+a[4]+' req]':''} ${U('s'+a[0])}/${a[3]}`,`LV22.sa('${a[0]}')`,'good',rk<a[4]||U('s'+a[0])>=a[3])}</p>`).join('')}${btn('🚪 Leave the society','LV22.leave()','danger')}`;}
+function pTrav(){const L=S.lv22,c=CL[L.cls],b=CB[L.cab];
+ const top=`<div class="grid"><div class="stat"><small>💵 Cash</small><strong>${money(S.money)}</strong></div><div class="stat"><small>🛂 Countries</small><strong>${S.countries}</strong></div><div class="stat"><small>✈️ Flights this year</small><strong>${U('trip')}/3</strong></div><div class="stat"><small>💳 Spent on travel</small><strong>${money(L.spent)}</strong></div></div><br>${btn('✈️ Plan a Vacation',"LV22.tt('fly')",L.tt==='fly'?'gold':'')}${btn('🚢 Book a Cruise',"LV22.tt('cruise')",L.tt==='cruise'?'gold':'')}<br><br>`;
+ if(L.tt==='fly')return top+`<div class="card"><h3>Choose your ticket class</h3>${CL.map((x,i)=>btn(x[0]+' (×'+x[1]+')',`LV22.cls(${i})`,L.cls===i?'gold':'')).join('')}<p class="muted">${c[3]} Happiness +${c[2][0]}-${c[2][1]}.</p></div><div class="grid">${TD.map((d,i)=>{const p=d[2]*c[1];return `<div class="card"><h3>${d[0]} ${E(d[1])}</h3><p>${money(p)}</p>${btn('Book',`LV22.trip(${i})`,'',U('trip')>=3||S.money<p)}</div>`;}).join('')}</div>`;
+ return top+`<div class="card"><h3>Choose your cabin</h3>${CB.map((x,i)=>btn(x[0]+' (×'+x[1]+')',`LV22.cab(${i})`,L.cab===i?'gold':'')).join('')}<p class="muted">Cruises: 1 per year, age 18+. Suites add fame and reputation.</p></div><div class="grid">${CR.map((d,i)=>{const p=d[2]*b[1];return `<div class="card"><h3>${d[0]} ${E(d[1])}</h3><p>${money(p)}</p>${btn('Book',`LV22.cruise(${i})`,'',U('cruise')>=1||S.money<p)}</div>`;}).join('')}</div>`;}
+function pPets(){const L=S.lv22;
+ return `<div class="card"><h2>🐾 Your pets (${L.pets.length}/15)</h2><p class="muted">Each pet costs yearly upkeep. Pets add happiness (up to +5 a year). Dogs improve your health.</p></div><div class="grid">${L.pets.map((p,i)=>{const sp=SP[p.t];return `<div class="card"><h3>${sp[0]} ${E(p.n)}</h3><p class="muted">${sp[1]} • age ${p.a} of ~${sp[3]} • upkeep ${money(upk(sp))}/yr</p>${bar('😊 Mood',p.mo)}${bar('❤️ Health',p.hp)}${btn('Feed ($20)',`LV22.petAct(${i},'feed')`,'',U('p'+i+'feed'))}${btn('Play',`LV22.petAct(${i},'play')`,'',U('p'+i+'play'))}${btn('Train ($60)',`LV22.petAct(${i},'train')`,'',U('p'+i+'train'))}${btn('Vet ($150)',`LV22.petAct(${i},'vet')`,'good',U('p'+i+'vet'))}${btn('Rehome',`LV22.rehome(${i})`,'danger')}</div>`;}).join('')||'<div class="card muted">No pets yet. Adopt one below.</div>'}</div><h2>🛒 Adopt a pet</h2><div class="grid">${SP.map((p,i)=>`<div class="card"><h3>${p[0]} ${p[1]}</h3><p>${money(p[2])}<br><small class="muted">Lifespan ~${p[3]} yrs</small></p>${btn('Adopt',`LV22.adopt(${i})`,'',L.pets.length>=15||S.money<p[2])}</div>`).join('')}</div>`;}
+function pBiz(){const L=S.lv22,tabs=btn('💼 My Businesses',"LV22.bt('my')",L.bt==='my'?'gold':'')+btn('🚀 Start a Business',"LV22.bt('new')",L.bt==='new'?'gold':'')+'<br><br>';
+ const top=`<div class="grid"><div class="stat"><small>💵 Cash</small><strong>${money(S.money)}</strong></div><div class="stat"><small>🌍 Economy</small><strong>${ECON()}</strong></div><div class="stat"><small>💼 Businesses</small><strong>${L.biz.length}/4</strong></div><div class="stat"><small>💰 Total earned</small><strong>${money(L.bizEarned)}</strong></div></div><br>`;
+ if(L.bt==='new'){const best=BEST(),top1=best[0].t[0];
+  return top+tabs+`<div class="card"><h3>📊 Market advice</h3><p class="muted">Ratings use payback time (cost ÷ expected yearly profit with a half-sized team), risk and the current economy (${ECON()}). Training staff and advertising improve results beyond this estimate.</p></div><div class="grid">${best.map(({t,o})=>`<div class="card"><h3>${t[1]} ${E(t[2])} ${t[0]===top1?'🏆':''}</h3><p>${stars(o.st)} <b>${['','Avoid','Weak','OK','Good','Excellent'][o.st]}</b>${t[0]===top1?' — best pick now':''}</p><p class="muted">${E(t[8])}<br>Cost ${money(t[3])} • Max staff ${t[5]}<br>Risk ${t[6]>.3?'High':t[6]>.15?'Medium':'Low'} • Est. profit ${sm(Math.round(o.pr))}/yr • Payback ${o.pay>50?'never':o.pay.toFixed(1)+' yrs'}</p>${btn('Start',`LV22.start(${BT.indexOf(t)})`,'gold',S.age<18||S.money<t[3]||L.biz.length>=4)}</div>`).join('')}</div>`;}
+ if(!L.biz.length)return top+tabs+'<div class="card muted">You have no businesses yet. Open the Start a Business tab for advice.</div>';
+ const b=cur(),t=tdef(b.t),pr=projP(b),ac=Math.round(t[3]*.015),tb=tbonus(b),adv=[];
+ if(b.st.length<Math.min(3,t[5]-1))adv.push('Hire more staff: your team is small, so revenue is capped.');if(b.st.length>=2&&avg(b,'sk')<2.5)adv.push('Run a training program: skilled staff earn more per person and give a revenue bonus.');if(b.st.length&&avg(b,'mo')<50)adv.push('Morale is low. Give raises or hold a staff event before people quit.');if(b.adv===0)adv.push('Advertise to grow demand.');if(pr<0)adv.push('This business is projected to lose money. Reduce staff or improve skills.');if(!adv.length)adv.push('Looking healthy! Keep investing in training.');
+ return top+tabs+`<div class="grid">${L.biz.map((x,i)=>btn(tdef(x.t)[1]+' '+E(x.n),`LV22.sel(${i})`,i===L.bi?'gold':'')).join('')}</div><br>
+ <div class="card"><h2>${t[1]} ${E(b.n)}</h2><p class="muted">Year ${b.yrs} • Value ${money(bval(b))} • Last profit <b class="${cc(b.profit)}">${sm(b.profit)}</b> • Projected <b class="${cc(pr)}">${sm(pr)}</b></p>${bar('⭐ Reputation',b.rep)}${bar('👥 Staff capacity',b.st.length/Math.max(1,t[5]-1)*100)}
+ <p>👥 ${b.st.length}/${t[5]-1} staff • 🎓 Avg skill ${avg(b,'sk').toFixed(1)}/5 • 😊 Avg morale ${Math.round(avg(b,'mo'))}% • 📣 Ad boost ${b.adv} • 🏷️ Discount ${b.disc}%<br>🎁 Training bonus: <b class="${tb?'green':''}">${tb?'+'+Math.round(tb*100)+'% revenue':'none yet (avg skill 2.5+ with 2+ staff)'}</b></p><p class="muted">💡 ${adv.map(E).join('<br>💡 ')}</p></div>
+ <div class="card"><h3>👥 Staffing</h3>${btn('Hire 1 ('+money(hireCost(b,0))+')','LV22.hire(1,0)')}${btn('Hire premium ('+money(hireCost(b,1))+')','LV22.hire(1,1)','good')}${btn('Hire 5','LV22.hire(5,0)')}${btn('👯 Double the staff','LV22.dbl()','gold')}${btn('💵 Raise for all '+(b.u.raiseAll||0)+'/1','LV22.raise(\'all\')','',(b.u.raiseAll||0)>=1||!b.st.length)}${btn('🎉 Staff event '+(b.u.enc||0)+'/2','LV22.enc()','',(b.u.enc||0)>=2||!b.st.length)}<br>${btn('🎓 Basic training (all) '+(b.u.trainAll||0)+'/1','LV22.train(\'all\',0)','',(b.u.trainAll||0)>=1||!b.st.length)}${btn('🎓🎓 Advanced training (all)','LV22.train(\'all\',1)','purple',(b.u.trainAll||0)>=1||!b.st.length)}<p class="muted">Basic: skills up to 3. Advanced: up to 5. Higher skill means more revenue per person, a revenue bonus and better reputation.</p></div>
+ <div class="card"><h3>📣 Marketing & pricing</h3>${btn('Flyers ('+money(ac)+')','LV22.ad(0)')}${btn('Social media ('+money(ac*3+Math.round(ac*.33))+')','LV22.ad(1)','good')}${btn('TV campaign ('+money(Math.round(t[3]*.12))+')','LV22.ad(2)','gold')} ${(b.u.ad||0)}/2<br>Discount: ${[0,10,20,30].map(v=>btn(v+'%',`LV22.disc(${v})`,b.disc===v?'gold':'')).join('')}<p class="muted">Discounts bring in more customers and reputation but cut your price. Around 10-20% is usually fine.</p></div>
+ ${b.st.length?`<div class="card"><h3>🧑‍💼 Staff list</h3><div style="overflow-x:auto"><table><tr><th>Name</th><th>Skill</th><th>Morale</th><th>Wage</th><th></th></tr>${b.st.map((s,i)=>`<tr><td>${E(s.n)}</td><td>${'★'.repeat(s.sk)}</td><td>${Math.round(s.mo)}%</td><td>${money(s.w)}</td><td>${btn('Raise',`LV22.raise(${i})`,'',s.rz)}${btn('Train',`LV22.train(${i})`,'',s.tr||s.sk>=5)}${btn('Fire',`LV22.fire(${i})`,'danger')}</td></tr>`).join('')}</table></div></div>`:''}
+ <div class="card">${btn('💰 Sell business ('+money(bval(b))+')','LV22.sell()','danger')}</div>`;}
+
+const PAGES=[['v22_soc','🕵️ Secret Society',pSoc],['v22_trav','✈️ Travel Agency',pTrav],['v22_pets','🐾 Pets',pPets],['v22_biz','💼 Business',pBiz]];
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side)return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ PAGES.forEach(([id,l])=>{if(q(id))return;const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=`<h1>${l}</h1><div id="${id}_c"></div>`;main.appendChild(s);
+  const b=document.createElement('button');b.className='nav';b.id='nav_'+id;b.textContent=l;b.setAttribute('onclick',`showPage('${id}',this)`);side.insertBefore(b,anc);});})();
+[['Society Member','Join a secret society.',()=>S.lv22&&S.lv22.soc],['Society Master','Reach Master rank.',()=>S.lv22&&S.lv22.soc&&srank(S.lv22.soc)>=5],['Frequent Flyer','Take 10 flights.',()=>S.lv22&&S.lv22.trips>=10],['Pet Collector+','Own 5 pets at once.',()=>S.lv22&&S.lv22.pets.length>=5],['Entrepreneur','Open a business.',()=>S.lv22&&S.lv22.biz.length>=1],['Business Tycoon','Earn $1,000,000 from businesses.',()=>S.lv22&&S.lv22.bizEarned>=1e6]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+const _render=window.render;
+window.render=function(){init();_render();PAGES.forEach(([id,l,f])=>{const p=q(id);if(!p||!p.classList.contains('active'))return;const el=q(id+'_c');if(!el)return;try{el.innerHTML=f();}catch(e){console.warn(l,e);el.innerHTML='<div class="card muted">This page hit an error: '+E(String(e&&e.message||e))+'</div>';}});};
+init();render();
+})();
+</script>
+
 </body>
 </html>
