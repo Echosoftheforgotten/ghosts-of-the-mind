@@ -12314,5 +12314,429 @@ init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE V23 ADD-ON — paste RIGHT BEFORE </body>, AFTER every other
+  script (must be LAST). Everything lives in S.lv23 (old saves are safe).
+  1) Removes the OLD Travel (V6) and OLD Pets (V6) pages/cards. The newer
+     ✈️ Travel Agency and 🐾 Pets pages (V22) stay. Old pets are moved over.
+  2) 🛠️ Found your OWN secret society: custom name, custom logo
+     (emoji + colour + shape) and exactly 3 effects from 17.
+  3) 🧩 More Life page: Faith, Content Channel, Style, Wellness,
+     Yearly Quests, plus a yearly Holiday Season decision.
+  ===================================================================== -->
+<style>
+.lv23logo{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex:none}
+.lv23grid{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.lv23e{width:44px;height:44px;font-size:24px;padding:0;margin:0}
+.lv23sw{width:34px;height:34px;border-radius:50%;border:2px solid #334155;padding:0;margin:0;cursor:pointer}
+.lv23sel{outline:3px solid #facc15}
+</style>
+<script>
+(function(){
+'use strict';
+if(window.__LV23)return;window.__LV23=1;
+
+/* ---------------- helpers ---------------- */
+const q=id=>document.getElementById(id),E=escapeHTML,r=rand,pick=a=>a[r(0,a.length-1)];
+const btn=(l,c,cls,d)=>`<button class="action ${cls||''}" ${d?'disabled':''} onclick="${c}">${l}</button>`;
+const bar=(l,v)=>`<div>${l} <b>${Math.round(v)}%</b><div class="progress"><div style="width:${clamp(v,0,100)}%"></div></div></div>`;
+const clean=s=>String(s||'').replace(/[<>&"'`]/g,'').trim().slice(0,30);
+const shuf=a=>a.map(x=>[Math.random(),x]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+function fx(o){for(const k in o){const v=o[k];
+ if(k==='money')S.money=Math.max(0,S.money+v);
+ else if(k==='stress'){if(S.lifePlus)S.lifePlus.stress=clamp(safeNumber(S.lifePlus.stress,0)+v,0,100);}
+ else S[k]=clamp(Math.round(safeNumber(S[k],50)+v),0,100);}}
+function toast(m){let t=q('lv23t');if(!t){t=document.createElement('div');t.id='lv23t';t.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#0b1220;border:1px solid #a78bfa;color:#eee;padding:10px 14px;border-radius:10px;z-index:500;transition:.2s;pointer-events:none';document.body.appendChild(t);}t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,3500);}
+const Q=[];let dr=0;
+function later(f){Q.push(f);if(dr)return;dr=1;(function t(){if(!Q.length){dr=0;return;}const bg=q('popupBg');if(bg.style.display==='flex'||q('startMenu').style.display==='flex'){setTimeout(t,700);return;}Q.shift()();setTimeout(t,700);})();}
+const goPage=id=>showPage(id,q('nav_'+id));
+
+/* ---------------- state ---------------- */
+function init(){
+ if(!S.lv23||typeof S.lv23!=='object')S.lv23={};
+ const d={used:{},tab:'faith',ly:-1,mig:false,my:null,
+  faith:{id:null,pr:0,total:0,yrs:0},
+  ch:{on:false,niche:'',subs:0,views:0,income:0,gear:0,ups:0,burn:0,deals:0},
+  st:{ward:0,tat:0,pier:0,skin:false},
+  well:{diet:-1,sleep:-1},
+  qu:{list:[],done:0}};
+ for(const k in d)if(S.lv23[k]===undefined||S.lv23[k]===null)S.lv23[k]=d[k];
+ migrate();
+}
+const U=id=>S.lv23.used[id]||0;
+function use(id,max,label,cost){cost=cost||0;
+ if(U(id)>=max){popup('⏳ Limit reached',`You already used <b>${E(label)}</b> ${max} time(s) this year. Age up to reset.`);return false;}
+ if(S.money<cost){popup('💸 Not enough money',`${E(label)} costs <b>${money(cost)}</b>.`);return false;}
+ S.money-=cost;S.lv23.used[id]=U(id)+1;S.stats.activities++;return true;}
+
+/* =========================================================
+   1. REMOVE OLD PETS + OLD TRAVEL
+   ========================================================= */
+function migrate(){
+ const L=S.lv23;if(L.mig)return;L.mig=true;if(!S.lv22||!Array.isArray(S.lv22.pets))return;
+ const mp={Dog:0,Cat:1,Rabbit:2,Parrot:6,Turtle:5,Horse:12};let n=0;
+ ((S.v6&&S.v6.pets)||[]).forEach(p=>{if(S.lv22.pets.length>=15)return;S.lv22.pets.push({n:p.n||'Buddy',t:mp[p.t]!==undefined?mp[p.t]:0,a:p.a||0,mo:clamp(safeNumber(p.hp,80),0,100),hp:clamp(safeNumber(p.h,90),0,100)});n++;});
+ if(S.v6)S.v6.pets=[];
+ if(n)addEvent(`🐾 ${n} pet(s) were moved to the new Pets page.`);
+}
+window.travel=function(){goPage('v22_trav');};
+window.adoptPet=function(){goPage('v22_pets');};
+if(window.V6){window.V6.travel=function(){goPage('v22_trav');};window.V6.adopt=function(){goPage('v22_pets');};}
+if(window.LV15)window.LV15.cruise=function(){goPage('v22_trav');};
+function hideOld(){
+ document.querySelectorAll('.sidebar .nav').forEach(b=>{const o=b.getAttribute('onclick')||'';if(o.includes("'v6_world'")||o.includes("'v6_pets'"))b.style.display='none';});
+ const a=q('activities');
+ if(a)a.querySelectorAll('.card h2').forEach(h=>{const t=h.textContent.trim();if(t.startsWith('✈️ Travel')||t.startsWith('🐶 Pet')){const c=h.closest('.card');if(c)c.style.display='none';}});
+ const l=q('lv15_c');
+ if(l)l.querySelectorAll('.card h3').forEach(h=>{if(/Cruise/.test(h.textContent)){const c=h.closest('.card');if(c)c.style.display='none';}});
+}
+/* the old pet system charged upkeep and killed pets every age-up; keep it silent */
+const _age=window.ageUp;
+window.ageUp=function(){
+ init();
+ try{if(S.v6)S.v6.pets=[];S.pets=0;}catch(e){}
+ try{return _age.apply(this,arguments);}
+ finally{try{init();if(S.v6)S.v6.pets=[];S.pets=S.lv22&&S.lv22.pets?S.lv22.pets.length:0;}catch(e){}}
+};
+
+/* =========================================================
+   2. CUSTOM SECRET SOCIETY
+   ========================================================= */
+const COST=500000;
+const RT=['Circle','Lodge','Chapter','Order','Grand Order'];
+const EM=['🐉','🦅','🐺','🦁','🐍','🦉','🦂','🕷️','🐙','🦇','🌙','☀️','⭐','🔥','❄️','⚡','🌊','🌿','💎','👑','🗝️','⚔️','🛡️','🏺','📜','🔮','🧿','👁️','💀','🌹','🪐','🧭','🕯️','⚜️','☯️','🔱','🪬','🎭','🃏','♟️'];
+const SW=['#7c3aed','#dc2626','#16a34a','#2563eb','#d97706','#0f172a','#db2777','#0d9488','#6b7280','#facc15'];
+const SHAPES={circle:'border-radius:50%',shield:'clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%)',hexagon:'clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)',diamond:'clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)',rounded:'border-radius:18%',star:'clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)'};
+const okColor=c=>/^#[0-9a-fA-F]{6}$/.test(c)?c:'#7c3aed';
+function logo(o,size){size=size||48;return `<span class="lv23logo" style="width:${size}px;height:${size}px;background:${okColor(o.color)};font-size:${Math.round(size*.55)}px;${SHAPES[o.shape]||SHAPES.shield}">${E(o.emoji||'❓')}</span>`;}
+let draft={name:'',emoji:'🐉',color:'#7c3aed',shape:'shield',fx:[]},editing=false;
+const rank=m=>clamp(1+Math.floor(m.rep/25),1,5);
+const scale=m=>.8+.2*rank(m);
+
+/* id, icon, name, description, yearly function (sc = rank scale) */
+const EF=[
+['inv','📈','Insider Investing','+3% growth on your investments every year.',sc=>{if(S.investments>0){const g=Math.round(S.investments*.03*sc);S.investments+=g;return 'investments grew '+money(g);}}],
+['biz','🏢','Business Network','+8% extra profit from your businesses.',sc=>{const t=((S.lv22&&S.lv22.biz)||[]).reduce((a,b)=>a+Math.max(0,b.profit||0),0),g=Math.round(t*.08*sc);if(g>0){S.money+=g;return 'business bonus '+money(g);}}],
+['car','💼','Career Patronage','+4 performance and about +2% salary every year.',sc=>{if(S.career!=='None'){S.performance=clamp(S.performance+Math.round(4*sc),0,100);S.salary=Math.round(S.salary*(1+.02*sc));return 'career boosted';}}],
+['hp','💪','Vitality Rites','+3 health every year.',sc=>{const n=Math.round(3*sc);fx({health:n});return '+'+n+' health';}],
+['rep','🎖️','Honored Name','+2 reputation every year.',sc=>{const n=Math.round(2*sc);fx({reputation:n});return '+'+n+' reputation';}],
+['fund','💰','Patron Fund','Members send you $15,000 every year.',sc=>{const g=Math.round(15000*sc);S.money+=g;S.stats.moneyEarned+=g;return '+'+money(g);}],
+['fame','⭐','Spotlight','+1 fame every year, sometimes more.',sc=>{const n=1+(chance(30)?1:0);fx({fame:n});return '+'+n+' fame';}],
+['luck','🍀',"Fortune's Favor",'+2 luck every year.',sc=>{fx({luck:Math.round(2*sc)});return 'luck rose';}],
+['mind','🧠','Hidden Library','+2 smarts and +1 academic skill every year.',sc=>{fx({smarts:Math.round(2*sc),academic:1});return 'smarts rose';}],
+['chrm','💬','Silver Tongue','+2 charisma every year.',sc=>{fx({charisma:Math.round(2*sc)});return 'charisma rose';}],
+['joy','😊','Brotherhood','+3 happiness every year.',sc=>{const n=Math.round(3*sc);fx({happiness:n});return '+'+n+' happiness';}],
+['disc','🛡️','Iron Discipline','+2 discipline and +1 creativity every year.',sc=>{fx({discipline:Math.round(2*sc),creativity:1});return 'discipline rose';}],
+['law','⚖️','Legal Shield','60% chance your wanted level drops by 1 each year.',sc=>{if(S.wanted>0&&chance(60)){S.wanted--;return 'wanted level dropped';}}],
+['secr','🤫','Vow of Secrecy','Exposure fades 8 points faster every year.',null],
+['frd','🤝','Loyal Friends','40% chance of a new friend; all friendships +3 yearly.',sc=>{(S.friends||[]).forEach(f=>f.relationship=clamp(f.relationship+3,0,100));if(chance(40)){(S.friends=S.friends||[]).push({name:pick(['Aurelio','Maren','Sol','Idris','Vera','Kai'])+' (society)',relationship:r(50,75)});return 'a new friend joined';}}],
+['safe','🆘','Emergency Bailout','If your cash drops under $2,000 you get $10,000 (once every 3 years).',sc=>{const m=S.lv23.my;if(S.money<2000&&S.age-m.bail>=3){m.bail=S.age;S.money+=10000;return 'emergency bailout +$10,000';}}],
+['long','🕰️','Elixir of Years','After age 60, 20%+ chance each year to cheat death.',null]];
+const efOf=id=>EF.find(x=>x[0]===id);
+const has=id=>!!(S.lv23&&S.lv23.my&&S.lv23.my.fx.includes(id));
+const _ccd=window.checkCharacterDeath;
+window.checkCharacterDeath=function(){
+ const m=S.lv23&&S.lv23.my;
+ if(m&&m.fx.includes('long')&&S.age>=60&&chance(20*scale(m))){addEvent(`🕰️ ${m.name}'s elixir kept ${playerName()} alive another year.`);return false;}
+ return _ccd.apply(this,arguments);};
+
+/* id, label, cost, yearly limit, min rank, exposure, function */
+const ACT=[
+['meet','🗣️ Hold a meeting',0,2,1,3,m=>{m.rep+=2;const n=r(1,3);m.mem+=n;return `A meeting of ${m.name} drew ${n} new member(s).`;}],
+['recr','📣 Recruit members',5000,2,1,6,m=>{const n=r(2,6);m.mem+=n;m.rep+=1;return `${m.name} recruited ${n} members.`;}],
+['rit','🕯️ Hold a ritual',2000,2,1,3,m=>{m.rep+=3;m.inf+=1;fx({happiness:2});return `${m.name} held a ritual.`;}],
+['gala','🥂 Host a gala',50000,1,2,8,m=>{m.rep+=6;m.mem+=r(3,8);const g=r(20000,60000);m.tre+=g;fx({fame:2});return `${m.name}'s gala raised ${money(g)} for the treasury.`;}],
+['miss','🕵️ Secret mission',25000,1,3,12,m=>{if(chance(60)){const g=r(30000,120000);m.inf+=6;m.rep+=8;S.money+=g;return `A secret mission succeeded and paid ${money(g)}.`;}m.rep=Math.max(0,m.rep-5);return 'A secret mission failed.';}],
+['lob','🏛️ Lobby officials',100000,1,4,10,m=>{m.inf+=5;m.rep+=4;fx({reputation:4});return `${m.name} lobbied the powerful.`;}],
+['low','🌫️ Lay low',0,1,1,-25,m=>`${m.name} went quiet and exposure dropped.`]];
+
+function formHTML(){const d=draft;return `
+<label>Society name</label><input type="text" maxlength="30" value="${E(d.name)}" placeholder="e.g. The Midnight Circle" oninput="LV23.dn(this.value)">
+<label>Logo symbol (pick one)</label><div class="lv23grid">${EM.map(e=>`<button class="action lv23e ${d.emoji===e?'lv23sel':''}" onclick="LV23.de('${e}')">${e}</button>`).join('')}</div>
+<label>...or type your own emoji, then click away</label><input type="text" maxlength="4" placeholder="🦉" onchange="LV23.de(this.value)">
+<label>Logo colour</label><div class="lv23grid">${SW.map(c=>`<button class="lv23sw ${d.color===c?'lv23sel':''}" style="background:${c}" onclick="LV23.dc('${c}')"></button>`).join('')}<input type="color" value="${okColor(d.color)}" onchange="LV23.dc(this.value)" style="width:48px;height:34px;padding:0;margin:0"></div>
+<label>Logo shape</label><div>${Object.keys(SHAPES).map(s=>btn(s,`LV23.ds('${s}')`,d.shape===s?'gold':'')).join('')}</div>
+<p>Preview: ${logo(d,72)} <b>${E(d.name||'Your Society')}</b></p>`;}
+
+function createCard(){
+ const mem=S.lv22&&S.lv22.soc;
+ if(mem)return `<div class="card"><h2>🛠️ Found Your Own Society</h2><p class="muted">You are already a member of another society. Leave it first (button above), then come back here.</p></div>`;
+ const can=S.age>=21&&S.reputation>=45,fxs=draft.fx.length;
+ return `<div class="card"><h2>🛠️ Found Your Own Secret Society</h2>
+ <p class="muted">Age 21+, reputation 45+, and <b>${money(COST)}</b> to found. Choose a name, design a logo and pick exactly <b>3 effects</b>. You are the leader. Your logo shows on your dashboard.</p>
+ <p>${S.age>=21?'✅':'❌'} Age ${S.age}/21 • ${S.reputation>=45?'✅':'❌'} Reputation ${Math.round(S.reputation)}/45 • ${S.money>=COST?'✅':'❌'} Cash ${money(S.money)}</p>
+ ${formHTML()}
+ <h3>Choose 3 effects (${fxs}/3)</h3>
+ <div class="grid">${EF.map(e=>{const on=draft.fx.includes(e[0]);return `<div class="card" style="${on?'border-color:#facc15':''}"><h3>${e[1]} ${E(e[2])}</h3><p class="muted">${E(e[3])}</p>${btn(on?'✅ Chosen':'Choose',`LV23.df('${e[0]}')`,on?'gold':'',!on&&fxs>=3)}</div>`;}).join('')}</div>
+ ${btn('🛠️ Found the society ('+money(COST)+')','LV23.found()','gold',!can||fxs!==3||draft.name.trim().length<3||S.money<COST)}</div>`;}
+
+function socPage(){
+ const m=S.lv23.my,rk=rank(m),sc=scale(m);
+ return `<div class="card"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">${logo(m,84)}<div><h2 style="margin:0">${E(m.name)}</h2><p class="muted" style="margin:4px 0">You are the leader • Rank <b>${RT[rk-1]}</b> (level ${rk}) • Founded ${m.years} year(s) ago</p></div></div>
+ <div class="grid" style="margin-top:12px"><div class="stat"><small>👥 Members</small><strong>${m.mem}</strong></div><div class="stat"><small>🎖️ Reputation</small><strong>${Math.round(m.rep)}</strong></div><div class="stat"><small>🕸️ Influence</small><strong>${m.inf}</strong></div><div class="stat"><small>💰 Treasury</small><strong>${money(m.tre)}</strong></div></div>
+ ${bar('🔦 Exposure (100% = exposed and dissolved)',m.exp)}</div>
+ <h2>🎁 Your 3 effects <span class="muted" style="font-size:14px">(strength x${sc.toFixed(1)} at this rank)</span></h2>
+ <div class="grid">${m.fx.map(id=>{const e=efOf(id);return `<div class="card"><h3>${e[1]} ${E(e[2])}</h3><p class="muted">${E(e[3])}</p></div>`;}).join('')}</div>
+ <h2>⚔️ Society actions</h2>
+ ${ACT.map(a=>`<p>${btn(`${a[1]}${a[2]?' ('+money(a[2])+')':''}${a[4]>1?' [rank '+a[4]+']':''} ${U('s'+a[0])}/${a[3]}`,`LV23.sa('${a[0]}')`,'good',rk<a[4]||U('s'+a[0])>=a[3])}</p>`).join('')}
+ <div class="card"><h3>💰 Treasury</h3><p class="muted">Dues flow in every year (members x $200 x rank) and pay for upkeep. Withdraw up to 25% once a year.</p>${btn('Deposit $10,000','LV23.tdep(10000)')}${btn('Deposit $100,000','LV23.tdep(100000)')}${btn('Withdraw 25% '+U('twd')+'/1','LV23.twd()','gold',U('twd')>=1||m.tre<4)}</div>
+ <div class="card"><h3>🎨 Rebrand</h3><p class="muted">Change the name, logo, colour and shape for $25,000 (once a year).</p>${editing?formHTML()+btn('✅ Apply ($25,000)','LV23.apply()','gold')+btn('Cancel','LV23.edit(false)'):btn('✏️ Edit logo & name','LV23.edit(true)')}</div>
+ <div class="card"><h3>🔄 Rewrite a doctrine</h3><p class="muted">Swap one of your 3 effects for a different one. $150,000, once a year.</p>
+ <select id="lv23Slot">${m.fx.map((id,i)=>`<option value="${i}">Replace: ${E(efOf(id)[2])}</option>`).join('')}</select>
+ <select id="lv23New">${EF.filter(e=>!m.fx.includes(e[0])).map(e=>`<option value="${e[0]}">${e[1]} ${E(e[2])}</option>`).join('')}</select>${btn('Swap effect','LV23.swap()','',U('swap')>=1)}</div>
+ ${btn('🚪 Disband the society','LV23.disband()','danger')}`;}
+
+function exposed(){const m=S.lv23.my;if(!m)return;const f=Math.min(S.money,100000);S.money-=f;S.lv23.my=null;fx({reputation:-15,fame:-6,happiness:-8});
+ addEvent(`🕵️ ${m.name} was exposed and dissolved.`);popup('🕵️ EXPOSED!',`The press uncovered <b>${E(m.name)}</b>. Your society was dissolved and you were fined <b>${money(f)}</b>.`);}
+
+function socYear(){
+ const m=S.lv23.my;if(!m)return;const rk=rank(m);m.years++;m.rep=Math.min(125,m.rep+1);
+ m.exp=Math.max(0,m.exp-(m.fx.includes('secr')?14:6));
+ m.mem=clamp(m.mem+r(-1,3)+Math.floor(rk/2),1,999);
+ m.tre+=m.mem*200*rk;const up=3000+m.mem*60;
+ if(m.tre>=up)m.tre-=up;else{m.rep=Math.max(0,m.rep-3);m.mem=Math.max(1,m.mem-2);addEvent(`${m.emoji} ${m.name} could not pay its upkeep and lost members.`);}
+ const sc=scale(m),parts=[];
+ m.fx.forEach(id=>{const e=efOf(id);if(e&&e[4]){const t=e[4](sc);if(t)parts.push(t);}});
+ if(parts.length)addEvent(`${m.emoji} ${m.name}: ${parts.join(', ')}.`);
+ if(chance(8)){if(chance(50)){m.exp=clamp(m.exp+15,0,100);addEvent(`${m.emoji} A rival tried to expose ${m.name}.`);}else{const n=Math.min(m.mem-1,r(1,3));if(n>0){m.mem-=n;addEvent(`${m.emoji} ${n} member(s) defected from ${m.name}.`);}}}
+ if(m.exp>=100)exposed();
+}
+const _join=window.LV22&&window.LV22.join;
+if(_join)window.LV22.join=function(){init();if(S.lv23.my)return popup('🛠️ You lead your own society','Disband your own society before joining another one.');return _join.apply(this,arguments);};
+
+/* =========================================================
+   3. MORE LIFE
+   ========================================================= */
+/* ----- faith ----- */
+const FA=[['sec','🌍','Secular Humanism'],['chr','✝️','Christianity'],['isl','☪️','Islam'],['hin','🕉️','Hinduism'],['bud','☸️','Buddhism'],['jew','✡️','Judaism'],['sik','🪯','Sikhism'],['spi','✨','Personal Spirituality']];
+/* ----- channel ----- */
+const NICHE=['🎮 Gaming','🍳 Cooking','🏋️ Fitness','😂 Comedy','💻 Tech Reviews','🧳 Travel Vlogs','📚 Education','🎵 Music'];
+const GEAR=[['Phone camera',0],['Webcam & mic',1500],['Studio setup',8000],['Pro studio',40000]];
+/* ----- style ----- */
+const WD=[['Everyday',0,{}],['Trendy',1500,{looks:1,charisma:1}],['Designer',8000,{looks:2,charisma:2,reputation:1}],['Haute Couture',40000,{looks:3,charisma:3,fame:1}]];
+/* ----- wellness ----- */
+const DIET=[['Junk-food heavy',1000,{health:-2,happiness:1}],['Balanced',3000,{health:1}],['Mediterranean',4500,{health:2,happiness:1}],['Gourmet',9000,{health:1,happiness:2,looks:1}]];
+const SLEEP=[['Irregular',{energy:-5,health:-1}],['Standard',{}],['Disciplined',{energy:5,health:1,discipline:1}]];
+/* ----- quests: id, icon, label(base,target), current(), target(base), min age ----- */
+const QS=[
+['fr','🤝',(b,t)=>`Have ${t} friends (make 2 new ones)`,()=>(S.friends||[]).length,b=>b+2,6],
+['fit','🏋️',(b,t)=>`Exercise until your count reaches ${t}`,()=>S.exerciseCount,b=>b+3,6],
+['rd','📚',(b,t)=>`Read until you have read ${t} books`,()=>S.readBooks,b=>b+3,6],
+['sv','💰',(b,t)=>`Grow your cash to ${money(t)}`,()=>S.money,b=>b+Math.max(2000,Math.round(Math.max(b*.1,S.salary*.1))),18],
+['hp','😊',(b,t)=>`Reach ${t}% happiness`,()=>S.happiness,b=>80,8],
+['hl','❤️',(b,t)=>`Reach ${t}% health`,()=>S.health,b=>85,8],
+['fm','⭐',(b,t)=>`Reach ${t} fame`,()=>S.fame,b=>b+3,16],
+['ac','🎮',(b,t)=>`Do 10 activities (total ${t})`,()=>S.stats.activities,b=>b+10,6],
+['ct','🌍',(b,t)=>`Visit a new country (${t} total)`,()=>S.countries,b=>b+1,10],
+['rp','🎖️',(b,t)=>`Reach ${t}% reputation`,()=>S.reputation,b=>Math.min(100,b+4),10],
+['nw','💎',(b,t)=>`Grow net worth to ${money(t)}`,()=>netWorth(),b=>Math.round(b*1.05)+1000,18],
+['po','📱',(b,t)=>`Post on social media (total ${t})`,()=>S.stats.posts,b=>b+2,10]];
+const qdef=id=>QS.find(x=>x[0]===id);
+function newQuests(){
+ const L=S.lv23;const all=L.qu.list.length===3&&L.qu.list.every(x=>x.claimed);
+ if(all){const b=Math.round(1000+S.age*60);S.money+=b;fx({reputation:2,happiness:3});addEvent(`🎯 ${playerName()} finished all 3 yearly quests and got a ${money(b)} bonus!`);}
+ const pool=QS.filter(x=>S.age>=x[5]&&x[3]()<x[4](x[3]()));
+ L.qu.list=shuf(pool).slice(0,3).map(x=>{const b=x[3]();return{id:x[0],base:b,tgt:x[4](b),claimed:false};});
+}
+const qreward=()=>Math.round(300+S.age*40+(S.salary||0)*.01);
+
+function holiday(){
+ if(S.age<8||!chance(65))return;
+ const kin=n=>{(S.parents||[]).forEach(p=>{if(p.alive!==false)p.relationship=clamp(p.relationship+n,0,100);});if(S.partner&&S.partner.alive!==false)S.partner.relationship=clamp(S.partner.relationship+n,0,100);(S.childProfiles||[]).forEach(c=>{if(c.alive)c.relationship=clamp(c.relationship+n,0,100);});};
+ const spend=(c,n,h,msg)=>()=>{if(S.money<c){toast('Not enough cash for that.');render();return;}S.money-=c;kin(n);fx({happiness:h});addEvent('🎄 '+msg);render();};
+ later(()=>decision('🎄 Holiday season','The holidays are here. How will you spend them?',[
+  {title:'🎁 Lavish gifts ($1,500)',description:'Family relationships +8, happiness +6.',class:'good',action:spend(1500,8,6,`${playerName()} gave lavish holiday gifts.`)},
+  {title:'🍪 Modest gifts ($300)',description:'Family relationships +4, happiness +3.',action:spend(300,4,3,`${playerName()} gave small holiday gifts.`)},
+  {title:'🤲 Volunteer instead',description:'Reputation +3, happiness +3.',action:()=>{fx({reputation:3,happiness:3});addEvent(`🎄 ${playerName()} volunteered over the holidays.`);render();}},
+  {title:'🛋️ Stay in',description:'A quiet holiday.',action:()=>{fx({energy:5});render();}}]));
+}
+
+/* ---------------- yearly (runs inside the game's own random-event step, so the Time Machine stays consistent) ---------------- */
+function year23(){
+ const L=S.lv23;L.used={};
+ socYear();
+ /* faith */
+ const F=L.faith;if(F.id){if(F.pr>0){fx({happiness:2,stress:-3});F.yrs++;}F.pr=0;}
+ /* channel */
+ const c=L.ch;
+ if(c.on){const up=c.ups;c.subs=up===0?Math.round(c.subs*.9):Math.round(c.subs*(1+.03*up));
+  const inc=c.subs>=1000?Math.round(c.subs*.06*(1+c.gear*.25)):0;
+  if(inc){S.money+=inc;S.stats.moneyEarned+=inc;c.income+=inc;addEvent(`📺 Your channel earned ${money(inc)} in ad revenue (${c.subs.toLocaleString()} subscribers).`);}
+  if(c.subs>=1e6)fx({fame:3});else if(c.subs>=1e5)fx({fame:2});else if(c.subs>=1e4)fx({fame:1});
+  if(up>=3&&chance(25)){c.burn++;fx({happiness:-4,energy:-10});addEvent('📺 You hit creator burnout.');}
+  c.ups=0;}
+ /* style */
+ const st=L.st;
+ if(st.ward>0){const w=WD[st.ward];if(S.money>=w[1]){S.money-=w[1];fx(w[2]);}else{st.ward=0;addEvent('👕 You could not afford your wardrobe and went back to everyday clothes.');}}
+ if(st.skin){if(S.money>=600){S.money-=600;fx({looks:1+(S.age>=30?1:0)});}else st.skin=false;}
+ /* wellness */
+ const w=L.well;
+ if(w.diet>=0&&S.age>=18){const d=DIET[w.diet];if(S.money>=d[1]){S.money-=d[1];fx(d[2]);}else{w.diet=-1;addEvent('🍎 You could not afford your diet plan and stopped it.');}}
+ if(w.sleep>=0)fx(SLEEP[w.sleep][1]);
+ /* quests + holiday */
+ newQuests();
+ holiday();
+}
+const _rle=window.randomLifeEvent;
+window.randomLifeEvent=function(){
+ if(typeof _rle==='function')_rle.apply(this,arguments);
+ try{init();if(S.lv23.ly!==S.age){S.lv23.ly=S.age;year23();}}catch(e){console.warn('year23',e);}
+};
+
+/* carry the society to an heir */
+const _ch=window.chooseHeir;
+window.chooseHeir=function(i){
+ const keep=S.lv23&&S.lv23.my?JSON.parse(JSON.stringify(S.lv23.my)):null,s0=S;
+ _ch.apply(this,arguments);
+ if(S!==s0){init();if(keep){S.lv23.my=keep;addEvent(`${keep.emoji} ${playerName()} inherited leadership of ${keep.name}.`);}render();}
+};
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+window.LV23={
+ /* society draft */
+ dn(v){draft.name=clean(v);},
+ de(v){const e=Array.from(String(v||'').trim()).slice(0,2).join('');if(e){draft.emoji=e;}render();},
+ dc(v){draft.color=okColor(v);render();},
+ ds(v){if(SHAPES[v])draft.shape=v;render();},
+ df(id){const i=draft.fx.indexOf(id);if(i>=0)draft.fx.splice(i,1);else if(draft.fx.length<3)draft.fx.push(id);render();},
+ found(){init();const L=S.lv23;
+  if(L.my||(S.lv22&&S.lv22.soc))return popup('🕵️ Already in a society','Leave your current society first.');
+  if(S.age<21)return popup('🔒 Too young','You must be 21+.');
+  if(S.reputation<45)return popup('🎖️ Reputation too low','You need reputation 45+.');
+  const nm=clean(draft.name);if(nm.length<3)return popup('✏️ Name needed','Give your society a name (3+ characters).');
+  if(draft.fx.length!==3)return popup('🎁 Choose 3 effects','Pick exactly 3 effects.');
+  if(S.money<COST)return popup('💸 Not enough cash',`Founding costs ${money(COST)}.`);
+  S.money-=COST;L.my={name:nm,emoji:draft.emoji||'🐉',color:okColor(draft.color),shape:SHAPES[draft.shape]?draft.shape:'shield',fx:draft.fx.slice(),rep:10,inf:0,exp:0,years:0,mem:r(3,6),tre:0,bail:-9};
+  addEvent(`${L.my.emoji} ${playerName()} founded the secret society ${nm}.`);fx({happiness:8,reputation:2});
+  popup(L.my.emoji+' Society founded',`<p style="display:flex;gap:12px;align-items:center">${logo(L.my,64)}<span><b>${E(nm)}</b> is born. You are its leader.</span></p>`);
+  draft={name:'',emoji:'🐉',color:'#7c3aed',shape:'shield',fx:[]};render();},
+ edit(on){const m=S.lv23.my;if(on&&m)draft={name:m.name,emoji:m.emoji,color:m.color,shape:m.shape,fx:[]};editing=!!on;render();},
+ apply(){const m=S.lv23.my;if(!m)return;const nm=clean(draft.name);if(nm.length<3)return popup('✏️ Name needed','Use 3+ characters.');if(!use('rebrand',1,'A rebrand',25000))return;
+  m.name=nm;m.emoji=draft.emoji||m.emoji;m.color=okColor(draft.color);m.shape=SHAPES[draft.shape]?draft.shape:m.shape;editing=false;addEvent(`${m.emoji} Your society is now called ${m.name}.`);render();},
+ swap(){const m=S.lv23.my;if(!m)return;const slot=Number((q('lv23Slot')||{}).value),nid=(q('lv23New')||{}).value;if(!efOf(nid)||m.fx.includes(nid)||!(slot>=0&&slot<3))return;
+  if(!use('swap',1,'A doctrine swap',150000))return;m.fx[slot]=nid;toast('Doctrine rewritten.');render();},
+ sa(id){const m=S.lv23.my;if(!m)return;const a=ACT.find(x=>x[0]===id);if(!a)return;
+  if(rank(m)<a[4])return popup('🔒 Rank too low',`Needs rank ${a[4]} (${RT[a[4]-1]}).`);
+  if(!use('s'+id,a[3],a[1],a[2]))return;m.exp=clamp(m.exp+a[5],0,100);const msg=a[6](m);m.rep=clamp(m.rep,0,125);
+  addEvent(m.emoji+' '+msg);toast(m.emoji+' '+msg);if(m.exp>=100)exposed();render();},
+ tdep(n){const m=S.lv23.my;if(!m)return;if(S.money<n)return popup('💸 Not enough cash',`You have ${money(S.money)}.`);S.money-=n;m.tre+=n;render();},
+ twd(){const m=S.lv23.my;if(!m)return;const n=Math.floor(m.tre*.25);if(n<1)return;if(!use('twd',1,'A withdrawal'))return;m.tre-=n;S.money+=n;m.rep=Math.max(0,m.rep-1);render();},
+ disband(){if(!S.lv23.my||!confirm('Disband your secret society? This cannot be undone.'))return;addEvent(`🚪 ${playerName()} disbanded ${S.lv23.my.name}.`);S.lv23.my=null;editing=false;render();},
+ /* page */
+ tab(t){S.lv23.tab=t;render();},
+ /* faith */
+ faith(id){if(S.age<6)return popup('🔒 Too young','From age 6.');S.lv23.faith.id=id;addEvent(`🙏 ${playerName()} began following a path of faith or philosophy.`);render();},
+ leaveFaith(){S.lv23.faith.id=null;render();},
+ pray(){const F=S.lv23.faith;if(!F.id)return;if(!use('prac',2,'Practice'))return;F.pr++;F.total++;fx({happiness:3,stress:-5,discipline:1});toast('🙏 A calm, centering practice.');render();},
+ serve(){const F=S.lv23.faith;if(!F.id)return;if(!use('serve',1,'Community service',200))return;fx({reputation:3,happiness:2});if(chance(30)){(S.friends=S.friends||[]).push({name:pick(['Amara','Noah','Yusuf','Priya','Ruth','Tenzin'])+' (community)',relationship:r(45,70)});toast('🤝 You made a friend in your community.');}addEvent(`🤲 ${playerName()} did community service.`);render();},
+ give(a){const F=S.lv23.faith;if(!F.id)return;if(!use('fgive',3,'Giving',a))return;fx({reputation:Math.min(5,1+Math.floor(a/2000)),happiness:2});addEvent(`🎁 ${playerName()} gave ${money(a)} to the community.`);render();},
+ retreat(){const F=S.lv23.faith;if(!F.id)return;if(!use('ret',1,'A retreat',3000))return;F.pr++;fx({happiness:10,stress:-20,health:2});if(chance(40))S.countries++;addEvent(`🏔️ ${playerName()} went on a retreat.`);render();},
+ study(){const F=S.lv23.faith;if(!F.id)return;if(!use('fstudy',2,'Study'))return;fx({smarts:2,happiness:1});render();},
+ /* channel */
+ chStart(n){const c=S.lv23.ch;if(S.age<13)return popup('🔒 Too young','From age 13.');if(c.on)return;if(!use('chstart',1,'Starting a channel',500))return;Object.assign(c,{on:true,niche:n,subs:r(5,40),views:0,income:0,gear:0,ups:0,burn:0,deals:0});addEvent(`📺 ${playerName()} started a ${n} channel.`);render();},
+ up(){const c=S.lv23.ch;if(!c.on)return;if(!use('up',3,'Uploading'))return;
+  const mult=1+safeNumber(S.creativity,50)/100+safeNumber(S.charisma,50)/150+c.gear*.4;let gain=Math.round(r(40,600)*mult*(1+Math.min(3,c.subs/50000)));let msg='Video uploaded.';
+  if(chance(5+safeNumber(S.creativity,50)*.08)){gain*=r(8,25);fx({fame:3});msg='🔥 It went VIRAL!';}
+  c.subs+=gain;c.views+=gain*r(5,30);c.ups++;fx({energy:-4});addEvent(`📺 ${playerName()} uploaded a video: +${gain.toLocaleString()} subscribers.`);toast(msg+' +'+gain.toLocaleString()+' subs');render();},
+ live(){const c=S.lv23.ch;if(!c.on)return;if(!use('live',2,'Livestreaming'))return;const g=r(30,500),t=r(50,800);c.subs+=g;S.money+=t;fx({energy:-8,happiness:2});toast(`🔴 Live: +${g} subs, ${money(t)} in tips`);render();},
+ collab(){const c=S.lv23.ch;if(!c.on)return;if(!use('collab',1,'A collab'))return;const g=r(200,3000);c.subs+=g;if(chance(20))fx({reputation:2});toast('🤝 Collab: +'+g.toLocaleString()+' subs');render();},
+ deal(){const c=S.lv23.ch;if(!c.on||c.subs<10000)return popup('📺 Not yet','Brand deals need 10,000 subscribers.');if(!use('deal',1,'A brand deal'))return;const m=Math.round(c.subs*.5);S.money+=m;c.deals++;
+  if(chance(12)){fx({reputation:-6});addEvent('📺 A brand deal caused controversy.');}else addEvent(`📺 ${playerName()} signed a brand deal worth ${money(m)}.`);toast('Brand deal: '+money(m));render();},
+ gear(){const c=S.lv23.ch;if(!c.on||c.gear>=3)return;const g=GEAR[c.gear+1];if(S.money<g[1])return popup('💸 Not enough cash',`${g[0]} costs ${money(g[1])}.`);S.money-=g[1];c.gear++;toast('🎥 Upgraded to '+g[0]);render();},
+ chClose(){if(!confirm('Close your channel?'))return;S.lv23.ch.on=false;render();},
+ /* style */
+ ward(i){if(S.age<10)return popup('🔒 Too young','From age 10.');S.lv23.st.ward=i;render();},
+ salon(){if(!use('salon',3,'A salon visit',200))return;fx({looks:r(1,2),happiness:1});render();},
+ tat(){const s=S.lv23.st;if(S.age<18)return popup('🔒 Too young','Tattoos are 18+.');if(s.tat>=6)return popup('🖋️ Enough ink','Six tattoos is the maximum.');if(!use('tat',2,'A tattoo',400))return;s.tat++;
+  if(chance(70)){fx({looks:1,creativity:1});toast('🖋️ A great tattoo!');}else{fx({happiness:-2});toast('🖋️ You regret it a little.');}render();},
+ untat(){const s=S.lv23.st;if(s.tat<1)return;if(!use('untat',1,'Tattoo removal',1500))return;s.tat--;fx({happiness:1});render();},
+ pier(){const s=S.lv23.st;if(S.age<14)return popup('🔒 Too young','From age 14.');if(s.pier>=6)return popup('💎 Enough','Six piercings is the maximum.');if(!use('pier',2,'A piercing',100))return;s.pier++;if(chance(60))fx({looks:1});render();},
+ skin(){S.lv23.st.skin=!S.lv23.st.skin;render();},
+ /* wellness */
+ diet(i){if(S.age<18)return popup('🔒 Too young','Diet plans are 18+.');S.lv23.well.diet=S.lv23.well.diet===i?-1:i;render();},
+ sleep(i){S.lv23.well.sleep=S.lv23.well.sleep===i?-1:i;render();},
+ detox(){if(!use('detox',2,'A digital detox'))return;fx({happiness:3,stress:-8,smarts:1});render();},
+ prep(){if(!use('prep',2,'Meal prep',60))return;fx({health:1,discipline:1});render();},
+ stress(){if(!use('stress',1,'A stress class',150))return;fx({stress:-15,happiness:2});render();},
+ /* quests */
+ claim(i){const x=S.lv23.qu.list[i];if(!x||x.claimed)return;const d=qdef(x.id);if(d[3]()<x.tgt)return popup('🎯 Not done yet','Finish the goal first.');
+  x.claimed=true;S.lv23.qu.done++;const m=qreward();S.money+=m;fx({happiness:3});addEvent(`🎯 ${playerName()} completed a quest and earned ${money(m)}.`);toast('🎯 Quest complete! +'+money(m));render();}
+};
+
+/* =========================================================
+   PAGE
+   ========================================================= */
+const TABS=[['faith','🙏 Faith'],['chan','📺 Channel'],['style','👕 Style'],['well','🍎 Wellness'],['quest','🎯 Yearly Quests']];
+const grid=a=>`<div class="grid">${a.join('')}</div>`;
+const cd=(t,p,b)=>`<div class="card"><h3>${t}</h3><p class="muted">${p}</p>${b}</div>`;
+function bFaith(){const F=S.lv23.faith;
+ if(!F.id)return `<div class="card"><h2>🙏 Faith & Beliefs</h2><p class="muted">Choose a belief or philosophy (age 6+). Practising during the year gives yearly happiness and stress relief, and a community brings friends and reputation. You can change at any time.</p></div>${grid(FA.map(f=>`<div class="card"><h3>${f[1]} ${E(f[2])}</h3>${btn('Follow',`LV23.faith('${f[0]}')`,'good',S.age<6)}</div>`))}`;
+ const f=FA.find(x=>x[0]===F.id);
+ return `<div class="card"><h2>${f[1]} ${E(f[2])}</h2><p class="muted">Times practised: ${F.total} • Years of steady practice: ${F.yrs}. Practising each year gives +2 happiness and less stress.</p>${btn('Change path','LV23.leaveFaith()')}</div>`+grid([
+  cd('🕯️ Practice','Free. Calm, discipline and happiness.',btn('Practise '+U('prac')+'/2','LV23.pray()','good',U('prac')>=2)),
+  cd('🤲 Community service','$200. Reputation and a chance to meet friends.',btn('Serve '+U('serve')+'/1','LV23.serve()','',U('serve')>=1)),
+  cd('🎁 Give','Donate for reputation and happiness.',btn('$500','LV23.give(500)')+btn('$5,000','LV23.give(5000)')+` ${U('fgive')}/3`),
+  cd('🏔️ Retreat','$3,000. Big happiness and stress relief, may add a country.',btn('Go '+U('ret')+'/1','LV23.retreat()','gold',U('ret')>=1)),
+  cd('📖 Study','Free. Smarts and happiness.',btn('Study '+U('fstudy')+'/2','LV23.study()','',U('fstudy')>=2))]);}
+function bChan(){const c=S.lv23.ch;
+ if(!c.on)return `<div class="card"><h2>📺 Content Channel</h2><p class="muted">Age 13+. Equipment costs $500. Upload videos, grow subscribers, earn ad revenue from 1,000 subs and brand deals from 10,000. Skipping a whole year makes you lose 10% of your audience.</p></div>${grid(NICHE.map(n=>`<div class="card"><h3>${n}</h3>${btn('Start ($500)',`LV23.chStart('${n.replace(/'/g,'')}')`,'good',S.age<13)}</div>`))}`;
+ const g=GEAR[c.gear],nx=GEAR[c.gear+1];
+ return `<div class="grid"><div class="stat"><small>👥 Subscribers</small><strong>${c.subs.toLocaleString()}</strong></div><div class="stat"><small>👁️ Views</small><strong>${c.views.toLocaleString()}</strong></div><div class="stat"><small>💰 Earned</small><strong>${money(c.income)}</strong></div><div class="stat"><small>🎥 Gear</small><strong>${E(g[0])}</strong></div></div><br>
+ <div class="card"><h2>${E(c.niche)} channel</h2><p class="muted">Uploads this year: ${c.ups}/3 • Brand deals: ${c.deals} • Burnouts: ${c.burn}</p></div>`+grid([
+  cd('🎬 Upload a video','Free. Subscribers depend on creativity, charisma and gear. Small viral chance.',btn('Upload '+U('up')+'/3','LV23.up()','good',U('up')>=3)),
+  cd('🔴 Livestream','Subs and tips, costs energy.',btn('Go live '+U('live')+'/2','LV23.live()','',U('live')>=2)),
+  cd('🤝 Collab','Borrow another creator\'s audience.',btn('Collab '+U('collab')+'/1','LV23.collab()','',U('collab')>=1)),
+  cd('💼 Brand deal','Needs 10,000 subs. Pays 50 cents per subscriber, small controversy risk.',btn('Sign a deal '+U('deal')+'/1','LV23.deal()','gold',U('deal')>=1||c.subs<10000)),
+  cd('🎥 Upgrade gear',nx?`Next: ${E(nx[0])} for ${money(nx[1])}. Better gear means more subscribers per video and more ad income.`:'You have the best gear.',nx?btn('Upgrade','LV23.gear()','',S.money<nx[1]):''),
+  cd('🚪 Close channel','Stop making videos.',btn('Close','LV23.chClose()','danger'))]);}
+function bStyle(){const s=S.lv23.st;return grid([
+ cd('👕 Wardrobe','A yearly clothing budget. Better clothes give yearly looks and charisma. If you cannot pay, you fall back to everyday clothes.',WD.map((w,i)=>btn(`${w[0]}${w[1]?' ('+money(w[1])+'/yr)':''} ${s.ward===i?'✅':''}`,`LV23.ward(${i})`,s.ward===i?'gold':'')).join('<br>')),
+ cd('💇 Salon visit','$200. Looks and happiness.',btn('Book '+U('salon')+'/3','LV23.salon()','',U('salon')>=3)),
+ cd('🖋️ Tattoos',`$400, age 18+. You have ${s.tat}/6. Most turn out well, some are regretted.`,btn('Get one '+U('tat')+'/2','LV23.tat()','',U('tat')>=2||s.tat>=6)+btn('Removal ($1,500)','LV23.untat()','',s.tat<1||U('untat')>=1)),
+ cd('💎 Piercings',`$100, age 14+. You have ${s.pier}/6.`,btn('Get one '+U('pier')+'/2','LV23.pier()','',U('pier')>=2||s.pier>=6)),
+ cd('🧴 Skincare routine','$600 a year. +1 looks a year (+2 after age 30).',btn(s.skin?'✅ Active (stop)':'Start','LV23.skin()',s.skin?'good':''))]);}
+function bWell(){const w=S.lv23.well;return grid([
+ cd('🍎 Diet plan','Yearly food budget with yearly effects (age 18+). Tap again to stop.',DIET.map((d,i)=>btn(`${d[0]} (${money(d[1])}/yr) ${w.diet===i?'✅':''}`,`LV23.diet(${i})`,w.diet===i?'gold':'')).join('<br>')),
+ cd('😴 Sleep routine','Free yearly effects. Tap again to reset.',SLEEP.map((d,i)=>btn(`${d[0]} ${w.sleep===i?'✅':''}`,`LV23.sleep(${i})`,w.sleep===i?'gold':'')).join('')),
+ cd('📵 Digital detox','Free. Happiness and calm.',btn('Detox '+U('detox')+'/2','LV23.detox()','',U('detox')>=2)),
+ cd('🥗 Meal prep','$60. Health and discipline.',btn('Prep '+U('prep')+'/2','LV23.prep()','',U('prep')>=2)),
+ cd('🧠 Stress class','$150. Big stress relief.',btn('Attend '+U('stress')+'/1','LV23.stress()','',U('stress')>=1))]);}
+function bQuest(){const L=S.lv23.qu;
+ return `<div class="card"><h2>🎯 Yearly Quests</h2><p class="muted">Three new goals every age-up. Finish one and claim it for cash and happiness. Claim all three before the year ends for a bonus. Reward per quest: <b>${money(qreward())}</b>. Quests completed in total: ${L.done}</p></div>`+(L.list.length?L.list.map((x,i)=>{const d=qdef(x.id),cur=d[3](),pct=x.tgt===x.base?100:clamp((cur-x.base)/(x.tgt-x.base)*100,0,100),done=cur>=x.tgt;
+  return `<div class="card"><h3>${d[1]} ${E(d[2](x.base,x.tgt))}</h3>${bar('Progress',pct)}${x.claimed?'<span class="badge">✅ Claimed</span>':btn(done?'🎁 Claim reward':'In progress',`LV23.claim(${i})`,'gold',!done)}</div>`;}).join(''):'<div class="card muted">Age up once to receive your quests.</div>');}
+function mainPage(){
+ const pg=q('v23_more');if(!pg||!pg.classList.contains('active'))return;const el=q('v23_more_c');if(!el)return;const L=S.lv23;
+ const body={faith:bFaith,chan:bChan,style:bStyle,well:bWell,quest:bQuest}[L.tab]||bFaith;
+ el.innerHTML=`<div>${TABS.map(t=>btn(t[1],`LV23.tab('${t[0]}')`,L.tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;}
+(function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('v23_more'))return;
+ const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
+ const s=document.createElement('section');s.id='v23_more';s.className='page';s.innerHTML='<h1>🧩 More Life</h1><div id="v23_more_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.id='nav_v23_more';b.textContent='🧩 More Life';b.setAttribute('onclick',"showPage('v23_more',this)");side.insertBefore(b,anc);})();
+
+/* society page hook: replaces/extends the Secret Society page */
+function socHook(){
+ const pg=q('v22_soc'),el=q('v22_soc_c');if(!pg||!el||!pg.classList.contains('active'))return;init();
+ if(S.lv23.my){el.innerHTML=socPage();return;}
+ const d=document.createElement('div');d.id='lv23Create';d.innerHTML=createCard();el.appendChild(d);}
+function badge(){
+ const m=S.lv23&&S.lv23.my,host=document.querySelector('#dashboard .profile > div:last-child');if(!host)return;let b=q('lv23Badge');
+ if(!m){if(b)b.remove();return;}
+ if(!b){b=document.createElement('div');b.id='lv23Badge';b.className='badge';host.appendChild(b);}
+ b.innerHTML=logo(m,22)+' '+E(m.name)+' • '+RT[rank(m)-1];}
+
+[['Society Founder','Found your own secret society.',()=>S.lv23&&S.lv23.my],['Grand Master','Lead a society to Grand Order rank.',()=>S.lv23&&S.lv23.my&&rank(S.lv23.my)>=5],['Large Following','Have 100 members in your society.',()=>S.lv23&&S.lv23.my&&S.lv23.my.mem>=100],['Content Creator','Reach 1,000 subscribers.',()=>S.lv23&&S.lv23.ch.subs>=1000],['Million Subscribers','Reach 1,000,000 subscribers.',()=>S.lv23&&S.lv23.ch.subs>=1e6],['Devoted','Practise your faith 10 times.',()=>S.lv23&&S.lv23.faith.total>=10],['Quest Master','Complete 10 yearly quests.',()=>S.lv23&&S.lv23.qu.done>=10],['Fashionista','Wear Haute Couture.',()=>S.lv23&&S.lv23.st.ward>=3]].forEach(a=>{if(!achievementNames.some(x=>x[0]===a[0]))achievementNames.push(a);});
+
+const _render=window.render;
+window.render=function(){
+ init();if(S.lv22&&Array.isArray(S.lv22.pets))S.pets=S.lv22.pets.length;
+ _render();
+ try{hideOld();badge();socHook();mainPage();}catch(e){console.warn('v23 render',e);}
+};
+init();render();
+})();
+</script>s
+
 </body>
 </html>
