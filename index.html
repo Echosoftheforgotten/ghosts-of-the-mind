@@ -12321,7 +12321,7 @@ init();render();
      ✈️ Travel Agency and 🐾 Pets pages (V22) stay. Old pets are moved over.
   2) 🛠️ Found your OWN secret society: custom name, custom logo
      (emoji + colour + shape) and exactly 3 effects from 17.
-  3) 🧩 More Life page: Faith, Content Channel, Style, Wellness,
+  3) 🌟 Lifestyle page: Faith, Content Channel, Style, Wellness,
      Yearly Quests, plus a yearly Holiday Season decision.
   ===================================================================== -->
 <style>
@@ -12712,8 +12712,8 @@ function mainPage(){
  el.innerHTML=`<div>${TABS.map(t=>btn(t[1],`LV23.tab('${t[0]}')`,L.tab===t[0]?'gold':'')).join('')}</div><br>${body()}`;}
 (function mount(){const main=document.querySelector('main.main'),side=document.querySelector('.sidebar');if(!main||!side||q('v23_more'))return;
  const anc=[...side.querySelectorAll('.nav')].find(x=>(x.getAttribute('onclick')||'').includes("'settings'"))||null;
- const s=document.createElement('section');s.id='v23_more';s.className='page';s.innerHTML='<h1>🧩 More Life</h1><div id="v23_more_c"></div>';main.appendChild(s);
- const b=document.createElement('button');b.className='nav';b.id='nav_v23_more';b.textContent='🧩 More Life';b.setAttribute('onclick',"showPage('v23_more',this)");side.insertBefore(b,anc);})();
+ const s=document.createElement('section');s.id='v23_more';s.className='page';s.innerHTML='<h1>🌟 Lifestyle</h1><div id="v23_more_c"></div>';main.appendChild(s);
+ const b=document.createElement('button');b.className='nav';b.id='nav_v23_more';b.textContent='🌟 Lifestyle';b.setAttribute('onclick',"showPage('v23_more',this)");side.insertBefore(b,anc);})();
 
 /* society page hook: replaces/extends the Secret Society page */
 function socHook(){
@@ -12736,7 +12736,7 @@ window.render=function(){
 };
 init();render();
 })();
-</script>s
+</script>
 
 </body>
 </html>
