@@ -12806,5 +12806,43 @@ render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE: REVIVE ON HEIR SCREEN add-on
+  Paste RIGHT BEFORE </body>, AFTER every other script (must be LAST).
+  Adds "⏪ Go back 1 year (revive)" to the "Your Life Has Ended" screen
+  where you choose which child continues the dynasty.
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LVREVIVE)return;window.__LVREVIVE=1;
+
+const _end=window.endCurrentLife;
+window.endCurrentLife=function(){
+ const out=_end.apply(this,arguments);
+ try{
+  const bg=document.getElementById('popupBg');
+  if(!bg||bg.style.display!=='flex')return out;
+
+  const btns=window.__popupButtons;
+  if(!Array.isArray(btns)||!btns.length)return out;                 /* no heir screen */
+  if(btns.some(b=>/revive/i.test(String(b.text||''))))return out;   /* already added */
+  if(!(window.LV14&&typeof LV14.can==='function'&&LV14.can()))return out; /* nothing to rewind to */
+
+  btns.push({
+   text:'⏪ Go back 1 year (revive)',
+   class:'purple',
+   action:()=>LV14.rewind(1)
+  });
+
+  document.getElementById('popupButtons').innerHTML=btns.map((b,i)=>
+   `<button class="action ${b.class||''}" onclick="popupChoice(${i})">${escapeHTML(b.text??b.title??'Continue')}</button>`
+  ).join('');
+ }catch(e){console.warn('revive button',e);}
+ return out;
+};
+})();
+</script>
+
 </body>
 </html>
