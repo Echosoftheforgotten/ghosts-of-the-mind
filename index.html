@@ -12738,5 +12738,73 @@ init();render();
 })();
 </script>
 
+<!-- =====================================================================
+  LIFEVERSE: RENT OUT ALL add-on
+  Paste RIGHT BEFORE </body>, AFTER every other script (must be LAST).
+  Adds a "Rent out all" / "Stop renting all" button at the top of the
+  📦 Assets Owned page, above the list of owned assets.
+  ===================================================================== -->
+<script>
+(function(){
+'use strict';
+if(window.__LVRENTALL)return;window.__LVRENTALL=1;
+
+const q=id=>document.getElementById(id);
+const hv=n=>{const f=houses.find(h=>h[0]===n);return f?f[1]:0;};
+
+function ensureRent(){
+ if(!S.lv9||typeof S.lv9!=='object')return false;
+ if(!Array.isArray(S.lv9.rent))S.lv9.rent=[];
+ while(S.lv9.rent.length<S.houses.length)S.lv9.rent.push(false);
+ S.lv9.rent.length=S.houses.length;
+ return true;
+}
+
+window.LVRA={
+ all(on){
+  if(!ensureRent())return;
+  if(!S.houses.length)return popup('🏠 No properties','You do not own any property to rent out.');
+  S.houses.forEach((_,i)=>{S.lv9.rent[i]=!!on;});
+  addEvent(on
+   ?`🏘️ ${playerName()} put all ${S.houses.length} propert${S.houses.length>1?'ies':'y'} up for rent.`
+   :`🏠 ${playerName()} stopped renting out all properties.`);
+  render();
+ }
+};
+
+function inject(){
+ const pg=q('lv8_owned'),el=q('lv8_owned_c');
+ if(!pg||!el||!pg.classList.contains('active'))return;
+ const old=q('lvRentAll');if(old)old.remove();
+ if(S.lv8&&S.lv8.sel)return;              /* inside a single asset: no button */
+ if(!S.houses.length||!ensureRent())return;
+
+ const total=S.houses.length;
+ const rented=S.lv9.rent.filter(Boolean).length;
+ const allOn=rented===total;
+ const cond=((S.lifePlus&&S.lifePlus.homeCondition!==undefined)?S.lifePlus.homeCondition:100)/100;
+ const est=Math.round(S.houses.reduce((a,n)=>a+hv(n)*.06*(.6+.4*cond),0)*.9);
+
+ const d=document.createElement('div');
+ d.id='lvRentAll';d.className='card';
+ d.innerHTML=`<h3>🏘️ Rent out all properties</h3>
+  <p class="muted">${rented}/${total} propert${total>1?'ies are':'y is'} rented out.
+  Renting all of them would earn about <b>$${est.toLocaleString('en-US')}</b>/year (less if your homes are in poor condition).</p>
+  <button class="action good" ${allOn?'disabled':''} onclick="LVRA.all(true)">🏘️ Rent out all</button>
+  <button class="action" ${rented===0?'disabled':''} onclick="LVRA.all(false)">🏠 Stop renting all</button>`;
+
+ const grid=el.querySelector('.grid');
+ if(grid)el.insertBefore(d,grid);else el.appendChild(d);
+}
+
+const _render=window.render;
+window.render=function(){
+ _render.apply(this,arguments);
+ try{inject();}catch(e){console.warn('rent all',e);}
+};
+render();
+})();
+</script>
+
 </body>
 </html>
